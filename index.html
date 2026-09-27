@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --border: #e3e2df;
+    --text: #2b2a27;
+    --muted: #8a8983;
+    --accent: #4a6cf7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+  }
+  #sidebar {
+    width: 260px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  #sidebar-header {
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+  }
+  #new-note-btn, #export-btn {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  #new-note-btn:hover, #export-btn:hover { background: #ececea; }
+  #note-list {
+    overflow-y: auto;
+    flex: 1;
+  }
+  .note-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .note-item:hover { background: #f0f0ee; }
+  .note-item.active { background: #eef1ff; border-left: 3px solid var(--accent); }
+  .note-item .title {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .note-item .preview {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  #editor-header {
+    padding: 16px 24px 0 24px;
+  }
+  #title-input {
+    width: 100%;
+    font-size: 22px;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    outline: none;
+    color: var(--text);
+  }
+  #meta-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 24px 12px 24px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  #delete-btn {
+    border: none;
+    background: none;
+    color: #c0392b;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  #body-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    resize: none;
+    padding: 0 24px 24px 24px;
+    font-size: 15px;
+    line-height: 1.6;
+    background: transparent;
+    color: var(--text);
+    font-family: inherit;
+  }
+  #empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div id="sidebar-header">
+    <button id="new-note-btn">+ New note</button>
+    <button id="export-btn">Export</button>
+  </div>
+  <div id="note-list"></div>
+</div>
+
+<div id="main"></div>
+
+<script>
+const STORAGE_KEY = "notes-app-data";
+
+function loadNotes() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveNotes(notes) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+}
+
+let notes = loadNotes();
+let activeId = notes.length ? notes[0].id : null;
+
+function newNote() {
+  const note = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    title: "Untitled note",
+    body: "",
+    updated: Date.now()
+  };
+  notes.unshift(note);
+  activeId = note.id;
+  saveNotes(notes);
+  render();
+}
+
+function deleteNote(id) {
+  notes = notes.filter(n => n.id !== id);
+  if (activeId === id) {
+    activeId = notes.length ? notes[0].id : null;
+  }
+  saveNotes(notes);
+  render();
+}
+
+function updateActive(field, value) {
+  const note = notes.find(n => n.id === activeId);
+  if (!note) return;
+  note[field] = value;
+  note.updated = Date.now();
+  saveNotes(notes);
+  renderSidebar();
+}
+
+function exportNotes() {
+  const blob = new Blob([JSON.stringify(notes, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "notes-export.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function formatDate(ts) {
+  return new Date(ts).toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+  });
+}
+
+function renderSidebar() {
+  const list = document.getElementById("note-list");
+  list.innerHTML = "";
+  notes
+    .slice()
+    .sort((a, b) => b.updated - a.updated)
+    .forEach(note => {
+      const item = document.createElement("div");
+      item.className = "note-item" + (note.id === activeId ? " active" : "");
+      item.innerHTML = `
+        <div class="title">${escapeHtml(note.title || "Untitled note")}</div>
+        <div class="preview">${escapeHtml(note.body.slice(0, 60) || "No content")}</div>
+      `;
+      item.addEventListener("click", () => {
+        activeId = note.id;
+        render();
+      });
+      list.appendChild(item);
+    });
+}
+
+function renderMain() {
+  const main = document.getElementById("main");
+  const note = notes.find(n => n.id === activeId);
+
+  if (!note) {
+    main.innerHTML = `<div id="empty-state">No note selected. Click "+ New note" to start.</div>`;
+    return;
+  }
+
+  main.innerHTML = `
+    <div id="editor-header">
+      <input id="title-input" value="${escapeAttr(note.title)}" placeholder="Untitled note">
+    </div>
+    <div id="meta-row">
+      <span>Last updated ${formatDate(note.updated)}</span>
+      <button id="delete-btn">Delete note</button>
+    </div>
+    <textarea id="body-input" placeholder="Start typing...">${escapeHtml(note.body)}</textarea>
+  `;
+
+  document.getElementById("title-input").addEventListener("input", e => {
+    updateActive("title", e.target.value);
+  });
+  document.getElementById("body-input").addEventListener("input", e => {
+    updateActive("body", e.target.value);
+  });
+  document.getElementById("delete-btn").addEventListener("click", () => {
+    if (confirm("Delete this note?")) deleteNote(note.id);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
+}
+
+function escapeAttr(str) {
+  return (str || "").replace(/"/g, "&quot;");
+}
+
+function render() {
+  renderSidebar();
+  renderMain();
+}
+
+document.getElementById("new-note-btn").addEventListener("click", newNote);
+document.getElementById("export-btn").addEventListener("click", exportNotes);
+
+render();
+</script>
+
+</body>
+</html>
