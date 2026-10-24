@@ -34,8 +34,8 @@
   }
   function tag(t) { return '<span class="tag t-' + esc(t) + '">' + esc(CI.TYPE_LABEL[t] || t) + '</span>'; }
   function avatar(e, px) {
-    var pic = CI.PHOTO_TYPES[e.type] && e.photo ? e.photo : CI.placeholder(e.type, CI.TYPE_COLOR[e.type] || '#666666');
-    return '<img class="avatar ' + (e.type === 'group' ? 'sq' : '') + '" alt="" width="' + px + '" height="' + px + '" style="border-color:' + (CI.TYPE_COLOR[e.type] || '#666') + '" src="' + esc(pic) + '">';
+    var pic = CI.tile(e.type, CI.TYPE_COLOR[e.type] || '#666666', CI.PHOTO_TYPES[e.type] && e.photo ? e.photo : '');
+    return '<img class="avatar" alt="" width="' + px + '" height="' + px + '" src="' + esc(pic) + '">';
   }
   function entLink(id) {
     var e = idx().entity[id];

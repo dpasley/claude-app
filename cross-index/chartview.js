@@ -101,7 +101,7 @@
   }
 
   function legendHtml() {
-    return '<div class="legend"><span>photo or logo tile = individual / group</span><span>arrow = direction</span><span>thicker line = more independent reports</span><span>dashed = mentioned together</span><span>orange = new or traced</span><span>black ring = starting entity</span><span>double ring = high-connection</span><span>drag tiles to arrange; the arrangement is kept</span></div>';
+    return '<div class="legend"><span>photo or logo tile = individual / group</span><span>arrow = direction</span><span>thicker line = more independent reports</span><span>dashed = mentioned together</span><span>orange = new or traced</span><span>black ring = starting entity</span><span>grey ring = high-connection</span><span>drag tiles to arrange; the arrangement is kept</span></div>';
   }
 
   /* ---------- drawing ---------- */

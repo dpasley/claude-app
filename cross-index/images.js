@@ -5,18 +5,44 @@
   'use strict';
   var CI = root.CI = root.CI || {};
 
-  var ICON = {
-    individual: '<circle cx="48" cy="35" r="15" fill="#fff"/><path d="M17 84c0-17 14-28 31-28s31 11 31 28z" fill="#fff"/>',
-    group: '<rect x="26" y="20" width="44" height="62" rx="2" fill="#fff"/><rect x="34" y="30" width="8" height="8" fill="COLOR"/><rect x="54" y="30" width="8" height="8" fill="COLOR"/><rect x="34" y="46" width="8" height="8" fill="COLOR"/><rect x="54" y="46" width="8" height="8" fill="COLOR"/><rect x="42" y="62" width="12" height="20" fill="COLOR"/>',
-    subject: '<path d="M27 16h28l16 16v48H27z" fill="#fff"/><path d="M55 16v16h16" fill="none" stroke="COLOR" stroke-width="3"/><rect x="35" y="44" width="28" height="4" fill="COLOR"/><rect x="35" y="54" width="28" height="4" fill="COLOR"/><rect x="35" y="64" width="18" height="4" fill="COLOR"/>',
-    location: '<path d="M48 14c-14 0-24 10-24 24 0 18 24 44 24 44s24-26 24-44c0-14-10-24-24-24z" fill="#fff"/><circle cx="48" cy="38" r="9" fill="COLOR"/>'
+  /* Picture tiles. Every file on the chart is one self-contained SVG: a type-coloured frame with the photo or logo
+   * (or a drawn placeholder) filling it edge to edge. Frame and picture are drawn together, so there are no gaps. */
+  var GLYPH = {
+    individual: '<circle cx="48" cy="34" r="16"/><path d="M12 96c0-22 16-36 36-36s36 14 36 36z"/>',
+    group: '<path d="M24 86V22a3 3 0 013-3h30a3 3 0 013 3v16h12a3 3 0 013 3v45z"/><g fill="CUT"><rect x="32" y="28" width="7" height="7"/><rect x="45" y="28" width="7" height="7"/><rect x="32" y="42" width="7" height="7"/><rect x="45" y="42" width="7" height="7"/><rect x="32" y="56" width="7" height="7"/><rect x="45" y="56" width="7" height="7"/><rect x="62" y="48" width="6" height="6"/><rect x="62" y="60" width="6" height="6"/><rect x="40" y="70" width="12" height="16"/></g>',
+    subject: '<path d="M26 14h30l16 16v52H26z"/><path d="M56 14v16h16" fill="none" stroke="CUT" stroke-width="3"/><g fill="CUT"><rect x="35" y="42" width="28" height="4"/><rect x="35" y="52" width="28" height="4"/><rect x="35" y="62" width="18" height="4"/></g>',
+    location: '<path d="M48 10c-15 0-26 11-26 26 0 20 26 50 26 50s26-30 26-50c0-15-11-26-26-26z"/><circle cx="48" cy="36" r="10" fill="CUT"/>'
   };
-
-  CI.placeholder = function (type, color) {
-    var icon = (ICON[type] || ICON.subject).replace(/COLOR/g, color);
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><rect width="96" height="96" fill="' + color + '"/>' + icon + '</svg>';
+  function mix(hex, k) { // k>0 lightens toward white, k<0 darkens toward black
+    var n = parseInt(hex.slice(1), 16), t = k < 0 ? 0 : 255, a = Math.abs(k), c = [n >> 16, (n >> 8) & 255, n & 255].map(function (v) { return Math.round(v + (t - v) * a); });
+    return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
+  }
+  CI.tile = function (type, color, photo) {
+    var light = mix(color, 0.22), deep = mix(color, -0.22);
+    var glyph = function (tx, ty, sc, fill) { return '<g fill="' + fill + '" transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, color) + '</g>'; };
+    var defs = '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + light + '"/><stop offset="1" stop-color="' + deep + '"/></linearGradient>';
+    var body;
+    if (type === 'individual') {
+      defs += '<clipPath id="c"><circle cx="100" cy="100" r="88"/></clipPath></defs>';
+      body = '<circle cx="100" cy="100" r="100" fill="' + color + '"/>' + (photo
+        ? '<circle cx="100" cy="100" r="88" fill="#fff"/><image xlink:href="' + photo + '" x="12" y="12" width="176" height="176" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>'
+        : '<circle cx="100" cy="100" r="88" fill="url(#g)"/><g clip-path="url(#c)">' + glyph(9, 4, 1.9, 'rgba(255,255,255,.95)') + '</g>');
+    } else if (type === 'group') {
+      defs += '<clipPath id="c"><rect x="10" y="10" width="180" height="180" rx="34"/></clipPath></defs>';
+      body = '<rect width="200" height="200" rx="44" fill="' + color + '"/>' + (photo
+        ? '<rect x="10" y="10" width="180" height="180" rx="34" fill="#fff"/><image xlink:href="' + photo + '" x="26" y="26" width="148" height="148" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
+        : '<rect x="10" y="10" width="180" height="180" rx="34" fill="url(#g)"/>' + glyph(26, 26, 1.5, '#fff'));
+    } else if (type === 'location') {
+      defs += '</defs>';
+      body = '<polygon points="6,100 50,6 150,6 194,100 150,194 50,194" fill="url(#g)" stroke="' + color + '" stroke-width="12" stroke-linejoin="round"/>' + glyph(36, 34, 1.3, '#fff');
+    } else {
+      defs += '</defs>';
+      body = '<polygon points="100,8 192,100 100,192 8,100" fill="url(#g)" stroke="' + color + '" stroke-width="16" stroke-linejoin="round"/>' + glyph(46, 44, 1.1, '#fff');
+    }
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="200" viewBox="0 0 200 200">' + defs + body + '</svg>';
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
   };
+  CI.placeholder = function (type, color) { return CI.tile(type, color, ''); };
 
   /* Which entity types can carry an uploaded picture, and how it is cropped. */
   CI.PHOTO_TYPES = { individual: { label: 'Photo', crop: 'square' }, group: { label: 'Logo', crop: 'fit' } };

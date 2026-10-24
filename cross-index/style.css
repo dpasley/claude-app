@@ -281,8 +281,7 @@ ol.paths li.on > a { font-weight: 700; color: var(--orange); }
 .card label.form-inline { display: block; font-weight: 600; font-size: 13px; margin-top: 14px; }
 
 /* pictures */
-.avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--border); object-fit: cover; background: #fff; flex: none; }
-.avatar.sq { border-radius: 6px; object-fit: contain; }
+.avatar { width: 30px; height: 30px; object-fit: contain; flex: none; }
 td.nm { display: flex; align-items: center; gap: 10px; border-bottom: 0; }
 .pic { gap: 16px; align-items: flex-start; }
 .pic .avatar { width: 96px; height: 96px; }

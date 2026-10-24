@@ -41,7 +41,7 @@
       var logo = photo && n.type === 'group';
       els.push({ group: 'nodes', data: {
         id: n.id, label: n.name, color: color, type: n.type, shape: CI.TYPE_SHAPE[n.type] || 'ellipse', degree: n.degree || 0,
-        img: photo || CI.placeholder(n.type, color), fit: logo ? 'contain' : 'cover', bg: logo ? '#ffffff' : color
+        img: CI.tile(n.type, color, photo), fit: 'contain', bg: color
       }, classes: cls.join(' ') });
     }
     function addEdge(e, extra) {
@@ -75,16 +75,16 @@
         'text-wrap': 'wrap', 'text-max-width': 120,
         'text-background-color': t.bg, 'text-background-opacity': 0.96, 'text-background-shape': 'roundrectangle', 'text-background-padding': 3,
         'text-border-width': 1, 'text-border-color': t.chip, 'text-border-opacity': 1,
-        'background-color': 'data(bg)', 'background-image': 'data(img)', 'background-fit': 'data(fit)', 'background-clip': 'node', 'background-image-opacity': 1,
-        'shape': 'data(shape)', 'width': 'mapData(degree, 0, 12, 58, 88)', 'height': 'mapData(degree, 0, 12, 58, 88)',
-        'border-width': 4, 'border-color': 'data(color)', 'border-opacity': 1
+        'background-opacity': 0, 'background-image': 'data(img)', 'background-fit': 'contain', 'background-clip': 'none', 'background-image-containment': 'over', 'background-image-opacity': 1,
+        'shape': 'data(shape)', 'width': 'mapData(degree, 0, 12, 64, 96)', 'height': 'mapData(degree, 0, 12, 64, 96)',
+        'border-width': 0
       } },
-      { selector: 'node.seed', style: { 'outline-width': 4, 'outline-color': t.seed, 'outline-offset': 3, 'outline-opacity': 1 } },
-      { selector: 'node.hub', style: { 'outline-width': 5, 'outline-style': 'double', 'outline-color': t.hub, 'outline-offset': 3, 'outline-opacity': 1 } },
-      { selector: 'node.new', style: { 'outline-width': 5, 'outline-color': t.accent, 'outline-offset': 3, 'outline-opacity': 1 } },
-      { selector: 'node.hl', style: { 'outline-width': 5, 'outline-color': t.accent, 'outline-offset': 3, 'outline-opacity': 1 } },
+      { selector: 'node.seed', style: { 'outline-width': 5, 'outline-color': t.seed, 'outline-offset': 0, 'outline-opacity': 1 } },
+      { selector: 'node.hub', style: { 'outline-width': 5, 'outline-style': 'solid', 'outline-color': t.hub, 'outline-offset': 0, 'outline-opacity': 1 } },
+      { selector: 'node.new', style: { 'outline-width': 5, 'outline-color': t.accent, 'outline-offset': 0, 'outline-opacity': 1 } },
+      { selector: 'node.hl', style: { 'outline-width': 5, 'outline-color': t.accent, 'outline-offset': 0, 'outline-opacity': 1 } },
       { selector: 'node.extra', style: { 'opacity': 0.85 } },
-      { selector: 'node:selected', style: { 'outline-width': 5, 'outline-color': t.sel, 'outline-offset': 3, 'outline-opacity': 1, 'overlay-color': t.sel, 'overlay-opacity': 0.1, 'overlay-padding': 8 } },
+      { selector: 'node:selected', style: { 'outline-width': 5, 'outline-color': t.sel, 'outline-offset': 0, 'outline-opacity': 1, 'overlay-color': t.sel, 'overlay-opacity': 0.1, 'overlay-padding': 10 } },
       { selector: 'edge', style: {
         'width': 'data(w)', 'line-color': t.edge, 'target-arrow-color': t.edge, 'target-arrow-shape': 'data(arrow)', 'arrow-scale': 1.3,
         'curve-style': 'bezier', 'control-point-step-size': 46, 'line-cap': 'round',
