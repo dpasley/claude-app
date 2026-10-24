@@ -320,7 +320,7 @@
     if (!q) { msg.textContent = 'Type a name or handle first.'; return; }
     if (!type) {
       msg.textContent = 'Choose what type of entity this is (individual, group, subject or location).';
-      logEvent('unclear-type', 'Could not settle the entity type for “' + q + '”.', ae.reportId); persist(); return;
+      logEvent('unclear-type', '“' + q + '” was not added because no type was chosen (individual, group, subject or location).', ae.reportId); persist(); return;
     }
     var role = val('ae-role').trim(), flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
@@ -499,22 +499,23 @@
   };
 
   /* ---------- REVIEW (hesitation log, flags, merges) ---------- */
-  var KIND = { snag: 'Snag', blocked: 'Blocked save', 'unclear-type': 'Unclear type', 'similar-created': 'Created despite similar', merge: 'Merge' };
+  var KIND = { snag: 'Your note', blocked: 'Save blocked', 'unclear-type': 'Entity not added', 'similar-created': 'Possible duplicate', merge: 'Merge' };
+  var KIND_HELP = { snag: 'A note you logged yourself.', blocked: 'A report could not be saved until something was filled in.', 'unclear-type': 'You tried to create an entity without choosing its type, so nothing was created.', 'similar-created': 'A new entity was created even though a similar one already exists. Check whether they should be merged.', merge: 'Two entity files were combined.' };
   function viewReview() {
     var flags = [];
     d.reports.forEach(function (r) { r.entities.forEach(function (x) { if (x.flag) flags.push({ r: r, x: x }); }); });
     var open = d.log.filter(function (x) { return !x.resolved; }).slice().reverse();
     var done = d.log.filter(function (x) { return x.resolved; }).slice().reverse();
     var h = '<div class="page-head"><h1>Review</h1></div><p class="muted">Where the hand run hesitated. Each of these points at a decision the staff procedure or training has to make easy.</p>';
-    h += '<div class="card"><h2>Flagged entity matches (' + flags.length + ')</h2>';
+    h += '<div class="card"><h2>Flagged entity matches (' + flags.length + ')</h2><p class="muted small">When you add an entity to a report you can tick a box to say “I am not sure this is the same person or thing as the file.” Those reports show here. Open the report, decide, then press <b>Resolved</b> to clear the flag. It changes nothing else.</p>';
     h += flags.length ? '<table class="tight"><tbody>' + flags.map(function (f) {
       return '<tr><td>' + repLink(f.r.id) + '</td><td>' + entLink(f.x.entityId) + '</td><td>' + esc(f.x.flagNote || '') + '</td><td class="right"><button class="btn small" data-action="clear-flag" data-rid="' + esc(f.r.id) + '" data-eid="' + esc(f.x.entityId) + '">Resolved</button></td></tr>';
     }).join('') + '</tbody></table>' : '<p class="muted">None.</p>';
-    h += '</div><div class="card"><h2>Snags and automatic notes (' + open.length + ')</h2>';
+    h += '</div><div class="card"><h2>Notes to look at (' + open.length + ')</h2><p class="muted small">The app writes a note here when it stops you or when something might need a second look, and you can add your own with “Log a snag”. Nothing here changes your data. <b>Resolve</b> just means “I have looked at this” and moves it to the resolved list; <b>Delete</b> removes the note.</p>';
     h += open.length ? '<table class="tight"><tbody>' + open.map(logRow).join('') + '</tbody></table>' : '<p class="muted">None open. Use “Log a snag” at the top whenever the procedure feels unclear.</p>';
     h += '</div>';
     var merges = d.merges.slice().reverse();
-    h += '<div class="card"><h2>Merges (' + merges.length + ')</h2>';
+    h += '<div class="card"><h2>Merges (' + merges.length + ')</h2><p class="muted small">A merge combines two files that turned out to be the same entity (for example “J. Smith” and “John Smith”). Reports and connections move to the file you keep, and the other name becomes an alias. You start one from the entity page. <b>Undo</b> brings the removed file back.</p>';
     h += merges.length ? '<table class="tight"><tbody>' + merges.map(function (m) {
       var into = idx().entity[m.intoId];
       return '<tr><td>' + esc(m.t) + '</td><td>“' + esc(m.fromEntity.name) + '” → ' + (into ? entLink(m.intoId) : esc(m.intoId)) + '</td><td class="right">' +
@@ -525,8 +526,8 @@
     view.innerHTML = h;
   }
   function logRow(x) {
-    return '<tr><td class="nowrap muted small">' + esc(x.t.slice(0, 16).replace('T', ' ')) + '</td><td><span class="tag">' + esc(KIND[x.kind] || x.kind) + '</span></td><td>' + esc(x.text) +
-      (x.reportId && x.reportId.charAt(0) === 'R' && x.reportId.charAt(1) === '-' ? ' ' + repLink(x.reportId) : '') + '</td><td class="right nowrap">' +
+    return '<tr><td class="nowrap muted small">' + esc(x.t.slice(0, 16).replace('T', ' ')) + '</td><td><span class="tag" title="' + esc(KIND_HELP[x.kind] || '') + '">' + esc(KIND[x.kind] || x.kind) + '</span></td><td>' + esc(x.text) + (KIND_HELP[x.kind] && x.kind !== 'snag' ? '<div class="muted small">' + esc(KIND_HELP[x.kind]) + '</div>' : '') +
+      (x.reportId && x.reportId.charAt(0) === 'R' && x.reportId.charAt(1) === '-' ? '<div class="small">Report: ' + repLink(x.reportId) + '</div>' : '') + '</td><td class="right nowrap">' +
       (x.resolved ? '' : '<button class="btn small" data-action="log-resolve" data-id="' + esc(x.id) + '">Resolve</button> ') + '<button class="btn small" data-action="log-delete" data-id="' + esc(x.id) + '">Delete</button></td></tr>';
   }
   handlers['clear-flag'] = function (el) {
