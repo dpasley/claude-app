@@ -530,7 +530,7 @@
       '<label>Intake basis (threat categories) <span class="hint">one per line</span><textarea id="s-basis" rows="7">' + esc(s.basisList.join('\n')) + '</textarea></label>' +
       '<label>Source types <span class="hint">one per line</span><textarea id="s-src" rows="7">' + esc(s.sourceTypes.join('\n')) + '</textarea></label>' +
       '<label>Roles in a report <span class="hint">suggestions, one per line</span><textarea id="s-roles" rows="7">' + esc(s.roles.join('\n')) + '</textarea></label></div>' +
-      '<h2>Connection types</h2><p class="muted small">Direction is fixed per type so the person indexing never has to decide it. “Directed” reads From → To.</p>' +
+      '<h2>Connection types</h2><p class="muted small">Names follow graph-database style: UPPER_SNAKE_CASE, read as (From)-[:TYPE]→(To). Direction is fixed per type so the person indexing never has to decide it. Undirected types read the same either way round.</p>' +
       '<table class="tight" id="lt-table"><thead><tr><th>Label</th><th>Directed</th><th>Used by</th><th></th></tr></thead><tbody>' + s.linkTypes.map(function (t, i) { return ltRow(t, i); }).join('') + '</tbody></table>' +
       '<div class="row"><button class="btn small" data-action="lt-add">Add connection type</button></div>' +
       '<h2>Chart and heat</h2><div class="grid3"><label>Heat window (days)<input type="number" min="1" id="s-hw" value="' + s.heatWindowDays + '"></label><label>Hot at this many reports<input type="number" min="1" id="s-ht" value="' + s.heatThreshold + '"></label>' +
@@ -550,7 +550,7 @@
   }
   handlers['lt-add'] = function () {
     var tb = document.querySelector('#lt-table tbody'), tmp = document.createElement('tbody');
-    tmp.innerHTML = ltRow({ id: 'custom_' + Date.now().toString(36), label: '', directed: true }, 0);
+    tmp.innerHTML = ltRow({ id: '', label: '', directed: true }, 0);
     tb.appendChild(tmp.firstChild);
   };
   handlers['lt-del'] = function (el) { el.closest('tr').remove(); };
@@ -560,8 +560,9 @@
     if (!basis.length || !src.length) { toast('Intake basis and source types cannot be empty.', true); return; }
     var types = [];
     document.querySelectorAll('#lt-table tbody tr').forEach(function (tr) {
-      var label = tr.querySelector('.lt-label').value.trim();
-      if (label) types.push({ id: tr.getAttribute('data-id'), label: label, directed: tr.querySelector('.lt-dir').checked });
+      var label = CI.toToken(tr.querySelector('.lt-label').value);
+      var id = tr.getAttribute('data-id') || label;
+      if (label && !types.some(function (t) { return t.id === id; })) types.push({ id: id, label: label, directed: tr.querySelector('.lt-dir').checked });
     });
     var removed = s.linkTypes.filter(function (t) { return !types.some(function (n) { return n.id === t.id; }) && d.links.some(function (l) { return l.type === t.id; }); });
     if (removed.length || !types.length) { toast('A connection type that links still use cannot be removed.', true); return; }

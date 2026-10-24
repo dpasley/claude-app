@@ -12,17 +12,18 @@
   CI.DEFAULT_SETTINGS = {
     basisList: ['Fraud', 'Sabotage', 'Theft', 'Harassment of staff', 'Credible violence', 'Coordinated damaging activity'],
     sourceTypes: ['Social post', 'Financial document', 'Corporate document', 'FOIA record', 'Staff report', 'News / media', 'Other'],
-    roles: ['author / poster', 'named', 'subject of report', 'payer', 'recipient', 'present at', 'other'],
+    roles: ['author', 'named', 'subject', 'payer', 'recipient', 'present', 'other'],
+    // Relationship types follow graph-database style: UPPER_SNAKE_CASE, read as "(from)-[:TYPE]->(to)".
     linkTypes: [
-      { id: 'employed_by', label: 'employed by / holds role in', directed: true },
-      { id: 'member_of', label: 'member of', directed: true },
-      { id: 'owns_controls', label: 'owns / controls', directed: true },
-      { id: 'funded', label: 'funded', directed: true },
-      { id: 'communicated_with', label: 'communicated with', directed: false },
-      { id: 'known_associate', label: 'known associate of', directed: false },
-      { id: 'based_at', label: 'based at / present at', directed: true },
-      { id: 'involved_in', label: 'involved in', directed: true },
-      { id: 'acted_against', label: 'alleged to have acted against', directed: true }
+      { id: 'EMPLOYED_BY', label: 'EMPLOYED_BY', directed: true },
+      { id: 'MEMBER_OF', label: 'MEMBER_OF', directed: true },
+      { id: 'CONTROLS', label: 'CONTROLS', directed: true },
+      { id: 'FUNDED', label: 'FUNDED', directed: true },
+      { id: 'COMMUNICATED_WITH', label: 'COMMUNICATED_WITH', directed: false },
+      { id: 'ASSOCIATED_WITH', label: 'ASSOCIATED_WITH', directed: false },
+      { id: 'LOCATED_AT', label: 'LOCATED_AT', directed: true },
+      { id: 'INVOLVED_IN', label: 'INVOLVED_IN', directed: true },
+      { id: 'ACTED_AGAINST', label: 'ACTED_AGAINST', directed: true }
     ],
     heatWindowDays: 14,
     heatThreshold: 5,
@@ -43,6 +44,28 @@
     };
   };
 
+
+  /* Older saves used lower-case link names and wordier roles; convert them to the graph-style names. */
+  var OLD_LINK = { employed_by: 'EMPLOYED_BY', member_of: 'MEMBER_OF', owns_controls: 'CONTROLS', funded: 'FUNDED', communicated_with: 'COMMUNICATED_WITH', known_associate: 'ASSOCIATED_WITH', based_at: 'LOCATED_AT', involved_in: 'INVOLVED_IN', acted_against: 'ACTED_AGAINST' };
+  var OLD_ROLE = { 'author / poster': 'author', 'subject of report': 'subject', 'present at': 'present' };
+  CI.toToken = function (s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, ''); };
+  function migrate(d) {
+    var nl = function (t) { return OLD_LINK[t] || t; };
+    d.links.forEach(function (l) { l.type = nl(l.type); });
+    d.settings.linkTypes.forEach(function (t) { if (OLD_LINK[t.id]) { t.id = OLD_LINK[t.id]; t.label = t.id; } });
+    d.settings.roles = d.settings.roles.map(function (r) { return OLD_ROLE[r] || r; }).filter(function (r, i, a) { return a.indexOf(r) === i; });
+    d.reports.forEach(function (r) { r.entities.forEach(function (x) { if (OLD_ROLE[x.role]) x.role = OLD_ROLE[x.role]; }); });
+    d.banks.forEach(function (b) {
+      if (b.linkTypes) b.linkTypes = b.linkTypes.map(nl);
+      b.snapshots.forEach(function (sn) {
+        (sn.graph && sn.graph.edges || []).forEach(function (e) {
+          if (e.kind !== 'link') return;
+          var t = nl(e.type); e.type = t; e.label = t; e.id = 'link|' + t + '|' + e.source + '|' + e.target;
+        });
+      });
+    });
+  }
+
   CI.normalize = function (d) {
     var e = CI.emptyData();
     d = d || {};
@@ -54,6 +77,7 @@
     d.version = 1;
     d.reports.forEach(function (r) { if (!Array.isArray(r.entities)) r.entities = []; });
     d.banks.forEach(function (b) { if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
+    migrate(d);
     return d;
   };
 

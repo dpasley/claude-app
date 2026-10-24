@@ -30,7 +30,7 @@ t('undirected links normalize regardless of entry order', () => {
   const d = CI.sampleData(); const idx = CI.buildIndex(d);
   const vera = d.entities.find(e => e.name === 'Vera Linden').id, mara = d.entities.find(e => e.name === 'Mara Quill').id;
   const g = CI.computeGraph(d, CI.newBank(d, 'all', [], 1), idx);
-  const es = g.edges.filter(x => x.type === 'communicated_with');
+  const es = g.edges.filter(x => x.type === 'COMMUNICATED_WITH');
   assert.equal(es.length, 1);
   assert.ok(es[0].source < es[0].target);
 });
@@ -62,7 +62,7 @@ t('mentions toggle adds dashed co-occurrence only where no explicit link exists'
 
 t('link type, entity type, date and exclusion filters', () => {
   const d = CI.sampleData(); const b = CI.newBank(d, 'x', [], 1);
-  b.linkTypes = ['funded']; assert.ok(CI.computeGraph(d, b).edges.every(e => e.type === 'funded'));
+  b.linkTypes = ['FUNDED']; assert.ok(CI.computeGraph(d, b).edges.every(e => e.type === 'FUNDED'));
   b.linkTypes = null; b.entityTypes = ['individual', 'group'];
   assert.ok(CI.computeGraph(d, b).nodes.every(n => n.type !== 'location' && n.type !== 'subject'));
   b.entityTypes = null; b.dateFrom = CI.daysAgo(5);
@@ -100,8 +100,8 @@ t('snapshot diff finds new nodes, new edges and grown weights', () => {
   d.reports.push(rep);
   const newE = CI.addEntity(d, { type: 'individual', name: 'New Person' });
   CI.addEntityToReport(d, rep.id, harbor.id, 'named'); CI.addEntityToReport(d, rep.id, inv.id, 'named'); CI.addEntityToReport(d, rep.id, newE.id, 'named');
-  assert.equal(CI.addLink(d, { reportId: rep.id, from: harbor.id, to: inv.id, type: 'involved_in' }).error, undefined);
-  CI.addLink(d, { reportId: rep.id, from: newE.id, to: harbor.id, type: 'employed_by' });
+  assert.equal(CI.addLink(d, { reportId: rep.id, from: harbor.id, to: inv.id, type: 'INVOLVED_IN' }).error, undefined);
+  CI.addLink(d, { reportId: rep.id, from: newE.id, to: harbor.id, type: 'EMPLOYED_BY' });
   const diff = CI.diffGraphs(CI.computeGraph(d, b), snap);
   assert.ok(diff.newNodes[newE.id]);
   assert.equal(Object.keys(diff.newEdges).length, 1);
@@ -111,12 +111,12 @@ t('snapshot diff finds new nodes, new edges and grown weights', () => {
 t('addLink rejects bad input and duplicates', () => {
   const d = CI.sampleData(); const r = d.reports[0];
   const [a, b] = r.entities.map(x => x.entityId);
-  assert.ok(CI.addLink(d, { reportId: r.id, from: a, to: a, type: 'funded' }).error);
+  assert.ok(CI.addLink(d, { reportId: r.id, from: a, to: a, type: 'FUNDED' }).error);
   assert.ok(CI.addLink(d, { reportId: r.id, from: a, to: b, type: 'nope' }).error);
-  assert.ok(CI.addLink(d, { reportId: r.id, from: a, to: 'E-9999', type: 'funded' }).error);
-  assert.equal(CI.addLink(d, { reportId: r.id, from: a, to: b, type: 'communicated_with' }).error, undefined);
-  assert.ok(CI.addLink(d, { reportId: r.id, from: b, to: a, type: 'communicated_with' }).error); // undirected dup
-  assert.equal(CI.addLink(d, { reportId: r.id, from: b, to: a, type: 'funded' }).error, undefined); // directed reverse is distinct
+  assert.ok(CI.addLink(d, { reportId: r.id, from: a, to: 'E-9999', type: 'FUNDED' }).error);
+  assert.equal(CI.addLink(d, { reportId: r.id, from: a, to: b, type: 'COMMUNICATED_WITH' }).error, undefined);
+  assert.ok(CI.addLink(d, { reportId: r.id, from: b, to: a, type: 'COMMUNICATED_WITH' }).error); // undirected dup
+  assert.equal(CI.addLink(d, { reportId: r.id, from: b, to: a, type: 'FUNDED' }).error, undefined); // directed reverse is distinct
 });
 
 t('removing an entity from a report removes that report\'s links to it', () => {
@@ -140,14 +140,14 @@ t('merge moves reports/links/aliases and undo restores everything', () => {
   const vera = d.entities.find(e => e.name === 'Vera Linden');
   const rep = d.reports.find(r => r.summary.startsWith('Older filing'));
   CI.addEntityToReport(d, rep.id, dup.id, 'named');
-  CI.addLink(d, { reportId: rep.id, from: dup.id, to: d.entities.find(e => e.name.startsWith('Harborline')).id, type: 'involved_in' });
+  CI.addLink(d, { reportId: rep.id, from: dup.id, to: d.entities.find(e => e.name.startsWith('Harborline')).id, type: 'INVOLVED_IN' });
   const snapshot = JSON.stringify({ r: d.reports, l: d.links, e: d.entities });
   const m = CI.mergeEntities(d, dup.id, vera.id);
   assert.ok(m.merge);
   assert.ok(!d.entities.some(e => e.id === dup.id));
   assert.ok(vera.aliases.some(a => CI.norm(a) === 'v linden')); // already covered by existing alias 'V. Linden', so not duplicated
   assert.equal(vera.aliases.length, 1);
-  assert.ok(d.links.some(l => l.from === vera.id && l.reportId === rep.id && l.type === 'involved_in'));
+  assert.ok(d.links.some(l => l.from === vera.id && l.reportId === rep.id && l.type === 'INVOLVED_IN'));
   assert.equal(CI.undoMerge(d, m.merge.id).ok, true);
   const norm = s => { const o = JSON.parse(s); o.e.sort((a, b) => a.id.localeCompare(b.id)); return JSON.stringify(o); };
   const after = norm(JSON.stringify({ r: d.reports, l: d.links, e: d.entities }));
@@ -159,7 +159,7 @@ t('merge drops links that would become self-links, and undo brings them back', (
   const a = d.entities.find(e => e.name === 'Vera Linden'), b = CI.addEntity(d, { type: 'individual', name: 'Vera L.' });
   const rep = d.reports.find(r => r.summary.startsWith('Annual filing'));
   CI.addEntityToReport(d, rep.id, b.id, 'named');
-  CI.addLink(d, { reportId: rep.id, from: a.id, to: b.id, type: 'known_associate' });
+  CI.addLink(d, { reportId: rep.id, from: a.id, to: b.id, type: 'ASSOCIATED_WITH' });
   const n = d.links.length;
   const m = CI.mergeEntities(d, b.id, a.id);
   assert.equal(d.links.length, n - 1);
@@ -192,6 +192,29 @@ t('export/import round trip', () => {
 t('validation requires basis and source fields', () => {
   assert.equal(CI.validateReport({ received: '2026-01-01', sourceType: 'Social post', sourceRef: 'x', summary: 's', basis: '' }).length, 1);
   assert.equal(CI.validateReport({}).length, 5);
+});
+
+t('old saves migrate to graph-style names (links, roles, banks, snapshots)', () => {
+  const d = CI.sampleData();
+  const old = JSON.parse(JSON.stringify(d));
+  const back = { FUNDED: 'funded', LOCATED_AT: 'based_at', ASSOCIATED_WITH: 'known_associate', CONTROLS: 'owns_controls' };
+  old.links.forEach(l => { l.type = back[l.type] || l.type.toLowerCase(); });
+  old.settings.linkTypes.forEach(t => { t.id = back[t.id] || t.id.toLowerCase(); t.label = 'long old label'; });
+  old.settings.roles = ['author / poster', 'named', 'subject of report', 'payer', 'recipient', 'present at', 'other'];
+  old.reports.forEach(r => r.entities.forEach(x => { if (x.role === 'author') x.role = 'author / poster'; if (x.role === 'subject') x.role = 'subject of report'; }));
+  old.banks[0].linkTypes = ['funded', 'involved_in'];
+  const b = CI.newBank(old, 'x', [], 1); const g0 = CI.computeGraph(CI.normalize(JSON.parse(JSON.stringify(d))), b);
+  old.banks[0].snapshots = [{ id: 'N-0001', label: 's', at: '', graph: { nodes: g0.nodes, edges: g0.edges.map(e => e.kind === 'link' ? Object.assign({}, e, { type: back[e.type] || e.type.toLowerCase(), label: 'x', id: 'link|' + (back[e.type] || e.type.toLowerCase()) + '|' + e.source + '|' + e.target }) : e) } }];
+  const m = CI.normalize(old);
+  assert.deepEqual(m.links.map(l => l.type), d.links.map(l => l.type));
+  assert.deepEqual(m.settings.linkTypes.map(t => t.id), d.settings.linkTypes.map(t => t.id));
+  assert.ok(m.settings.linkTypes.every(t => t.label === t.id));
+  assert.ok(!m.settings.roles.includes('author / poster') && m.settings.roles.includes('author'));
+  assert.ok(m.reports.every(r => r.entities.every(x => x.role !== 'author / poster' && x.role !== 'subject of report')));
+  assert.deepEqual(m.banks[0].linkTypes, ['FUNDED', 'INVOLVED_IN']);
+  const diff = CI.diffGraphs(CI.computeGraph(m, b), m.banks[0].snapshots[0].graph);
+  assert.equal(Object.keys(diff.newEdges).length, 0);
+  assert.equal(CI.toToken('is a partner of'), 'IS_A_PARTNER_OF');
 });
 
 console.log('\n' + n + ' tests passed');

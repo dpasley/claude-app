@@ -40,52 +40,52 @@
 
     R(3, 3, 'Financial document', 'AP ledger export, Harborline invoices 1041-1047', 'Fraud',
       'Seven consecutive invoices from Harborline Supply paid in two weeks; all list the same PO box and have no purchase order numbers.',
-      [['harbor', 'payer'], ['pobox', 'named'], ['invoice', 'subject of report']],
-      [['harbor', 'pobox', 'based_at'], ['harbor', 'invoice', 'involved_in']]);
+      [['harbor', 'payer'], ['pobox', 'named'], ['invoice', 'subject']],
+      [['harbor', 'pobox', 'LOCATED_AT'], ['harbor', 'invoice', 'INVOLVED_IN']]);
     R(5, 20, 'Corporate document', 'State business filing, Brightwater Holdings LLC', 'Fraud',
       'Annual filing for Brightwater lists Vera Linden as registered agent and 410 Harbor Street, Unit 6 as the business address.',
-      [['bright', 'subject of report'], ['vera', 'named'], ['harborst', 'named']],
-      [['vera', 'bright', 'employed_by', 'registered agent'], ['bright', 'harborst', 'based_at']]);
+      [['bright', 'subject'], ['vera', 'named'], ['harborst', 'named']],
+      [['vera', 'bright', 'EMPLOYED_BY', 'registered agent'], ['bright', 'harborst', 'LOCATED_AT']]);
     R(6, 400, 'Corporate document', 'State business filing, Harborline Supply Co.', 'Fraud',
       'Older filing for Harborline names Orrin Platt as officer and gives 410 Harbor Street, Unit 6 as its former address.',
-      [['harbor', 'subject of report'], ['orrin', 'named'], ['harborst', 'named']],
-      [['orrin', 'harbor', 'employed_by', 'listed officer'], ['harbor', 'harborst', 'based_at', 'former address']]);
+      [['harbor', 'subject'], ['orrin', 'named'], ['harborst', 'named']],
+      [['orrin', 'harbor', 'EMPLOYED_BY', 'listed officer'], ['harbor', 'harborst', 'LOCATED_AT', 'former address']]);
     R(7, 7, 'Staff report', 'AP clerk memo to finance manager', 'Fraud',
       'AP clerk reports an email from Vera Linden pressing for expedited payment to Harborline outside the normal approval cycle.',
-      [['vera', 'author / poster'], ['harbor', 'recipient'], ['invoice', 'subject of report']],
-      [['vera', 'invoice', 'involved_in'], ['harbor', 'invoice', 'involved_in']]);
+      [['vera', 'author'], ['harbor', 'recipient'], ['invoice', 'subject']],
+      [['vera', 'invoice', 'INVOLVED_IN'], ['harbor', 'invoice', 'INVOLVED_IN']]);
     R(9, 9, 'Financial document', 'Bank transfer record, outgoing wire batch', 'Fraud',
       'Funds received from Northwind were forwarded within a day from Harborline to Brightwater Holdings.',
       [['harbor', 'payer'], ['bright', 'recipient']],
-      [['harbor', 'bright', 'funded']]);
+      [['harbor', 'bright', 'FUNDED']]);
     var r6 = R(4, 4, 'Social post', 'https://social.example/gridwatch_now/post/5521', 'Sabotage',
       'GridWatch Now posts that Depot 4 "will be going dark soon"; the account is administered by Tobias Crane according to its profile page.',
-      [['grid', 'author / poster'], ['depot4', 'named'], ['outage', 'subject of report'], ['tobias', 'named']],
-      [['grid', 'outage', 'involved_in'], ['tobias', 'grid', 'member_of', 'profile lists him as admin']]);
+      [['grid', 'author'], ['depot4', 'named'], ['outage', 'subject'], ['tobias', 'named']],
+      [['grid', 'outage', 'INVOLVED_IN'], ['tobias', 'grid', 'MEMBER_OF', 'profile admin']]);
     R(4, 4, 'Social post', 'https://other.example/p/88130 (repost of GridWatch post)', 'Sabotage',
       'Reshare of the GridWatch Now post on a second platform with the same text.',
-      [['grid', 'author / poster'], ['outage', 'subject of report']],
-      [['grid', 'outage', 'involved_in']], r6.id);
+      [['grid', 'author'], ['outage', 'subject']],
+      [['grid', 'outage', 'INVOLVED_IN']], r6.id);
     R(2, 2, 'Staff report', 'Depot 4 maintenance log and badge export', 'Sabotage',
       'Conveyor power failure at Depot 4 traced to cut cabling; badge log shows a Keystone Courier contractor on site the night before.',
-      [['depot4', 'present at'], ['keystone', 'named'], ['outage', 'subject of report']],
-      [['keystone', 'depot4', 'based_at', 'badge log, night before'], ['keystone', 'outage', 'involved_in']]);
+      [['depot4', 'present'], ['keystone', 'named'], ['outage', 'subject']],
+      [['keystone', 'depot4', 'LOCATED_AT', 'badge log'], ['keystone', 'outage', 'INVOLVED_IN']]);
     R(8, 60, 'Corporate document', 'State business filing, Keystone Courier Partners', 'Coordinated damaging activity',
       'Keystone Courier Partners lists Mara Quill as director and 410 Harbor Street, Unit 6 as its registered address.',
-      [['keystone', 'subject of report'], ['mara', 'named'], ['harborst', 'named']],
-      [['mara', 'keystone', 'employed_by', 'director'], ['keystone', 'harborst', 'based_at']]);
+      [['keystone', 'subject'], ['mara', 'named'], ['harborst', 'named']],
+      [['mara', 'keystone', 'EMPLOYED_BY', 'director'], ['keystone', 'harborst', 'LOCATED_AT']]);
     R(1, 1, 'Social post', 'https://social.example/tcrane_speaks/post/9012', 'Harassment of staff',
       'Tobias Crane posts a named attack on a Northwind dispatcher, Dana Whitcomb, and tags GridWatch Now.',
-      [['tobias', 'author / poster'], ['dana', 'named'], ['grid', 'named']],
-      [['tobias', 'dana', 'acted_against']]);
+      [['tobias', 'author'], ['dana', 'named'], ['grid', 'named']],
+      [['tobias', 'dana', 'ACTED_AGAINST']]);
     R(10, 11, 'News / media', 'Local business-chamber event coverage', 'Coordinated damaging activity',
       'Article quotes Vera Linden and Mara Quill together at a chamber event; Orrin Platt is named as an attendee.',
       [['vera', 'named'], ['mara', 'named'], ['orrin', 'named']],
-      [['vera', 'mara', 'communicated_with', 'appeared together on panel']]);
+      [['vera', 'mara', 'COMMUNICATED_WITH', 'panel']]);
     R(12, 90, 'FOIA record', 'Municipal procurement file 24-117', 'Fraud',
       'Procurement file shows Keystone as prime contractor paying Brightwater Holdings as a subcontractor.',
       [['keystone', 'payer'], ['bright', 'recipient']],
-      [['keystone', 'bright', 'funded']]);
+      [['keystone', 'bright', 'FUNDED']]);
 
     var bank = CI.newBank(d, 'Invoice scheme bank', [ent.invoice.id], 2);
     d.banks.push(bank);
