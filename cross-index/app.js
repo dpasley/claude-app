@@ -174,7 +174,7 @@
     var empty = !d.reports.length && !d.entities.length;
     view.innerHTML = '<div class="page-head"><h1>Reports</h1><div class="row"><input type="search" id="rep-filter" placeholder="Filter reports…" value="' + esc(repFilter) + '" data-on-input="rep-filter"><a class="btn primary" href="#/report-new">New report</a></div></div>' +
       (empty ? '<div class="card callout"><strong>Nothing here yet.</strong> Start with <a href="#/report-new">a new report</a>, or load a small set of fictional sample data from <a href="#/settings">Settings</a> to see how the pieces fit together.</div>' : '') +
-      '<div class="card flush"><table><thead><tr><th>ID</th><th>Received</th><th>Event date</th><th>Source type</th><th>Source</th><th>Intake basis</th><th class="num">Entities</th><th class="num">Links</th><th>Status</th></tr></thead><tbody id="rep-rows">' + repRows() + '</tbody></table></div>';
+      '<div class="card flush"><table><thead><tr><th>ID</th><th>Received</th><th>Event date</th><th>Source type</th><th>Source</th><th>Intake basis</th><th class="num">Main files</th><th class="num">Links</th><th>Status</th></tr></thead><tbody id="rep-rows">' + repRows() + '</tbody></table></div>';
   }
   handlers['rep-filter'] = function (el) { repFilter = el.value; document.getElementById('rep-rows').innerHTML = repRows(); };
 
@@ -375,7 +375,7 @@
   };
   handlers['del-report'] = function (el) {
     var id = el.getAttribute('data-id'), n = d.links.filter(function (l) { return l.reportId === id; }).length;
-    askConfirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. Entity files stay.', function () {
+    askConfirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. Main files stay.', function () {
       CI.deleteReport(d, id); persist(); go('#/reports');
     }, { title: 'Delete report', yes: 'Delete', danger: true });
   };
@@ -410,7 +410,7 @@
     }).join('');
   }
   function viewEntities() {
-    view.innerHTML = '<div class="page-head"><h1>Entities <span class="muted">the main files</span></h1></div>' +
+    view.innerHTML = '<div class="page-head"><h1>Main files <span class="muted">individuals, groups, subjects and areas</span></h1></div>' +
       '<div class="card row wrap"><input type="search" id="ent-q" placeholder="Search names and aliases…" value="' + esc(entState.q) + '" data-on-input="ent-filter">' +
       '<select id="ent-type" data-on-change="ent-filter">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] + 's' }; }), entState.type, 'All types') + '</select>' +
       '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'Sort by name' }, { value: 'material', label: 'Sort by material reports' }, { value: 'heat', label: 'Sort by heat' }, { value: 'reports', label: 'Sort by all reports' }], entState.sort) + '</select>' +
@@ -498,7 +498,7 @@
   handlers['del-entity'] = function (el) {
     var id = el.getAttribute('data-id');
     if (CI.entityInUse(d, id)) { toast('This entity is still used by reports or connections. Merge it or remove it from them first.', true); return; }
-    askConfirm('Delete this entity file?', function () { CI.deleteEntity(d, id); persist(); go('#/entities'); }, { title: 'Delete entity', yes: 'Delete', danger: true });
+    askConfirm('Delete this main file?', function () { CI.deleteEntity(d, id); persist(); go('#/entities'); }, { title: 'Delete entity', yes: 'Delete', danger: true });
   };
 
   /* ---------- REVIEW (hesitation log, flags, merges) ---------- */
@@ -541,7 +541,7 @@
   handlers['log-delete'] = function (el) { d.log = d.log.filter(function (x) { return x.id !== el.getAttribute('data-id'); }); persist(); viewReview(); };
   handlers['undo-merge'] = function (el) {
     var id = el.getAttribute('data-id');
-    askConfirm('Undo this merge? The merged-away entity file comes back and the reports and connections it touched are restored to how they were just before the merge.', function () {
+    askConfirm('Undo this merge? The merged-away main file comes back and the reports and connections it touched are restored to how they were just before the merge.', function () {
       var res = CI.undoMerge(d, id);
       if (res.error) { toast(res.error, true); return; }
       persist(); toast('Merge undone.'); viewReview();

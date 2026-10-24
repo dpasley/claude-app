@@ -1,5 +1,5 @@
 /* Case chart: the investigators' board for one investigation.
- * Files are pinned from the master index; strings are drawn by hand and each one cites the reports behind it.
+ * Files are pinned from the main files; strings are drawn by hand and each one cites the reports behind it.
  * Open leads flag the pins and strings they are about, so the board shows what is found and what is next. */
 (function () {
   'use strict';
@@ -36,14 +36,14 @@
       '<button class="btn small" data-action="cc-fit">Fit</button><button class="btn small" data-action="cc-relayout">Auto-arrange</button><button class="btn small" data-action="cc-png">Image</button><button class="btn small" data-action="cc-print">Print for the wall…</button>' +
       '<a class="btn small" href="#/investigation/' + esc(v.id) + '">Investigation</a>' + (b ? '<a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a>' : '') +
       '<button class="btn small primary" data-action="cc-raise">Raise a lead</button></div>' +
-      '<div id="cy"></div><div class="legend"><span>pins are files from the master index</span><span>a string always cites the reports behind it</span><span>orange = an open lead is about this</span><span>drag pins to arrange; the arrangement is kept</span></div></section><aside class="panel" id="detail"></aside></div>';
+      '<div id="cy"></div><div class="legend"><span>pins are files from the main files</span><span>a string always cites the reports behind it</span><span>orange = an open lead is about this</span><span>drag pins to arrange; the arrangement is kept</span></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.className = 'wide'; A.view.innerHTML = h;
     ctl(); draw();
   }
 
   function ctl() {
     var v = inv(), cc = CI.caseChartOf(v), box = document.getElementById('ctl'); if (!box) return;
-    var h = '<h3>Pin a file</h3><input type="text" list="cc-dl" id="cc-pin-input" placeholder="Search the master files…" data-on-change="cc-pin-add"><p class="muted small">Choose a person, group, subject or area from the index to pin it to the board.</p>' +
+    var h = '<h3>Pin a file</h3><input type="text" list="cc-dl" id="cc-pin-input" placeholder="Search the main files…" data-on-change="cc-pin-add"><p class="muted small">Choose a person, group, subject or area from the index to pin it to the board.</p>' +
       '<h3>Pinned files (' + cc.pins.length + ')</h3>' + (cc.pins.length ? '<ul class="plain">' + cc.pins.map(function (p) {
         var e = ent(p.entityId); if (!e) return '';
         return '<li><a href="#" data-action="cc-pick-node" data-id="' + esc(e.id) + '">' + esc(e.name) + '</a> <span class="muted small">' + esc(CI.TYPE_LABEL[e.type].toLowerCase()) + '</span></li>';
@@ -93,7 +93,7 @@
     var v = inv(), d = D(), idx = A.idx(), cc = CI.caseChartOf(v), g = st.graph || { flags: { nodes: {}, edges: {} } }, h = '';
     if (st.sel && st.sel.kind === 'node' && ent(st.sel.id)) {
       var e = ent(st.sel.id), mine = cc.strings.filter(function (t) { return t.a === e.id || t.b === e.id; });
-      h += '<h3>' + esc(e.name) + '</h3><p>' + A.tag(e.type) + '</p><p class="muted small">' + (idx.reportsByEntity[e.id] || []).length + ' report' + ((idx.reportsByEntity[e.id] || []).length === 1 ? '' : 's') + ' in the master file.</p>';
+      h += '<h3>' + esc(e.name) + '</h3><p>' + A.tag(e.type) + '</p><p class="muted small">' + (idx.reportsByEntity[e.id] || []).length + ' report' + ((idx.reportsByEntity[e.id] || []).length === 1 ? '' : 's') + ' in the main file.</p>';
       if (g.flags.nodes[e.id]) h += '<div class="group-label">Next: open leads about this file</div>' + leadItems(g.flags.nodes[e.id]);
       h += mine.length ? '<div class="group-label">Strings</div><ul class="plain">' + mine.map(function (t) {
         var other = t.a === e.id ? t.b : t.a;
@@ -126,7 +126,7 @@
   H['cc-pick-edge'] = function (el) { var id = el.getAttribute('data-id'); st.sel = { kind: 'edge', id: id }; if (CI.chart.cy) { CI.chart.cy.$(':selected').unselect(); CI.chart.cy.getElementById(id).select(); CI.chart.focus(id); } detail(); };
   H['cc-pin-del'] = function (el) {
     var id = el.getAttribute('data-id'), n = CI.caseChartOf(inv()).strings.filter(function (t) { return t.a === id || t.b === id; }).length;
-    A.confirm('Take ' + name(id) + ' off the board' + (n ? ' along with its ' + n + ' string' + (n === 1 ? '' : 's') : '') + '? The master file is not changed.', function () {
+    A.confirm('Take ' + name(id) + ' off the board' + (n ? ' along with its ' + n + ' string' + (n === 1 ? '' : 's') : '') + '? The main file is not changed.', function () {
       CI.removePin(D(), inv(), id); A.persist(); st.sel = null; shell();
     }, { title: 'Remove from the board', yes: 'Remove', danger: true });
   };

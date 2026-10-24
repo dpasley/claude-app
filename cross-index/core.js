@@ -681,7 +681,7 @@
   };
 
   /* ---------- case chart (the investigators' board) ---------- */
-  /* Pins are files from the master index; strings are drawn by hand and every string must cite at least one report that names one of its ends. */
+  /* Pins are files from the main files; strings are drawn by hand and every string must cite at least one report that names one of its ends. */
   CI.caseChartOf = function (inv) {
     if (!inv.caseChart || typeof inv.caseChart !== 'object') inv.caseChart = { pins: [], strings: [] };
     if (!Array.isArray(inv.caseChart.pins)) inv.caseChart.pins = [];

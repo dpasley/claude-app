@@ -1,4 +1,4 @@
-/* Chart screen: banks (saved views over the one main index), filters, snapshots, path finder, details. */
+/* Chart screen: banks (saved views over the main files), filters, snapshots, path finder, details. */
 (function () {
   'use strict';
   var A = CI.app, H = A.handlers, esc = A.esc;
@@ -59,7 +59,7 @@
       return '<option value="' + esc(b.id) + '"' + (b.id === bank.id ? ' selected' : '') + '>' + esc(b.name) + '</option>';
     }).join('') + '</select><div class="row wrap tight-row"><button class="btn small" data-action="cv-bank-new">New</button><button class="btn small" data-action="cv-bank-rename">Rename</button>' +
       '<button class="btn small" data-action="cv-bank-dup">Duplicate</button><button class="btn small danger" data-action="cv-bank-del">Delete</button></div>' +
-      '<p class="muted small">A bank is a saved view. It reads the one main index and never copies data.</p>';
+      '<p class="muted small">A bank is a saved view. It reads the main files and never copies data.</p>';
     h += '<h3>Starting entities</h3><div class="chips">' + (bank.seeds.length ? bank.seeds.map(function (id) {
       var e = A.idx().entity[id];
       return '<span class="chip">' + esc(e ? e.name : id) + '<button data-action="cv-seed-del" data-id="' + esc(id) + '" aria-label="Remove">×</button></span>';
