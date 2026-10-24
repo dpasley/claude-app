@@ -52,7 +52,7 @@
     return {
       version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
-      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0 },
+      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0 },
       entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [],
       ui: { bankId: null }
     };
@@ -114,6 +114,7 @@
       if (b.handedOver == null) b.handedOver = '';
       if (!b.opened || typeof b.opened !== 'object') b.opened = { date: '', reason: '' };
       if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
+    d.investigations.forEach(function (v) { CI.caseChartOf(v); });
     migrate(d);
     return d;
   };
@@ -130,7 +131,7 @@
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
   };
 
-  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-' };
+  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-' };
   CI.nextId = function (d, kind) {
     d.counters[kind] = (d.counters[kind] || 0) + 1;
     return PREFIX[kind] + pad(d.counters[kind], 4);
@@ -302,6 +303,7 @@
     d.links = d.links.filter(function (l) { return l.reportId !== id; });
     d.reports.forEach(function (x) { if (x.dupOf === id) x.dupOf = r.dupOf || ''; });
     d.reports = d.reports.filter(function (x) { return x.id !== id; });
+    CI.caseChartDropReport(d, id);
   };
 
   CI.entityInUse = function (d, id) {
@@ -312,6 +314,7 @@
   CI.deleteEntity = function (d, id) {
     if (CI.entityInUse(d, id)) return false;
     d.entities = d.entities.filter(function (e) { return e.id !== id; });
+    CI.caseChartDropEntity(d, id);
     d.leads.forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
     d.banks.forEach(function (b) {
       b.seeds = b.seeds.filter(function (x) { return x !== id; });
@@ -360,6 +363,7 @@
       b.seeds = b.seeds.map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
       b.excluded = b.excluded.map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
     });
+    CI.caseChartMerge(d, fromId, intoId);
     d.leads.forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
     d.entities.filter(function (e) { return e.id === fromId; }).forEach(function (e) { if (e.photo && !into.photo) into.photo = e.photo; });
     d.entities = d.entities.filter(function (e) { return e.id !== fromId; });
@@ -674,6 +678,112 @@
     p.execution = { status: o.execStatus, outcome: String(o.execOutcome || '').trim() };
     p.updated = CI.today();
     return { plan: p };
+  };
+
+  /* ---------- case chart (the investigators' board) ---------- */
+  /* Pins are files from the master index; strings are drawn by hand and every string must cite at least one report that names one of its ends. */
+  CI.caseChartOf = function (inv) {
+    if (!inv.caseChart || typeof inv.caseChart !== 'object') inv.caseChart = { pins: [], strings: [] };
+    if (!Array.isArray(inv.caseChart.pins)) inv.caseChart.pins = [];
+    if (!Array.isArray(inv.caseChart.strings)) inv.caseChart.strings = [];
+    return inv.caseChart;
+  };
+  CI.addPin = function (d, inv, entityId, pos) {
+    var cc = CI.caseChartOf(inv);
+    if (!d.entities.some(function (e) { return e.id === entityId; })) return { error: 'That file does not exist.' };
+    if (cc.pins.some(function (p) { return p.entityId === entityId; })) return { error: 'That file is already on the case chart.' };
+    var n = cc.pins.length, p = { entityId: entityId, x: pos && isFinite(pos.x) ? pos.x : (n % 4) * 230, y: pos && isFinite(pos.y) ? pos.y : Math.floor(n / 4) * 200 };
+    cc.pins.push(p);
+    return { pin: p };
+  };
+  CI.removePin = function (d, inv, entityId) {
+    var cc = CI.caseChartOf(inv);
+    cc.pins = cc.pins.filter(function (p) { return p.entityId !== entityId; });
+    cc.strings = cc.strings.filter(function (t) { return t.a !== entityId && t.b !== entityId; });
+  };
+  /* Reports that may back a string between a and b: those naming both come first, then those naming only one. */
+  CI.reportsForString = function (d, a, b, idx) {
+    idx = idx || CI.buildIndex(d);
+    var ra = idx.reportsByEntity[a] || [], rb = idx.reportsByEntity[b] || [];
+    var both = ra.filter(function (r) { return rb.indexOf(r) !== -1; }).sort();
+    var one = ra.concat(rb).filter(function (r, i, arr) { return arr.indexOf(r) === i && both.indexOf(r) === -1; }).sort();
+    return { both: both, one: one };
+  };
+  function checkString(d, inv, o, selfId) {
+    var cc = CI.caseChartOf(inv), idx = CI.buildIndex(d);
+    var has = function (id) { return cc.pins.some(function (p) { return p.entityId === id; }); };
+    if (!o.a || !o.b || o.a === o.b) return { error: 'Choose two different files.' };
+    if (!has(o.a) || !has(o.b)) return { error: 'Both files must be pinned to the case chart first.' };
+    var ids = (o.reportIds || []).filter(function (x, i, arr) { return x && arr.indexOf(x) === i; });
+    if (!ids.length) return { error: 'A string must cite at least one report.' };
+    for (var i = 0; i < ids.length; i++) {
+      if (!idx.report[ids[i]]) return { error: 'There is no report ' + ids[i] + '.' };
+      var named = (idx.reportsByEntity[o.a] || []).indexOf(ids[i]) !== -1 || (idx.reportsByEntity[o.b] || []).indexOf(ids[i]) !== -1;
+      if (!named) return { error: ids[i] + ' does not name either file, so it cannot back this string.' };
+    }
+    var label = String(o.label || '').trim();
+    var dup = cc.strings.some(function (t) { return t.id !== selfId && t.label.toLowerCase() === label.toLowerCase() && ((t.a === o.a && t.b === o.b) || (t.a === o.b && t.b === o.a)); });
+    if (dup) return { error: 'These two files already have a string with that label.' };
+    return { ok: { a: o.a, b: o.b, label: label, reportIds: ids } };
+  }
+  CI.addString = function (d, inv, o) {
+    var c = checkString(d, inv, o, null); if (c.error) return c;
+    var t = { id: CI.nextId(d, 'caseString'), a: c.ok.a, b: c.ok.b, label: c.ok.label, reportIds: c.ok.reportIds, added: CI.today() };
+    CI.caseChartOf(inv).strings.push(t);
+    return { string: t };
+  };
+  CI.updateString = function (d, inv, id, o) {
+    var cc = CI.caseChartOf(inv), t = cc.strings.filter(function (x) { return x.id === id; })[0];
+    if (!t) return { error: 'That string no longer exists.' };
+    var c = checkString(d, inv, { a: t.a, b: t.b, label: o.label, reportIds: o.reportIds }, id); if (c.error) return c;
+    t.label = c.ok.label; t.reportIds = c.ok.reportIds;
+    return { string: t };
+  };
+  CI.removeString = function (d, inv, id) { var cc = CI.caseChartOf(inv); cc.strings = cc.strings.filter(function (t) { return t.id !== id; }); };
+  /* The case chart as a graph the chart canvas can draw. Open leads of the investigation flag the files they are about. */
+  CI.caseGraph = function (d, inv, idx) {
+    idx = idx || CI.buildIndex(d);
+    var cc = CI.caseChartOf(inv), nodes = [], edges = [], positions = {}, flags = { nodes: {}, edges: {} };
+    var open = d.leads.filter(function (l) { return l.bankId === inv.bankId && !CI.isClosed(l); });
+    cc.pins.forEach(function (p) {
+      var e = idx.entity[p.entityId]; if (!e) return;
+      var deg = cc.strings.filter(function (t) { return t.a === p.entityId || t.b === p.entityId; }).length;
+      nodes.push({ id: e.id, name: e.name, type: e.type, degree: deg, seed: false, hub: false });
+      positions[e.id] = { x: p.x, y: p.y };
+      var ls = open.filter(function (l) { return (l.about || []).indexOf(e.id) !== -1; });
+      if (ls.length) flags.nodes[e.id] = ls.map(function (l) { return l.id; });
+    });
+    var have = {}; nodes.forEach(function (n) { have[n.id] = 1; });
+    cc.strings.forEach(function (t) {
+      if (!have[t.a] || !have[t.b]) return;
+      var roots = {}; t.reportIds.forEach(function (r) { roots[idx.rootOf(r)] = 1; });
+      edges.push({ id: t.id, source: t.a, target: t.b, kind: 'string', label: t.label, weight: Object.keys(roots).length || 1, directed: false, reportIds: t.reportIds.slice() });
+      var ls = open.filter(function (l) { return (l.about || []).indexOf(t.a) !== -1 && (l.about || []).indexOf(t.b) !== -1; });
+      if (ls.length) flags.edges[t.id] = ls.map(function (l) { return l.id; });
+    });
+    return { graph: { nodes: nodes, edges: edges }, positions: positions, flags: flags, openLeads: open };
+  };
+  function caseChartsDo(d, fn) { d.investigations.forEach(function (v) { if (v.caseChart) fn(v.caseChart); }); }
+  CI.caseChartDropReport = function (d, rid) {
+    caseChartsDo(d, function (cc) {
+      cc.strings.forEach(function (t) { t.reportIds = t.reportIds.filter(function (x) { return x !== rid; }); });
+      cc.strings = cc.strings.filter(function (t) { return t.reportIds.length; });
+    });
+  };
+  CI.caseChartDropEntity = function (d, id) { d.investigations.forEach(function (v) { if (v.caseChart) CI.removePin(d, v, id); }); };
+  CI.caseChartMerge = function (d, fromId, intoId) {
+    caseChartsDo(d, function (cc) {
+      var had = cc.pins.some(function (p) { return p.entityId === intoId; });
+      if (had) cc.pins = cc.pins.filter(function (p) { return p.entityId !== fromId; });
+      else cc.pins.forEach(function (p) { if (p.entityId === fromId) p.entityId = intoId; });
+      var seen = {};
+      cc.strings.forEach(function (t) { if (t.a === fromId) t.a = intoId; if (t.b === fromId) t.b = intoId; });
+      cc.strings = cc.strings.filter(function (t) {
+        if (t.a === t.b) return false;
+        var k = [t.a, t.b].sort().join('|') + '|' + t.label.toLowerCase();
+        if (seen[k]) return false; seen[k] = 1; return true;
+      });
+    });
   };
 
   /* ---------- situation observation ---------- */

@@ -112,6 +112,12 @@
     var inv = CI.investigationFor(d, b2.id);
     inv.status = 'PLAN_WITH_LEGAL'; inv.investigator = 'Sample investigator';
     CI.savePlan(d, inv, { objective: 'Establish who cut the cabling and refer the matter.', outcome: 'REFERRAL', preparedBy: 'Sample investigator', actions: [{ text: 'Interview the Depot 4 night supervisor', owner: 'Investigator' }, { text: 'Prepare the badge and maintenance records for law enforcement', owner: 'Collection' }, { text: 'Brief the police liaison once legal clears the plan', owner: 'Security manager' }], legalStatus: 'WITH_LEGAL', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' });
+    var cl = CI.addLead(d, { bankId: b2.id, kind: 'INVESTIGATION', with: 'Investigations', question: 'Who authorised the Keystone contractor\u2019s access to Depot 4 on the night before the outage?', raisedBy: 'R-0008', about: [ent.keystone.id, ent.depot4.id], issued: CI.today() }).lead;
+    cl.status = 'IN_PROGRESS';
+    [['grid', -240, -120], ['tobias', -240, 140], ['outage', 0, -120], ['depot4', 240, -120], ['keystone', 0, 60], ['mara', 240, 60], ['harborst', 0, 260]].forEach(function (p) { CI.addPin(d, inv, ent[p[0]].id, { x: p[1], y: p[2] }); });
+    [['grid', 'outage', 'announced it beforehand', 'R-0006'], ['tobias', 'grid', 'administers the account', 'R-0006'], ['keystone', 'depot4', 'on site the night before', 'R-0008'], ['keystone', 'mara', 'director', 'R-0009'], ['keystone', 'harborst', 'registered address', 'R-0009']].forEach(function (s) {
+      CI.addString(d, inv, { a: ent[s[0]].id, b: ent[s[1]].id, label: s[2], reportIds: [s[3]] });
+    });
     return d;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

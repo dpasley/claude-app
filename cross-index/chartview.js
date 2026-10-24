@@ -184,7 +184,7 @@
       if (!frozen) {
         h += '<button class="btn small" data-action="cv-node-seed" data-id="' + esc(id) + '">Add as starting entity</button><button class="btn small" data-action="cv-node-hide" data-id="' + esc(id) + '">Hide in this bank</button>';
       }
-      h += '<button class="btn small" data-action="cv-path-from" data-id="' + esc(id) + '">Find connections from here…</button><button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button></div>';
+      h += '<button class="btn small" data-action="cv-path-from" data-id="' + esc(id) + '">Find connections from here…</button><button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-pin-case" data-id="' + esc(id) + '">Pin to the case chart</button>' : '') + '</div>';
     } else if (st.sel && st.sel.kind === 'edge') {
       var e = edgeById(st.sel.id);
       if (e) {
@@ -201,7 +201,7 @@
             }).join('') + '</ul>';
           } else h += '<ul class="plain">' + e.reportIds.map(function (rid) { return '<li>' + A.repLink(rid) + '</li>'; }).join('') + '</ul>';
         }
-        h += '<div class="stack"><button class="btn small" data-action="cv-raise-edge" data-id="' + esc(e.id) + '">Raise a lead about this</button></div>';
+        h += '<div class="stack"><button class="btn small" data-action="cv-raise-edge" data-id="' + esc(e.id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-string-case" data-id="' + esc(e.id) + '">Add to the case chart</button>' : '') + '</div>';
       }
     } else {
       h += '<h3>Details</h3><p class="muted small">Click an entity or a connection. Every connection lists the reports behind it.</p>';
@@ -361,6 +361,17 @@
     var bank = B(), ids = (rids || []).filter(function (r) { return A.idx().report[r]; });
     CI.views.openLead({ bankId: bank.id, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
   }
+  H['cv-pin-case'] = function (el) {
+    var id = el.getAttribute('data-id'), r = CI.views.pinToCase(B().id, [id]);
+    if (r.error) { A.toast(r.error, true); return; }
+    A.toast(r.added ? nodeName(id) + ' pinned to the case chart.' : nodeName(id) + ' is already on the case chart.');
+  };
+  H['cv-string-case'] = function (el) {
+    var e = edgeById(el.getAttribute('data-id')); if (!e) return;
+    var r = CI.views.stringToCase(B().id, e);
+    if (r.error) { A.toast(r.error, true); return; }
+    A.toast('Added to the case chart.');
+  };
   H['cv-raise'] = function () { CI.views.openLead({ bankId: B().id }); };
   H['cv-raise-node'] = function (el) {
     var id = el.getAttribute('data-id'), e = A.idx().entity[id];

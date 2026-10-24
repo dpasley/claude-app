@@ -69,7 +69,7 @@
     }
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
-      a.className = h.indexOf('#/' + key) === 0 || (key === 'reports' && h.indexOf('#/report') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && h.indexOf('#/investigation') === 0) ? 'active' : '';
+      a.className = h.indexOf('#/' + key) === 0 || (key === 'reports' && h.indexOf('#/report') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)) ? 'active' : '';
     });
     var rc = document.getElementById('review-count'), n = openCount();
     rc.textContent = n ? n : ''; rc.style.display = n ? 'inline-block' : 'none';
@@ -116,6 +116,7 @@
     else if (name === 'observation') CI.views.observation();
     else if (name === 'investigations') CI.views.investigations();
     else if (name === 'investigation') CI.views.investigation(parts[1]);
+    else if (name === 'casechart') CI.views.casechart(parts[1]);
     else if (name === 'leads') CI.views.leads();
     else if (name === 'lead') CI.views.lead(parts[1]);
     else if (name === 'estimate') CI.views.estimate(parts[1]);

@@ -37,11 +37,11 @@ t('lead sheets and board produce real PDFs', async () => {});
   const d = CI.sampleData();
   const one = CI.pdf.leadSheets(d, d.leads.map(l => l.id));
   const buf = Buffer.from(await one.arrayBuffer());
-  assert.equal(buf.slice(0, 4).toString(), '%PDF'); assert.ok((buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 3);
+  assert.equal(buf.slice(0, 4).toString(), '%PDF'); assert.ok((buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 4);
   const board = Buffer.from(await CI.pdf.board(d, d.banks[0].id).arrayBuffer());
   assert.equal(board.slice(0, 4).toString(), '%PDF');
   const out = process.env.PDF_OUT; if (out) { fs.writeFileSync(path.join(out, 'sheets.pdf'), buf); fs.writeFileSync(path.join(out, 'board.pdf'), board); }
-  console.log('ok - lead sheets (3 pages) and board are valid PDFs'); n++;
+  console.log('ok - lead sheets (4 pages) and board are valid PDFs'); n++;
   // lead logic
   assert.equal(CI.addLead(d, { bankId: d.banks[0].id, kind: 'INVESTIGATION', with: 'Investigations', question: ' ', raisedBy: 'R-0001' }).error, 'Write the question.');
   assert.ok(CI.addLead(d, { bankId: 'B-9', kind: 'INVESTIGATION', with: 'Investigations', question: 'q', raisedBy: 'R-0001' }).error);
@@ -49,9 +49,9 @@ t('lead sheets and board produce real PDFs', async () => {});
   assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Nobody', question: 'q', raisedBy: 'R-0001' }).error);
   assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Collection', question: 'q', raisedBy: 'R-9999' }).error);
   const L = CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Collection', question: 'q?', raisedBy: 'R-0001', about: ['E-0001', 'E-0001'] }).lead;
-  assert.equal(L.id, 'L-0004'); assert.deepEqual(L.about, ['E-0001']); assert.equal(L.status, 'NOT_STARTED');
+  assert.equal(L.id, 'L-0005'); assert.deepEqual(L.about, ['E-0001']); assert.equal(L.status, 'NOT_STARTED');
   d.reports[0].leadId = L.id; assert.equal(CI.leadResults(d, L.id).length, 1);
-  CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.leads.length, 3);
+  CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.leads.length, 4);
   console.log('ok - lead creation rules, results and delete'); n++;
   // estimate
   const b = d.banks[0], cnt = b.estimate.items.length;
@@ -96,5 +96,28 @@ t('lead sheets and board produce real PDFs', async () => {});
   assert.ok(o.clusters.every(c => c.ids.length >= 3));
   const quiet = CI.observe(CI.emptyData(), 14); assert.equal(quiet.files.length, 0); assert.equal(quiet.clusters.length, 0);
   console.log('ok - situation observation finds what moved (' + o.files.length + ' files, ' + o.clusters.length + ' clusters)'); n++;
+  // case chart
+  const dd = CI.sampleData(), iv = dd.investigations[0], eid = k => dd.entities.find(e => e.name.startsWith(k)).id;
+  const cc = CI.caseChartOf(iv); const nPins = cc.pins.length, nStr = cc.strings.length;
+  assert.equal(CI.addPin(dd, iv, 'E-9999').error, 'That file does not exist.');
+  assert.ok(CI.addPin(dd, iv, eid('Grid')).error.includes('already'));
+  const dana = CI.addPin(dd, iv, eid('Dana')); assert.ok(dana.pin); assert.equal(cc.pins.length, nPins + 1);
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Dana'), label: 'x', reportIds: ['R-0010'] }).error);
+  assert.equal(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: [] }).error, 'A string must cite at least one report.');
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: ['R-9999'] }).error.includes('R-9999'));
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: ['R-0001'] }).error.includes('does not name'));
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Vera'), label: 'x', reportIds: ['R-0010'] }).error.includes('pinned'));
+  const rs = CI.reportsForString(dd, eid('Dana'), eid('Tobias')); assert.deepEqual(rs.both, ['R-0010']);
+  const st1 = CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: ['R-0010'] }).string; assert.ok(st1);
+  assert.ok(CI.addString(dd, iv, { a: eid('Tobias'), b: eid('Dana'), label: 'Attacked', reportIds: ['R-0010'] }).error.includes('already'));
+  assert.equal(CI.updateString(dd, iv, st1.id, { label: 'named', reportIds: [] }).error, 'A string must cite at least one report.');
+  const cg = CI.caseGraph(dd, iv); assert.equal(cg.graph.nodes.length, nPins + 1); assert.equal(cg.graph.edges.length, nStr + 1);
+  assert.ok(cg.flags.nodes[eid('Keystone')] && cg.flags.edges['C-0003']); assert.ok(!cg.flags.nodes[eid('Grid')]);
+  dd.leads.forEach(l => { l.status = 'DONE'; }); assert.equal(Object.keys(CI.caseGraph(dd, iv).flags.nodes).length, 0);
+  CI.deleteReport(dd, 'R-0010'); assert.ok(!cc.strings.some(t => t.id === st1.id)); // its only report is gone
+  CI.removePin(dd, iv, eid('Keystone')); assert.ok(!cc.strings.some(t => t.a === eid('Keystone') || t.b === eid('Keystone')));
+  const m1 = CI.addEntity(dd, { type: 'individual', name: 'Orrin P.' }); CI.addPin(dd, iv, m1.id); CI.addPin(dd, iv, eid('Orrin Platt'));
+  CI.mergeEntities(dd, m1.id, eid('Orrin Platt')); assert.equal(cc.pins.filter(p => p.entityId === eid('Orrin Platt')).length, 1); assert.ok(!cc.pins.some(p => p.entityId === m1.id));
+  console.log('ok - case chart: pins, strings need reports, flags from open leads, cleanup on delete and merge'); n++;
   console.log('\n' + n + ' PDF/lead checks passed'); process.exit(0);
 })().catch(e => { console.error('FAIL', e); process.exit(1); });
