@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cross-Index (prototype)</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">Cross-Index <span class="muted">prototype</span></div>
+  <nav id="nav">
+    <a href="#/reports" data-nav="reports">Reports</a>
+    <a href="#/entities" data-nav="entities">Entities</a>
+    <a href="#/chart" data-nav="chart">Chart</a>
+    <a href="#/review" data-nav="review">Review <span id="review-count" class="count" style="display:none"></span></a>
+    <a href="#/settings" data-nav="settings">Settings</a>
+  </nav>
+  <button id="snag-btn" class="btn small" title="Note anything that was unclear or slow">Log a snag</button>
+</header>
+<main id="view"></main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="vendor/cytoscape.min.js"></script>
+<script src="core.js"></script>
+<script src="sample.js"></script>
+<script src="chart.js"></script>
+<script src="app.js"></script>
+<script src="chartview.js"></script>
+<script>CI.app.start();</script>
+</body>
+</html>
