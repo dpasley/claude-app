@@ -40,7 +40,8 @@
     var h = '<datalist id="ent-dl">' + ents.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>';
     h += '<div class="chart-layout"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
-      '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Re-layout</button><button class="btn small" data-action="cv-png">Export PNG</button></div>' +
+      '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
+      '<a class="btn small" href="#/estimate/' + esc(bank.id) + '">Estimate</a><button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(frozen.at.slice(0, 16).replace('T', ' ')) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
       '<div id="cy"></div>' + legendHtml() + '</section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
@@ -75,6 +76,7 @@
       }).join('') +
       '<div class="grid2 tight-grid"><label>From<input type="date" value="' + esc(bank.dateFrom) + '" data-on-change="cv-date" data-k="dateFrom"></label><label>To<input type="date" value="' + esc(bank.dateTo) + '" data-on-change="cv-date" data-k="dateTo"></label></div>' +
       '<p class="muted small">Dates use the event date, or the received date when none was given.</p>' +
+      '<label>Show only the heaviest files <span class="hint">0 shows everything; starting entities are always kept</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"></label>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
       chk('h', bank.hubStop, 'Do not expand past high-connection nodes', 'data-on-change="cv-hubstop"') + '</fieldset>';
     if (bank.excluded.length) {
@@ -99,8 +101,7 @@
   }
 
   function legendHtml() {
-    return '<div class="legend"><span><i style="color:var(--t-individual)">●</i> individual</span><span><i style="color:var(--t-group)">■</i> group</span><span><i style="color:var(--t-subject)">◆</i> subject</span><span><i style="color:var(--t-location)">⬢</i> location</span>' +
-      '<span>arrow = direction</span><span>thickness = independent reports</span><span>dashed = mentioned together</span><span>orange = new / traced path</span><span>black ring = starting entity</span><span>double ring = high-connection node</span></div>';
+    return '<div class="legend"><span>photo or logo tile = individual / group</span><span>arrow = direction</span><span>thicker line = more independent reports</span><span>dashed = mentioned together</span><span>orange = new or traced</span><span>black ring = starting entity</span><span>double ring = high-connection</span><span>drag tiles to arrange; the arrangement is kept</span></div>';
   }
 
   /* ---------- drawing ---------- */
@@ -126,7 +127,9 @@
       });
     }
     CI.chart.render(document.getElementById('cy'), graph, {
-      layout: bank.layout, edgeLabels: bank.edgeLabels !== false, diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
+      layout: bank.layout, positions: cur.frozen ? null : bank.positions, photoOf: function (id) { var e = A.idx().entity[id]; return e && e.photo ? e.photo : ''; },
+      onMoved: function (id, p) { if (cur.frozen) return; bank.positions[id] = p; A.persist(); },
+      edgeLabels: bank.edgeLabels !== false, diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
       onNode: function (id) { st.sel = { kind: 'node', id: id }; renderDetail(); },
       onEdge: function (id) { st.sel = { kind: 'edge', id: id }; renderDetail(); },
       onBackground: function () { st.sel = null; renderDetail(); }
@@ -135,6 +138,7 @@
     var s = document.getElementById('summary');
     if (s) {
       var txt = graph.nodes.length + ' entities · ' + graph.edges.length + ' connections';
+      if (graph.trimmed) txt += ' · ' + graph.trimmed + ' lighter file' + (graph.trimmed === 1 ? '' : 's') + ' not shown';
       if (graph.hiddenWeak && !cur.frozen) txt += ' · ' + graph.hiddenWeak + ' hidden below the minimum of ' + bank.minWeight;
       if (diff) txt += ' · since “' + esc(snapOf(bank, bank.compareId).label) + '”: ' + Object.keys(diff.newNodes).length + ' new entities, ' + Object.keys(diff.newEdges).length + ' new connections, ' + Object.keys(diff.grownEdges).length + ' strengthened';
       s.innerHTML = txt;
@@ -180,7 +184,7 @@
       if (!frozen) {
         h += '<button class="btn small" data-action="cv-node-seed" data-id="' + esc(id) + '">Add as starting entity</button><button class="btn small" data-action="cv-node-hide" data-id="' + esc(id) + '">Hide in this bank</button>';
       }
-      h += '<button class="btn small" data-action="cv-path-from" data-id="' + esc(id) + '">Find connections from here…</button></div>';
+      h += '<button class="btn small" data-action="cv-path-from" data-id="' + esc(id) + '">Find connections from here…</button><button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button></div>';
     } else if (st.sel && st.sel.kind === 'edge') {
       var e = edgeById(st.sel.id);
       if (e) {
@@ -197,6 +201,7 @@
             }).join('') + '</ul>';
           } else h += '<ul class="plain">' + e.reportIds.map(function (rid) { return '<li>' + A.repLink(rid) + '</li>'; }).join('') + '</ul>';
         }
+        h += '<div class="stack"><button class="btn small" data-action="cv-raise-edge" data-id="' + esc(e.id) + '">Raise a lead about this</button></div>';
       }
     } else {
       h += '<h3>Details</h3><p class="muted small">Click an entity or a connection. Every connection lists the reports behind it.</p>';
@@ -256,6 +261,8 @@
   };
   H['cv-bank-del'] = function () {
     var b = B();
+    var nl = D().leads.filter(function (l) { return l.bankId === b.id; }).length;
+    if (nl) { A.toast('This bank has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
     A.confirm('Delete the bank “' + b.name + '”' + (b.snapshots.length ? ' and its ' + b.snapshots.length + ' snapshot(s)' : '') + '? The reports and entities are not affected.', function () {
       D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); D().ui.bankId = null; A.persist(); A.go('#/chart');
     }, { title: 'Delete bank', yes: 'Delete', danger: true });
@@ -266,6 +273,7 @@
   };
   H['cv-seed-del'] = function (el) { mutate(function (b) { b.seeds = b.seeds.filter(function (x) { return x !== el.getAttribute('data-id'); }); }, true); };
   H['cv-hops'] = function (el) { mutate(function (b) { b.hops = Number(el.value); }); };
+  H['cv-topn'] = function (el) { mutate(function (b) { b.topN = Math.max(0, Math.floor(Number(el.value) || 0)); }); };
   H['cv-minw'] = function (el) { mutate(function (b) { b.minWeight = Math.max(1, Number(el.value) || 1); }); };
   function checkedIds(sel) {
     var out = []; document.querySelectorAll(sel).forEach(function (c) { if (c.checked) out.push(c.getAttribute('data-id')); });
@@ -320,7 +328,7 @@
 
   /* toolbar */
   H['cv-fit'] = function () { CI.chart.fit(); };
-  H['cv-relayout'] = function () { CI.chart.relayout(B().layout, st.graph); };
+  H['cv-relayout'] = function () { B().positions = {}; A.persist(); draw(); };
   H['cv-png'] = function () {
     var uri = CI.chart.png(); if (!uri) return;
     A.modal('<h2>Chart image</h2><p class="muted small">Right-click (or press and hold) the image to save or copy it.</p><img alt="Connections chart" src="' + uri + '"><div class="row end"><button class="btn" data-action="modal-close">Close</button></div>', true);
@@ -347,11 +355,58 @@
   H['cv-path-pick'] = function (el) { st.path = st.results[Number(el.getAttribute('data-i'))]; st.fitPath = true; draw(); };
   H['cv-path-clear'] = function () { st.path = null; st.results = []; st.searched = false; draw(); };
 
-  // Canvas colours are read from the page theme, so redraw when the viewer's theme changes.
-  function themeChanged() { if (CI.chart.cy && document.getElementById('cy') && B()) draw(); }
-  try {
-    var mq = window.matchMedia('(prefers-color-scheme: dark)');
-    if (mq.addEventListener) mq.addEventListener('change', themeChanged);
-    new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  } catch (e) { /* no theme listeners available */ }
+  /* leads from the chart */
+  function raiseFrom(question, about, rids) {
+    var bank = B(), ids = (rids || []).filter(function (r) { return A.idx().report[r]; });
+    CI.views.openLead({ bankId: bank.id, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
+  }
+  H['cv-raise'] = function () { CI.views.openLead({ bankId: B().id }); };
+  H['cv-raise-node'] = function (el) {
+    var id = el.getAttribute('data-id'), e = A.idx().entity[id];
+    raiseFrom(e ? 'Who or what is ' + e.name + '?' : '', [id], (A.idx().reportsByEntity[id] || []).slice().sort());
+  };
+  H['cv-raise-edge'] = function (el) {
+    var e = edgeById(el.getAttribute('data-id')); if (!e) return;
+    var q = e.kind === 'mention' ? 'Is there a connection between ' + nodeName(e.source) + ' and ' + nodeName(e.target) + '?' : 'What is behind ' + nodeName(e.source) + ' ' + e.label + ' ' + nodeName(e.target) + '?';
+    raiseFrom(q, [e.source, e.target], (e.reportIds || []).slice().sort());
+  };
+
+  /* print for the wall */
+  var pr = { paper: 'tabloid', orientation: 'landscape', cols: 2, rows: 2, quality: 'standard' };
+  function printPlan() {
+    var bb = CI.chart.bounds(); if (!bb) return null;
+    var paper = CI.PAPERS[pr.paper], land = pr.orientation !== 'portrait';
+    var pw = land ? Math.max(paper.w, paper.h) : Math.min(paper.w, paper.h), ph = land ? Math.min(paper.w, paper.h) : Math.max(paper.w, paper.h);
+    var plan = CI.planTiles({ gw: bb.w, gh: bb.h, cols: pr.cols, rows: pr.rows, pageW: pw, pageH: ph, margin: 0.35 });
+    return { plan: plan, dpi: CI.pickDpi(plan.PW, plan.PH, CI.QUALITY[pr.quality]) };
+  }
+  function printHtml() {
+    var p = printPlan(), n = pr.cols * pr.rows;
+    return '<h2>Print for the wall</h2><div class="form"><div class="grid2"><label>Paper<select id="pr-paper" data-on-change="cv-pr">' + A.options(Object.keys(CI.PAPERS).map(function (k) { return { value: k, label: CI.PAPERS[k].label }; }), pr.paper) + '</select></label>' +
+      '<label>Pages face<select id="pr-or" data-on-change="cv-pr">' + A.options([{ value: 'landscape', label: 'Landscape (wide)' }, { value: 'portrait', label: 'Portrait (tall)' }], pr.orientation) + '</select></label></div>' +
+      '<div class="grid2"><label>Pages across<select id="pr-cols" data-on-change="cv-pr">' + A.options([1, 2, 3, 4].map(function (n2) { return { value: String(n2), label: String(n2) }; }), String(pr.cols)) + '</select></label>' +
+      '<label>Pages down<select id="pr-rows" data-on-change="cv-pr">' + A.options([1, 2, 3, 4].map(function (n2) { return { value: String(n2), label: String(n2) }; }), String(pr.rows)) + '</select></label></div>' +
+      '<label>Quality<select id="pr-q" data-on-change="cv-pr">' + A.options([{ value: 'draft', label: 'Draft (small file)' }, { value: 'standard', label: 'Standard' }, { value: 'fine', label: 'Fine (large file)' }], pr.quality) + '</select></label></div>' +
+      '<p class="small">' + (p ? n + ' page' + (n === 1 ? '' : 's') + '. Joined together, about <b>' + p.plan.PW.toFixed(1) + ' × ' + p.plan.PH.toFixed(1) + ' in</b>. Pages carry crop marks and say which page sits next to which.' : 'There is nothing on the chart to print.') + '</p>' +
+      '<p class="muted small">Print at 100% (actual size), not “fit to page”. Trim at the crop marks and tape the pages together.</p>' +
+      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" id="pr-go" data-action="cv-pr-go"' + (p ? '' : ' disabled') + '>Make PDF</button></div>';
+  }
+  H['cv-print'] = function () { if (!st.graph || !st.graph.nodes.length) { A.toast('There is nothing on the chart to print.', true); return; } A.modal(printHtml()); };
+  H['cv-pr'] = function () {
+    pr.paper = val2('pr-paper'); pr.orientation = val2('pr-or'); pr.cols = Number(val2('pr-cols')); pr.rows = Number(val2('pr-rows')); pr.quality = val2('pr-q');
+    A.modal(printHtml());
+  };
+  function val2(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+  H['cv-pr-go'] = function () {
+    var btn = document.getElementById('pr-go'); btn.disabled = true; btn.textContent = 'Working…';
+    var bank = B();
+    CI.tiledChart({ chart: CI.chart, bankName: bank.name, paper: pr.paper, orientation: pr.orientation, cols: pr.cols, rows: pr.rows, quality: pr.quality,
+      onProgress: function (i, n) { btn.textContent = 'Page ' + i + ' of ' + n + '…'; } }).then(function (r) {
+      return CI.saveFile('Chart-' + CI.fileSafe(bank.name) + '-' + pr.cols + 'x' + pr.rows + '.pdf', r.blob).then(function (res) {
+        A.closeModal();
+        if (res.status === 'saved') A.toast('Saved. ' + r.pages + ' page' + (r.pages === 1 ? '' : 's') + ', about ' + r.finishedW.toFixed(1) + ' × ' + r.finishedH.toFixed(1) + ' in when joined.');
+        else if (res.status === 'unavailable') A.toast('Saving files is not available in this view.', true);
+      });
+    }).catch(function (e) { A.closeModal(); A.toast(e.message || 'Could not make the PDF.', true); });
+  };
 })();

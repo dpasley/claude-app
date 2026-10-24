@@ -11,7 +11,7 @@
 
   CI.DEFAULT_SETTINGS = {
     basisList: ['Fraud', 'Sabotage', 'Theft', 'Harassment of staff', 'Credible violence', 'Coordinated damaging activity'],
-    sourceTypes: ['Social post', 'Financial document', 'Corporate document', 'FOIA record', 'Staff report', 'News / media', 'Other'],
+    sourceTypes: ['Social post', 'Financial document', 'Corporate document', 'FOIA record', 'Staff report', 'News / media', 'Investigator report', 'Other'],
     roles: ['author', 'named', 'subject', 'payer', 'recipient', 'present', 'other'],
     // Relationship types follow graph-database style: UPPER_SNAKE_CASE, read as "(from)-[:TYPE]->(to)".
     linkTypes: [
@@ -30,6 +30,20 @@
     hubDegree: 8
   };
 
+  /* Leads: an open question raised by a report, worked by one of the three areas. */
+  CI.LEAD_KINDS = [
+    { id: 'INVESTIGATION', label: 'Investigation', title: 'INVESTIGATION LEAD' },
+    { id: 'DATA_REQUEST', label: 'Data request', title: 'DATA REQUEST' }
+  ];
+  CI.LEAD_WITH = ['Investigations', 'Collection', 'Estimates'];
+  CI.LEAD_STATUS = [
+    { id: 'NOT_STARTED', label: 'Not started' }, { id: 'IN_PROGRESS', label: 'In progress' },
+    { id: 'DONE', label: 'Done' }, { id: 'NO_RESULT', label: 'Checked, nothing found' }
+  ];
+  CI.leadKind = function (id) { return CI.LEAD_KINDS.filter(function (k) { return k.id === id; })[0] || CI.LEAD_KINDS[0]; };
+  CI.leadStatus = function (id) { return CI.LEAD_STATUS.filter(function (k) { return k.id === id; })[0] || CI.LEAD_STATUS[0]; };
+  CI.isClosed = function (l) { return l.status === 'DONE' || l.status === 'NO_RESULT'; };
+
   var clone = CI.clone = function (o) { return JSON.parse(JSON.stringify(o)); };
   var pad = function (n, w) { n = String(n); while (n.length < w) n = '0' + n; return n; };
 
@@ -38,8 +52,8 @@
     return {
       version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
-      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0 },
-      entities: [], reports: [], links: [], banks: [], log: [], merges: [],
+      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0 },
+      entities: [], reports: [], links: [], banks: [], leads: [], log: [], merges: [],
       ui: { bankId: null }
     };
   };
@@ -50,6 +64,13 @@
   var OLD_ROLE = { 'author / poster': 'author', 'subject of report': 'subject', 'present at': 'present' };
   CI.toToken = function (s) { return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, ''); };
   function migrate(d) {
+    if ((d.schema || 1) < 2) {
+      if (d.settings.sourceTypes.indexOf('Investigator report') === -1) {
+        var oi = d.settings.sourceTypes.indexOf('Other');
+        d.settings.sourceTypes.splice(oi === -1 ? d.settings.sourceTypes.length : oi, 0, 'Investigator report');
+      }
+      d.schema = 2;
+    }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
     d.settings.linkTypes.forEach(function (t) { if (OLD_LINK[t.id]) { t.id = OLD_LINK[t.id]; t.label = t.id; } });
@@ -69,14 +90,19 @@
   CI.normalize = function (d) {
     var e = CI.emptyData();
     d = d || {};
-    ['entities', 'reports', 'links', 'banks', 'log', 'merges'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
+    ['entities', 'reports', 'links', 'banks', 'leads', 'log', 'merges'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
     d.settings = Object.assign({}, e.settings, d.settings || {});
     ['basisList', 'sourceTypes', 'roles', 'linkTypes'].forEach(function (k) { if (!Array.isArray(d.settings[k]) || !d.settings[k].length) d.settings[k] = e.settings[k]; });
     d.counters = Object.assign({}, e.counters, d.counters || {});
     d.ui = Object.assign({}, e.ui, d.ui || {});
     d.version = 1;
     d.reports.forEach(function (r) { if (!Array.isArray(r.entities)) r.entities = []; });
-    d.banks.forEach(function (b) { if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
+    d.banks.forEach(function (b) {
+      if (!b.positions || typeof b.positions !== 'object') b.positions = {};
+      if (!b.estimate || !Array.isArray(b.estimate.items)) b.estimate = { summary: '', items: [], updated: '' };
+      if (b.topN == null) b.topN = 0;
+      if (b.handedOver == null) b.handedOver = '';
+      if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
     migrate(d);
     return d;
   };
@@ -93,7 +119,7 @@
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
   };
 
-  var PREFIX = { report: 'R-', entity: 'E-', link: 'L-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-' };
+  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-' };
   CI.nextId = function (d, kind) {
     d.counters[kind] = (d.counters[kind] || 0) + 1;
     return PREFIX[kind] + pad(d.counters[kind], 4);
@@ -275,6 +301,7 @@
   CI.deleteEntity = function (d, id) {
     if (CI.entityInUse(d, id)) return false;
     d.entities = d.entities.filter(function (e) { return e.id !== id; });
+    d.leads.forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
     d.banks.forEach(function (b) {
       b.seeds = b.seeds.filter(function (x) { return x !== id; });
       b.excluded = b.excluded.filter(function (x) { return x !== id; });
@@ -322,6 +349,8 @@
       b.seeds = b.seeds.map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
       b.excluded = b.excluded.map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
     });
+    d.leads.forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
+    d.entities.filter(function (e) { return e.id === fromId; }).forEach(function (e) { if (e.photo && !into.photo) into.photo = e.photo; });
     d.entities = d.entities.filter(function (e) { return e.id !== fromId; });
     d.merges.push(rec);
     return { merge: rec };
@@ -365,7 +394,8 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true
+      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '',
+      estimate: { summary: '', items: [], updated: '' }
     };
   };
 
@@ -460,8 +490,19 @@
       return { id: id, type: e.type, name: e.name, degree: degree[id] || 0, hub: isHub(id), seed: seeds.indexOf(id) !== -1 };
     });
     edges = edges.filter(function (e) { return keep[e.source] && keep[e.target]; });
+    var trimmed = 0, topN = Number(bank.topN) || 0;
+    if (topN > 0 && nodes.length > Math.max(topN, seeds.length)) {
+      var stats = CI.materialStats(d, idx);
+      var sc = function (n) { return stats[n.id] ? stats[n.id].score : 0; };
+      nodes.sort(function (a, b) { return (b.seed - a.seed) || (sc(b) - sc(a)) || a.name.localeCompare(b.name); });
+      var kept = {};
+      nodes.slice(0, Math.max(topN, seeds.length)).forEach(function (n) { kept[n.id] = true; });
+      trimmed = nodes.length - Object.keys(kept).length;
+      nodes = nodes.filter(function (n) { return kept[n.id]; });
+      edges = edges.filter(function (e) { return kept[e.source] && kept[e.target]; });
+    }
     nodes.sort(function (a, b) { return a.name.localeCompare(b.name); });
-    return { nodes: nodes, edges: edges, hiddenWeak: hiddenWeak };
+    return { nodes: nodes, edges: edges, hiddenWeak: hiddenWeak, trimmed: trimmed };
   };
 
   /* What changed in the live graph compared with a saved snapshot of the same bank. */
@@ -511,6 +552,90 @@
     });
     scored.sort(function (x, y) { return x.hops - y.hops || y.minWeight - x.minWeight || y.sumWeight - x.sumWeight; });
     return scored.slice(0, limit);
+  };
+
+  /* ---------- how heavy is each file, and how much of it matters ----------
+   * reports  = independent reports the entity is listed in
+   * material = independent reports in which the entity is part of a recorded connection
+   * A file that is mostly passing mentions has many reports but few material ones.
+   * score discounts high-connection nodes (a big bank or city ties to everything, so it says little). */
+  CI.materialStats = function (d, idx) {
+    idx = idx || CI.buildIndex(d);
+    var out = {}, hubDeg = d.settings.hubDegree || 8;
+    function get(id) { return out[id] || (out[id] = { reports: {}, material: {}, sources: {}, neighbors: {}, first: '', last: '' }); }
+    d.reports.forEach(function (r) {
+      var root = idx.rootOf(r.id), dt = CI.reportDate(r);
+      r.entities.forEach(function (x) {
+        var o = get(x.entityId); o.reports[root] = 1;
+        if (dt) { if (!o.first || dt < o.first) o.first = dt; if (!o.last || dt > o.last) o.last = dt; }
+      });
+    });
+    d.links.forEach(function (l) {
+      var r = idx.report[l.reportId]; if (!r) return;
+      var root = idx.rootOf(l.reportId), rr = idx.report[root] || r, src = CI.norm(rr.sourceRef || root);
+      [[l.from, l.to], [l.to, l.from]].forEach(function (p) {
+        var o = get(p[0]); o.material[root] = 1; o.sources[src] = 1; o.neighbors[p[1]] = 1;
+      });
+    });
+    Object.keys(out).forEach(function (id) {
+      var o = out[id];
+      o.reports = Object.keys(o.reports).length; o.material = Object.keys(o.material).length;
+      o.sources = Object.keys(o.sources).length; o.neighbors = Object.keys(o.neighbors).length;
+      o.hub = o.neighbors >= hubDeg; o.score = o.material * (o.hub ? 0.5 : 1) + Math.min(o.sources, 5) / 100;
+    });
+    return out;
+  };
+  CI.statsFor = function (stats, id) { return stats[id] || { reports: 0, material: 0, sources: 0, neighbors: 0, hub: false, score: 0, first: '', last: '' }; };
+
+  /* ---------- leads ---------- */
+  CI.addLead = function (d, o) {
+    var bank = d.banks.filter(function (b) { return b.id === o.bankId; })[0];
+    if (!bank) return { error: 'Choose a bank.' };
+    if (!CI.LEAD_KINDS.some(function (k) { return k.id === o.kind; })) return { error: 'Choose whether this is an investigation or a data request.' };
+    if (CI.LEAD_WITH.indexOf(o.with) === -1) return { error: 'Choose who the lead is with.' };
+    var q = String(o.question || '').trim();
+    if (!q) return { error: 'Write the question.' };
+    var r = d.reports.filter(function (x) { return x.id === o.raisedBy; })[0];
+    if (!r) return { error: 'Choose the report that raised it.' };
+    var lead = {
+      id: CI.nextId(d, 'lead'), bankId: bank.id, kind: o.kind, with: o.with, question: q, raisedBy: r.id,
+      about: (o.about || []).filter(function (x, i, a) { return a.indexOf(x) === i; }), issued: o.issued || CI.today(),
+      status: 'NOT_STARTED', response: '', returnedBy: '', returnedDate: '', created: CI.today()
+    };
+    d.leads.push(lead);
+    return { lead: lead };
+  };
+  CI.leadResults = function (d, id) { return d.reports.filter(function (r) { return r.leadId === id; }); };
+  CI.deleteLead = function (d, id) {
+    d.reports.forEach(function (r) { if (r.leadId === id) r.leadId = ''; });
+    d.leads = d.leads.filter(function (l) { return l.id !== id; });
+  };
+
+  /* ---------- estimate and handover ---------- */
+  CI.ESTIMATE_KINDS = [{ id: 'ESTABLISHED', label: 'Established' }, { id: 'HYPOTHESIS', label: 'Hypothesis' }];
+  CI.addEstimateItem = function (d, bank, o) {
+    if (!CI.ESTIMATE_KINDS.some(function (k) { return k.id === o.kind; })) return { error: 'Choose established or hypothesis.' };
+    var text = String(o.text || '').trim();
+    if (!text) return { error: 'Write the statement.' };
+    var ids = String(o.reportIds || '').split(/[\s,;]+/).map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean);
+    var bad = ids.filter(function (id) { return !d.reports.some(function (r) { return r.id === id; }); });
+    if (bad.length) return { error: 'No such report: ' + bad.join(', ') + '.' };
+    if (o.kind === 'ESTABLISHED' && !ids.length) return { error: 'An established statement must cite at least one report.' };
+    var it = { id: CI.nextId(d, 'item'), kind: o.kind, text: text, reportIds: ids.filter(function (x, i, a) { return a.indexOf(x) === i; }) };
+    bank.estimate.items.push(it); bank.estimate.updated = CI.today();
+    return { item: it };
+  };
+  CI.handOver = function (d, bank) {
+    var live = CI.computeGraph(d, bank, CI.buildIndex(d));
+    var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.today(), at: new Date().toISOString(), graph: clone(live) };
+    bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today();
+    return sn;
+  };
+
+  CI.fmtDate = function (iso) {
+    var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return iso || '';
+    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[2]) - 1] + ' ' + Number(m[3]) + ', ' + m[1];
   };
 
   /* ---------- export / import ---------- */

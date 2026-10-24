@@ -1,0 +1,76 @@
+// Run with: node tests/pdf.test.js  — PDF layout maths and real PDF generation with the bundled jsPDF.
+const assert = require('assert'), fs = require('fs'), path = require('path');
+globalThis.CI = {};
+globalThis.jspdf = require('../vendor/jspdf.umd.min.js');
+require('../core.js'); require('../sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js');
+const CI = globalThis.CI;
+let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
+
+t('planTiles centres and fits the graph inside the poster, tiles cover it', () => {
+  const p = CI.planTiles({ gw: 1200, gh: 700, cols: 2, rows: 2, pageW: 17, pageH: 11, margin: 0.35 });
+  assert.ok(Math.abs(p.pw - 16.3) < 1e-9 && Math.abs(p.ph - 10.3) < 1e-9);
+  assert.equal(p.tiles.length, 4);
+  assert.ok(1200 * p.f <= p.PW - 0.8 + 1e-9 && 700 * p.f <= p.PH - 0.8 + 1e-9);
+  assert.ok(Math.abs(p.offX + 1200 * p.f / 2 - p.PW / 2) < 1e-9);
+  assert.deepEqual(p.tiles.map(t => t.n), [1, 2, 3, 4]);
+  assert.deepEqual([p.tiles[1].r, p.tiles[1].c], [0, 1]);
+});
+t('planTiles caps enlargement so a tiny graph is not blown up', () => {
+  const p = CI.planTiles({ gw: 100, gh: 80, cols: 2, rows: 2, pageW: 17, pageH: 11, margin: 0.35 });
+  assert.equal(p.f, 0.03);
+});
+t('pickDpi lowers resolution for big posters and never below 50', () => {
+  assert.equal(CI.pickDpi(32.6, 20.6, 150), 144);
+  assert.ok(CI.pickDpi(49, 31, 150) < 100);
+  assert.equal(CI.pickDpi(500, 500, 150), 50);
+});
+t('photoGeometry crops faces square and fits logos', () => {
+  const a = CI.photoGeometry(800, 600, 'square', 256); assert.deepEqual([a.sw, a.sh, a.ow, a.oh, a.sx], [600, 600, 256, 256, 100]);
+  const b = CI.photoGeometry(1000, 500, 'fit', 256); assert.deepEqual([b.ow, b.oh], [256, 128]);
+  const c = CI.photoGeometry(100, 60, 'fit', 256); assert.deepEqual([c.ow, c.oh], [100, 60]);
+});
+t('placeholders exist for every type', () => {
+  CI.ENTITY_TYPES.forEach(ty => assert.ok(CI.placeholder(ty, '#123456').startsWith('data:image/svg+xml')));
+});
+t('lead sheets and board produce real PDFs', async () => {});
+(async () => {
+  const d = CI.sampleData();
+  const one = CI.pdf.leadSheets(d, d.leads.map(l => l.id));
+  const buf = Buffer.from(await one.arrayBuffer());
+  assert.equal(buf.slice(0, 4).toString(), '%PDF'); assert.ok((buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 3);
+  const board = Buffer.from(await CI.pdf.board(d, d.banks[0].id).arrayBuffer());
+  assert.equal(board.slice(0, 4).toString(), '%PDF');
+  const out = process.env.PDF_OUT; if (out) { fs.writeFileSync(path.join(out, 'sheets.pdf'), buf); fs.writeFileSync(path.join(out, 'board.pdf'), board); }
+  console.log('ok - lead sheets (3 pages) and board are valid PDFs'); n++;
+  // lead logic
+  assert.equal(CI.addLead(d, { bankId: d.banks[0].id, kind: 'INVESTIGATION', with: 'Investigations', question: ' ', raisedBy: 'R-0001' }).error, 'Write the question.');
+  assert.ok(CI.addLead(d, { bankId: 'B-9', kind: 'INVESTIGATION', with: 'Investigations', question: 'q', raisedBy: 'R-0001' }).error);
+  assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'X', with: 'Investigations', question: 'q', raisedBy: 'R-0001' }).error);
+  assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Nobody', question: 'q', raisedBy: 'R-0001' }).error);
+  assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Collection', question: 'q', raisedBy: 'R-9999' }).error);
+  const L = CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Collection', question: 'q?', raisedBy: 'R-0001', about: ['E-0001', 'E-0001'] }).lead;
+  assert.equal(L.id, 'L-0004'); assert.deepEqual(L.about, ['E-0001']); assert.equal(L.status, 'NOT_STARTED');
+  d.reports[0].leadId = L.id; assert.equal(CI.leadResults(d, L.id).length, 1);
+  CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.leads.length, 3);
+  console.log('ok - lead creation rules, results and delete'); n++;
+  // estimate
+  const b = d.banks[0], cnt = b.estimate.items.length;
+  assert.equal(CI.addEstimateItem(d, b, { kind: 'ESTABLISHED', text: 'x', reportIds: '' }).error, 'An established statement must cite at least one report.');
+  assert.ok(CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'x', reportIds: 'R-9999' }).error.includes('R-9999'));
+  assert.ok(CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'x', reportIds: '' }).item);
+  assert.equal(b.estimate.items.length, cnt + 1);
+  const sn = CI.handOver(d, b); assert.equal(b.handedOver, CI.today()); assert.equal(b.compareId, sn.id); assert.ok(sn.graph.nodes.length > 0);
+  console.log('ok - estimate rules and handover snapshot'); n++;
+  // material stats
+  const st = CI.materialStats(d), id = nm => d.entities.find(e => e.name.startsWith(nm)).id;
+  assert.equal(st[id('Orrin')].reports, 2); assert.equal(st[id('Orrin')].material, 1);
+  assert.equal(st[id('Harborline')].material, 4);
+  // repost collapses
+  assert.equal(st[id('GridWatch')].reports, 2); assert.equal(st[id('GridWatch')].material, 1); // named in R-0010 but not connected there
+  console.log('ok - material vs total reports, reposts collapsed'); n++;
+  const b2 = CI.newBank(d, 'top', [id('Q3')], 3); b2.topN = 4;
+  const g = CI.computeGraph(d, b2); assert.equal(g.nodes.length, 4); assert.ok(g.nodes.some(x => x.seed)); assert.ok(g.trimmed > 0);
+  assert.ok(g.edges.every(e => g.nodes.some(x => x.id === e.source) && g.nodes.some(x => x.id === e.target)));
+  console.log('ok - top-N keeps the heaviest files and the starting entity'); n++;
+  console.log('\n' + n + ' PDF/lead checks passed'); process.exit(0);
+})().catch(e => { console.error('FAIL', e); process.exit(1); });

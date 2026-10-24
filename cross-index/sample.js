@@ -90,6 +90,18 @@
     var bank = CI.newBank(d, 'Invoice scheme bank', [ent.invoice.id], 2);
     d.banks.push(bank);
     d.ui.bankId = bank.id;
+    bank.estimate.summary = 'Payments for the Q3 vendor invoices appear to pass through Harborline Supply to Brightwater Holdings, which shares an address with both Harborline (formerly) and Keystone Courier. The Depot 4 outage is a separate thread that touches the same address through Keystone.';
+    CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Harborline forwarded Northwind\u2019s payment to Brightwater Holdings within a day.', reportIds: 'R-0005' });
+    CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Brightwater and Harborline have both been registered at 410 Harbor Street, Unit 6.', reportIds: 'R-0002, R-0003' });
+    CI.addEstimateItem(d, bank, { kind: 'HYPOTHESIS', text: 'Harborline is a pass-through for payments that end at Brightwater.', reportIds: '' });
+    var lead = function (kind, who, question, rep, about, status) {
+      var r = CI.addLead(d, { bankId: bank.id, kind: kind, with: who, question: question, raisedBy: rep, about: about.map(function (k) { return ent[k].id; }), issued: CI.today() });
+      r.lead.status = status; return r.lead;
+    };
+    lead('INVESTIGATION', 'Investigations', 'Why did Harborline Supply forward Northwind\u2019s payment to Brightwater Holdings within a day, and who benefits?', 'R-0005', ['harbor', 'bright'], 'IN_PROGRESS');
+    lead('DATA_REQUEST', 'Collection', 'The current state business filing for Brightwater Holdings LLC, with all amendments and the agent and address history.', 'R-0002', ['bright'], 'IN_PROGRESS');
+    lead('DATA_REQUEST', 'Collection', 'Depot 4 badge and sign-in records for the 48 hours before the outage.', 'R-0008', ['depot4', 'keystone'], 'NOT_STARTED');
+    bank.handedOver = '';
     return d;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

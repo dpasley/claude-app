@@ -5,7 +5,7 @@ const dir = __dirname, read = f => fs.readFileSync(path.join(dir, f), 'utf8');
 const safeJs = t => t.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 const html = read('index.html');
 const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('<script src='));
-const scripts = ['vendor/cytoscape.min.js', 'core.js', 'sample.js', 'chart.js', 'app.js', 'chartview.js'];
+const scripts = ['vendor/cytoscape.min.js', 'vendor/jspdf.umd.min.js', 'core.js', 'sample.js', 'images.js', 'chart.js', 'pdf.js', 'app.js', 'chartview.js', 'leads.js'];
 const out = [
   '<title>Cross-Index</title>',
   '<meta name="claude:viewport-fit-sides" content="cover">',
@@ -13,7 +13,7 @@ const out = [
   '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">',
   '<style>\n' + read('style.css') + '\n</style>',
   body.trim(),
-  // Embedded pages cannot start downloads, so the artifact build drops the download button (Copy and paste-import remain).
+  // Embedded pages cannot start downloads directly, so the artifact build drops the JSON download button (Copy and paste-import remain). PDFs go through the downloads capability.
   ...scripts.map(f => '<script>\n' + safeJs(read(f)).split('<button class="btn" data-action="export-download">Download file</button>').join('') + '\n</script>'),
   '<script>CI.app.start();</script>'
 ].join('\n');
