@@ -5,6 +5,7 @@
 
   CI.sampleData = function () {
     var d = CI.emptyData();
+    d.started = true; d.sampleLoaded = true;
     d.settings.heatThreshold = 4;
     var ago = function (n) { return CI.daysAgo(n); };
 

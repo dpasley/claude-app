@@ -23,6 +23,10 @@ A link is one report's assertion (from, to, type, source report, optional note).
 Stored in this browser only (localStorage). Use Settings → Export JSON for backups.
 **Do not commit exports to this repository.** Export files contain report data; the repo is for code and the fictional sample data only (`.gitignore` blocks the default export file name).
 
+## Hosting as a Claude artifact
+
+`node build-artifact.js` writes `dist/cross-index-artifact.html`, a single self-contained page (git-ignored) that can be published as an artifact and used inside Claude. Browser pop-ups and file downloads do not work there, so the app uses its own in-page dialogs and an Export dialog with Copy.
+
 ## Tests
 
 `node tests/core.test.js` (logic) and `node tests/chart.test.js` (chart elements and styles against the bundled Cytoscape in headless mode). Plain Node, nothing to install.

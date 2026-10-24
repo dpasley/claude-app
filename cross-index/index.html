@@ -9,6 +9,7 @@
 <body>
 <header class="top">
   <div class="brand">Cross-Index <span class="muted">prototype</span></div>
+  <button id="back-btn" class="btn small" disabled>Back</button>
   <nav id="nav">
     <a href="#/reports" data-nav="reports">Reports</a>
     <a href="#/entities" data-nav="entities">Entities</a>
@@ -18,7 +19,9 @@
   </nav>
   <button id="snag-btn" class="btn small" title="Note anything that was unclear or slow">Log a snag</button>
 </header>
+<div id="sample-banner" hidden></div>
 <main id="view"></main>
+<div id="modal-root"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <script src="vendor/cytoscape.min.js"></script>

@@ -8,6 +8,23 @@
   CI.TYPE_COLOR = { individual: '#0072B2', group: '#D55E00', subject: '#009E73', location: '#CC79A7' };
   CI.TYPE_SHAPE = { individual: 'ellipse', group: 'round-rectangle', subject: 'diamond', location: 'hexagon' };
 
+  // Canvas colours cannot use CSS variables, so read them from the page theme when drawing.
+  CI.DEFAULT_THEME = {
+    text: '#1d2230', bg: '#ffffff', edge: '#7a8095', edgeText: '#3b4052', mention: '#b4b9c8', seed: '#1d2230', hub: '#646b84', sel: '#3552d1', accent: '#d9480f',
+    types: { individual: '#0072B2', group: '#D55E00', subject: '#009E73', location: '#CC79A7' }
+  };
+  CI.readTheme = function () {
+    var t = JSON.parse(JSON.stringify(CI.DEFAULT_THEME));
+    try {
+      var cs = root.getComputedStyle(root.document.documentElement);
+      var g = function (n, f) { var v = (cs.getPropertyValue(n) || '').trim(); return v || f; };
+      t.text = g('--cy-text', t.text); t.bg = g('--cy-bg', t.bg); t.edge = g('--cy-edge', t.edge); t.edgeText = g('--cy-edge-text', t.edgeText);
+      t.mention = g('--cy-mention', t.mention); t.seed = g('--cy-seed', t.seed); t.hub = g('--cy-hub', t.hub); t.sel = g('--cy-sel', t.sel); t.accent = g('--cy-accent', t.accent);
+      CI.ENTITY_TYPES.forEach(function (k) { t.types[k] = g('--t-' + k, t.types[k]); });
+    } catch (e) { /* not in a browser: defaults */ }
+    return t;
+  };
+
   CI.edgeWidth = function (w) { return Math.min(9, 1.8 + (w - 1) * 1.4); };
 
   /* opts: edgeLabels (bool), diff (from CI.diffGraphs), extraNodes[], extraEdges[], hl {edges:{id:1}, nodes:{id:1}} */
@@ -26,7 +43,8 @@
       if (diff.newNodes[n.id]) cls.push('new');
       if (extra) cls.push('extra');
       if (hl.nodes[n.id]) cls.push('hl');
-      els.push({ group: 'nodes', data: { id: n.id, label: n.name, color: CI.TYPE_COLOR[n.type] || '#666', shape: CI.TYPE_SHAPE[n.type] || 'ellipse', degree: n.degree || 0 }, classes: cls.join(' ') });
+      var tc = (opts.theme && opts.theme.types) || CI.TYPE_COLOR;
+      els.push({ group: 'nodes', data: { id: n.id, label: n.name, color: tc[n.type] || '#666', shape: CI.TYPE_SHAPE[n.type] || 'ellipse', degree: n.degree || 0 }, classes: cls.join(' ') });
     }
     function addEdge(e, extra) {
       if (haveE[e.id]) return;
@@ -51,31 +69,32 @@
     return els;
   };
 
-  CI.cyStyle = function () {
+  CI.cyStyle = function (t) {
+    t = t || CI.DEFAULT_THEME;
     return [
       { selector: 'node', style: {
-        'label': 'data(label)', 'font-size': 11, 'color': '#1d1d1b', 'text-valign': 'bottom', 'text-margin-y': 5,
+        'label': 'data(label)', 'font-size': 11, 'color': t.text, 'text-valign': 'bottom', 'text-margin-y': 5,
         'text-wrap': 'wrap', 'text-max-width': 110, 'background-color': 'data(color)', 'shape': 'data(shape)',
         'width': 'mapData(degree, 0, 12, 24, 46)', 'height': 'mapData(degree, 0, 12, 24, 46)',
-        'border-width': 1.5, 'border-color': '#ffffff', 'text-background-color': '#ffffff', 'text-background-opacity': 0.75, 'text-background-padding': 1
+        'border-width': 1.5, 'border-color': t.bg, 'text-background-color': t.bg, 'text-background-opacity': 0.75, 'text-background-padding': 1
       } },
-      { selector: 'node.seed', style: { 'border-width': 4, 'border-color': '#1d1d1b' } },
-      { selector: 'node.hub', style: { 'border-style': 'double', 'border-width': 5, 'border-color': '#6b6b66' } },
-      { selector: 'node.new', style: { 'border-width': 4, 'border-color': '#e8590c' } },
+      { selector: 'node.seed', style: { 'border-width': 4, 'border-color': t.seed } },
+      { selector: 'node.hub', style: { 'border-style': 'double', 'border-width': 5, 'border-color': t.hub } },
+      { selector: 'node.new', style: { 'border-width': 4, 'border-color': t.accent } },
       { selector: 'node.extra', style: { 'opacity': 0.8 } },
-      { selector: 'node.hl', style: { 'border-width': 4, 'border-color': '#e8590c' } },
-      { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#3b5bdb', 'overlay-color': '#3b5bdb', 'overlay-opacity': 0.12, 'overlay-padding': 6 } },
+      { selector: 'node.hl', style: { 'border-width': 4, 'border-color': t.accent } },
+      { selector: 'node:selected', style: { 'border-width': 4, 'border-color': t.sel, 'overlay-color': t.sel, 'overlay-opacity': 0.15, 'overlay-padding': 6 } },
       { selector: 'edge', style: {
-        'width': 'data(w)', 'line-color': '#7d828c', 'target-arrow-color': '#7d828c', 'target-arrow-shape': 'data(arrow)', 'arrow-scale': 1.1,
-        'curve-style': 'bezier', 'control-point-step-size': 38, 'label': 'data(elabel)', 'font-size': 9, 'color': '#3a3d44',
-        'text-rotation': 'autorotate', 'text-background-color': '#ffffff', 'text-background-opacity': 0.9, 'text-background-padding': 2, 'text-margin-y': -2
+        'width': 'data(w)', 'line-color': t.edge, 'target-arrow-color': t.edge, 'target-arrow-shape': 'data(arrow)', 'arrow-scale': 1.1,
+        'curve-style': 'bezier', 'control-point-step-size': 38, 'label': 'data(elabel)', 'font-size': 9, 'color': t.edgeText,
+        'text-rotation': 'autorotate', 'text-background-color': t.bg, 'text-background-opacity': 0.9, 'text-background-padding': 2, 'text-margin-y': -2
       } },
-      { selector: 'edge.mention', style: { 'line-style': 'dashed', 'line-color': '#b9bcc4', 'target-arrow-shape': 'none', 'opacity': 0.9 } },
-      { selector: 'edge.new', style: { 'line-color': '#e8590c', 'target-arrow-color': '#e8590c' } },
-      { selector: 'edge.grown', style: { 'line-color': '#e8590c', 'target-arrow-color': '#e8590c' } },
+      { selector: 'edge.mention', style: { 'line-style': 'dashed', 'line-color': t.mention, 'target-arrow-shape': 'none', 'opacity': 0.95 } },
+      { selector: 'edge.new', style: { 'line-color': t.accent, 'target-arrow-color': t.accent } },
+      { selector: 'edge.grown', style: { 'line-color': t.accent, 'target-arrow-color': t.accent } },
       { selector: 'edge.extra', style: { 'opacity': 0.7 } },
-      { selector: 'edge.hl', style: { 'line-color': '#e8590c', 'target-arrow-color': '#e8590c', 'opacity': 1, 'z-index': 20 } },
-      { selector: 'edge:selected', style: { 'line-color': '#3b5bdb', 'target-arrow-color': '#3b5bdb', 'overlay-color': '#3b5bdb', 'overlay-opacity': 0.12 } }
+      { selector: 'edge.hl', style: { 'line-color': t.accent, 'target-arrow-color': t.accent, 'opacity': 1, 'z-index': 20 } },
+      { selector: 'edge:selected', style: { 'line-color': t.sel, 'target-arrow-color': t.sel, 'overlay-color': t.sel, 'overlay-opacity': 0.15 } }
     ];
   };
 
@@ -101,10 +120,11 @@
         self.cy.destroy(); self.cy = null;
       }
       if (typeof root.cytoscape !== 'function') { container.innerHTML = '<p class="empty">The chart library did not load (vendor/cytoscape.min.js).</p>'; return; }
-      var els = CI.buildElements(graph, o);
+      var theme = CI.readTheme();
+      var els = CI.buildElements(graph, Object.assign({}, o, { theme: theme }));
       var layoutName = o.layout || 'cose';
       var cy = self.cy = root.cytoscape({
-        container: container, elements: els, style: CI.cyStyle(), minZoom: 0.15, maxZoom: 3, wheelSensitivity: 0.25,
+        container: container, elements: els, style: CI.cyStyle(theme), minZoom: 0.15, maxZoom: 3, wheelSensitivity: 0.25,
         layout: CI.layoutOptions(layoutName, graph)
       });
       cy.on('tap', 'node', function (ev) { o.onNode && o.onNode(ev.target.id()); });

@@ -5,6 +5,7 @@
   var d = CI.load();
   var _idx = null;
   var view = document.getElementById('view');
+  var cur = 'reports', hist = [], pend = null, saveWarned = false;
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -13,7 +14,7 @@
   function idx() { return _idx || (_idx = CI.buildIndex(d)); }
   function persist() {
     _idx = null;
-    if (!CI.save(d)) toast('Could not save to this browser (storage may be full). Export your data now.', true);
+    if (!CI.save(d) && !saveWarned) { saveWarned = true; toast('This browser is not keeping a saved copy (storage may be full or blocked). Export your data from Settings.', true); }
     updateNav();
   }
   function toast(msg, bad) {
@@ -22,7 +23,12 @@
     clearTimeout(toast._t);
     toast._t = setTimeout(function () { t.className = ''; }, bad ? 7000 : 2600);
   }
-  function go(h) { if (location.hash === h) route(); else location.hash = h; }
+  function go(h) {
+    h = String(h).replace(/^#\/?/, '') || 'reports';
+    if (h === cur) { route(); return; }
+    hist.push(cur); if (hist.length > 50) hist.shift();
+    cur = h; route();
+  }
   function logEvent(kind, text, reportId) {
     d.log.push({ id: CI.nextId(d, 'snag'), t: new Date().toISOString(), kind: kind, text: text, reportId: reportId || '', resolved: false });
   }
@@ -50,7 +56,13 @@
     return n;
   }
   function updateNav() {
-    var h = location.hash || '#/reports';
+    var h = '#/' + cur;
+    var back = document.getElementById('back-btn'); if (back) back.disabled = !hist.length;
+    var sb = document.getElementById('sample-banner');
+    if (sb) {
+      sb.hidden = !d.sampleLoaded;
+      if (d.sampleLoaded) sb.innerHTML = 'Fictional sample data is loaded so you can look around. <button class="btn small" data-action="start-fresh">Start fresh</button>';
+    }
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
       a.className = h.indexOf('#/' + key) === 0 || (key === 'reports' && h.indexOf('#/report') === 0) ? 'active' : '';
@@ -66,12 +78,28 @@
   }
   function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
 
+  /* In-page dialogs: browsers inside embedded viewers can suppress confirm()/prompt(), so the app has its own. */
+  function modal(html, wide) {
+    document.getElementById('modal-root').innerHTML = '<div class="overlay" data-action="modal-bg"><div class="dialog' + (wide ? ' wide' : '') + '" role="dialog" aria-modal="true">' + html + '</div></div>';
+  }
+  function closeModal() { document.getElementById('modal-root').innerHTML = ''; pend = null; }
+  function askConfirm(msg, onYes, o) {
+    o = o || {}; pend = { yes: onYes };
+    modal('<h2>' + esc(o.title || 'Are you sure?') + '</h2><p class="pre">' + esc(msg) + '</p><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn ' + (o.danger ? 'danger solid' : 'primary') + '" data-action="modal-yes">' + esc(o.yes || 'Confirm') + '</button></div>');
+    var b = document.querySelector('#modal-root [data-action="modal-yes"]'); if (b) b.focus();
+  }
+  function askText(msg, def, onOk, o) {
+    o = o || {}; pend = { ok: onOk };
+    modal('<h2>' + esc(o.title || '') + '</h2><label>' + esc(msg) + '<input type="text" id="modal-input" value="' + esc(def || '') + '"></label><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="modal-ok">' + esc(o.ok || 'OK') + '</button></div>');
+    var i = document.getElementById('modal-input'); if (i) { i.focus(); i.select(); }
+  }
+
   /* ---------- router ---------- */
   var handlers = {};
   function route() {
-    var h = (location.hash || '#/reports').replace(/^#\/?/, '');
-    var parts = h.split('/');
+    var parts = cur.split('/');
     window.scrollTo(0, 0);
+    view.className = '';
     if (CI.chart) CI.chart.destroy();
     var name = parts[0] || 'reports';
     if (name === 'reports') viewReports();
@@ -87,11 +115,26 @@
     updateNav();
   }
   document.addEventListener('click', function (ev) {
+    var link = ev.target.closest('a[href^="#/"]');
+    if (link && !link.hasAttribute('data-action')) { ev.preventDefault(); go(link.getAttribute('href')); return; }
     var el = ev.target.closest('[data-action]');
     if (!el || !handlers[el.getAttribute('data-action')]) return;
     if (el.tagName === 'A') ev.preventDefault();
     handlers[el.getAttribute('data-action')](el, ev);
   });
+  document.addEventListener('keydown', function (ev) {
+    if (!document.querySelector('#modal-root .overlay')) return;
+    if (ev.key === 'Escape') closeModal();
+    else if (ev.key === 'Enter' && ev.target && ev.target.id === 'modal-input') { ev.preventDefault(); handlers['modal-ok'](); }
+  });
+  handlers['modal-close'] = function () { closeModal(); };
+  handlers['modal-bg'] = function (el, ev) { if (ev.target === el) closeModal(); };
+  handlers['modal-yes'] = function () { var f = pend && pend.yes; closeModal(); if (f) f(); };
+  handlers['modal-ok'] = function () {
+    var v = val('modal-input').trim(), f = pend && pend.ok;
+    if (!v || !f) return;
+    closeModal(); f(v);
+  };
   ['change', 'input'].forEach(function (type) {
     document.addEventListener(type, function (ev) {
       var el = ev.target.closest('[data-on-' + type + ']');
@@ -267,13 +310,17 @@
       msg.textContent = 'Choose what type of entity this is (individual, group, subject or location).';
       logEvent('unclear-type', 'Could not settle the entity type for “' + q + '”.', ae.reportId); persist(); return;
     }
+    var role = val('ae-role').trim(), flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
-    if (exact && !confirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate file anyway?')) return;
-    if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar files exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', ae.reportId);
-    var e = CI.addEntity(d, { type: type, name: q });
-    CI.addEntityToReport(d, ae.reportId, e.id, val('ae-role').trim(), document.getElementById('ae-flag').checked, '');
-    ae.q = ''; persist(); viewReport(ae.reportId);
-    var qi = document.getElementById('ae-q'); if (qi) qi.focus();
+    function create() {
+      if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar files exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', rid);
+      var e = CI.addEntity(d, { type: type, name: q });
+      CI.addEntityToReport(d, rid, e.id, role, flag, '');
+      ae.q = ''; persist(); viewReport(rid);
+      var qi = document.getElementById('ae-q'); if (qi) qi.focus();
+    }
+    if (exact) askConfirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate file anyway?', create, { title: 'Possible duplicate', yes: 'Create anyway' });
+    else create();
   };
   function repEntity(el) {
     var r = idx().report[ae.reportId];
@@ -287,9 +334,11 @@
     persist(); viewReport(ae.reportId);
   };
   handlers['remove-entity'] = function (el) {
-    var eid = el.getAttribute('data-eid'), n = d.links.filter(function (l) { return l.reportId === ae.reportId && (l.from === eid || l.to === eid); }).length;
-    if (!confirm('Remove this entity from the report?' + (n ? ' Its ' + n + ' connection(s) from this report will be removed too.' : ''))) return;
-    CI.removeEntityFromReport(d, ae.reportId, eid); persist(); viewReport(ae.reportId);
+    var eid = el.getAttribute('data-eid'), rid = ae.reportId;
+    var n = d.links.filter(function (l) { return l.reportId === rid && (l.from === eid || l.to === eid); }).length;
+    askConfirm('Remove this entity from the report?' + (n ? ' Its ' + n + ' connection(s) from this report will be removed too.' : ''), function () {
+      CI.removeEntityFromReport(d, rid, eid); persist(); viewReport(rid);
+    }, { title: 'Remove entity', yes: 'Remove', danger: true });
   };
   handlers['lk-preview'] = function () {
     var f = val('lk-from'), t = val('lk-to'), ty = val('lk-type'), box = document.getElementById('lk-preview');
@@ -310,8 +359,9 @@
   };
   handlers['del-report'] = function (el) {
     var id = el.getAttribute('data-id'), n = d.links.filter(function (l) { return l.reportId === id; }).length;
-    if (!confirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. Entity files stay.')) return;
-    CI.deleteReport(d, id); persist(); go('#/reports');
+    askConfirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. Entity files stay.', function () {
+      CI.deleteReport(d, id); persist(); go('#/reports');
+    }, { title: 'Delete report', yes: 'Delete', danger: true });
   };
   handlers['chart-report'] = function (el) {
     var r = idx().report[el.getAttribute('data-id')];
@@ -406,18 +456,18 @@
     if (!into) { toast('Choose which entity to merge into.', true); return; }
     var a = idx().entity[id], b = idx().entity[into];
     var nr = (idx().reportsByEntity[id] || []).length, nl = (idx().linksByEntity[id] || []).length;
-    if (!confirm('Merge “' + a.name + '” into “' + b.name + '”?\n\n' + nr + ' report(s) and ' + nl + ' connection(s) move to “' + b.name + '”. You can undo this from Review.')) return;
-    var res = CI.mergeEntities(d, id, into);
-    if (res.error) { toast(res.error, true); return; }
-    logEvent('merge', 'Merged “' + a.name + '” (' + id + ') into “' + b.name + '” (' + into + ').', '');
-    d.log[d.log.length - 1].resolved = true;
-    persist(); toast('Merged.'); go('#/entity/' + into);
+    askConfirm('Merge “' + a.name + '” into “' + b.name + '”?\n\n' + nr + ' report(s) and ' + nl + ' connection(s) move to “' + b.name + '”. You can undo this from Review.', function () {
+      var res = CI.mergeEntities(d, id, into);
+      if (res.error) { toast(res.error, true); return; }
+      logEvent('merge', 'Merged “' + a.name + '” (' + id + ') into “' + b.name + '” (' + into + ').', '');
+      d.log[d.log.length - 1].resolved = true;
+      persist(); toast('Merged.'); go('#/entity/' + into);
+    }, { title: 'Merge entities', yes: 'Merge' });
   };
   handlers['del-entity'] = function (el) {
     var id = el.getAttribute('data-id');
     if (CI.entityInUse(d, id)) { toast('This entity is still used by reports or connections. Merge it or remove it from them first.', true); return; }
-    if (!confirm('Delete this entity file?')) return;
-    CI.deleteEntity(d, id); persist(); go('#/entities');
+    askConfirm('Delete this entity file?', function () { CI.deleteEntity(d, id); persist(); go('#/entities'); }, { title: 'Delete entity', yes: 'Delete', danger: true });
   };
 
   /* ---------- REVIEW (hesitation log, flags, merges) ---------- */
@@ -458,17 +508,19 @@
   handlers['log-resolve'] = function (el) { d.log.filter(function (x) { return x.id === el.getAttribute('data-id'); }).forEach(function (x) { x.resolved = true; }); persist(); viewReview(); };
   handlers['log-delete'] = function (el) { d.log = d.log.filter(function (x) { return x.id !== el.getAttribute('data-id'); }); persist(); viewReview(); };
   handlers['undo-merge'] = function (el) {
-    if (!confirm('Undo this merge? The merged-away entity file comes back and the reports and connections it touched are restored to how they were just before the merge.')) return;
-    var res = CI.undoMerge(d, el.getAttribute('data-id'));
-    if (res.error) { toast(res.error, true); return; }
-    persist(); toast('Merge undone.'); viewReview();
+    var id = el.getAttribute('data-id');
+    askConfirm('Undo this merge? The merged-away entity file comes back and the reports and connections it touched are restored to how they were just before the merge.', function () {
+      var res = CI.undoMerge(d, id);
+      if (res.error) { toast(res.error, true); return; }
+      persist(); toast('Merge undone.'); viewReview();
+    }, { title: 'Undo merge', yes: 'Undo merge' });
   };
   document.getElementById('snag-btn').addEventListener('click', function () {
-    var t = prompt('What was unclear or slow? (one line)');
-    if (!t || !t.trim()) return;
-    var ctx = (location.hash.match(/#\/report\/(R-\d+)/) || [])[1] || '';
-    logEvent('snag', t.trim(), ctx); persist(); toast('Logged in Review.');
-    if ((location.hash || '').indexOf('#/review') === 0) viewReview();
+    askText('What was unclear or slow? (one line)', '', function (t) {
+      var ctx = (cur.match(/^report\/(R-\d+)/) || [])[1] || '';
+      logEvent('snag', t, ctx); persist(); toast('Logged in Review.');
+      if (cur === 'review') viewReview();
+    }, { title: 'Log a snag', ok: 'Log it' });
   });
 
   /* ---------- SETTINGS ---------- */
@@ -485,8 +537,9 @@
       '<label>High-connection node at this many connections<input type="number" min="3" id="s-hub" value="' + s.hubDegree + '"></label></div>' +
       '<div class="row"><button class="btn primary" data-action="save-settings">Save settings</button></div></form>' +
       '<div class="card"><h2>Data</h2><p class="muted">Everything is stored in this browser only. Export regularly. <strong>Export files contain report data about real people – keep them out of the GitHub repository.</strong> The repository should hold the app and fictional sample data only.</p>' +
-      '<div class="row wrap"><button class="btn" data-action="export">Export JSON</button><label class="btn">Import JSON<input type="file" accept="application/json,.json" id="import-file" data-on-change="import" hidden></label>' +
+      '<div class="row wrap"><button class="btn" data-action="export">Export\u2026</button><label class="btn">Import from file<input type="file" accept="application/json,.json" id="import-file" data-on-change="import" hidden></label>' +
       '<button class="btn" data-action="load-sample">Load fictional sample data</button><button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
+      '<label class="form-inline">Or paste exported JSON here<textarea id="import-text" class="mono" rows="3" placeholder="{ &quot;version&quot;: 1, ... }"></textarea></label><div class="row"><button class="btn small" data-action="import-paste">Import pasted JSON</button></div>' +
       '<p class="muted small" style="margin-top:10px">Now holding ' + d.reports.length + ' reports, ' + d.entities.length + ' entities, ' + d.links.length + ' connections, ' + d.banks.length + ' banks.</p></div>';
     view.innerHTML = h;
   }
@@ -516,34 +569,54 @@
     s.heatWindowDays = Math.max(1, Number(val('s-hw')) || 14); s.heatThreshold = Math.max(1, Number(val('s-ht')) || 5); s.hubDegree = Math.max(3, Number(val('s-hub')) || 8);
     persist(); toast('Settings saved.'); viewSettings();
   };
-  handlers['export'] = function () { download('cross-index-export-' + CI.today() + '.json', CI.exportJson(d)); };
+  handlers['export'] = function () {
+    modal('<h2>Export</h2><p class="muted small">Copy this text somewhere safe, outside the GitHub repository. To restore it, paste it under Settings, Data, or choose the saved file.</p><textarea id="export-text" class="mono" rows="12" readonly></textarea><div class="row end"><button class="btn" data-action="export-download">Download file</button><button class="btn primary" data-action="export-copy">Copy</button><button class="btn" data-action="modal-close">Close</button></div>', true);
+    var ta = document.getElementById('export-text'); ta.value = CI.exportJson(d); ta.focus(); ta.select();
+  };
+  handlers['export-copy'] = function () {
+    var ta = document.getElementById('export-text'); ta.select();
+    var fallback = function () { try { document.execCommand('copy'); toast('Copied.'); } catch (e) { toast('Press Ctrl+C (Cmd+C) to copy the selected text.'); } };
+    try { navigator.clipboard.writeText(ta.value).then(function () { toast('Copied.'); }, fallback); } catch (e) { fallback(); }
+  };
+  handlers['export-download'] = function () { download('cross-index-export-' + CI.today() + '.json', val('export-text')); };
+  function doImport(text, label) {
+    var nd;
+    try { nd = CI.importJson(text); } catch (e) { toast('Import failed: ' + e.message, true); return; }
+    askConfirm('Replace everything in this browser with ' + label + ' (' + nd.reports.length + ' reports, ' + nd.entities.length + ' entities)?', function () {
+      d = nd; d.started = true; persist(); toast('Imported.'); go('#/settings');
+    }, { title: 'Import data', yes: 'Replace', danger: true });
+  }
   handlers['import'] = function (el) {
     var f = el.files && el.files[0]; if (!f) return;
     var rd = new FileReader();
-    rd.onload = function () {
-      try {
-        var nd = CI.importJson(rd.result);
-        if (!confirm('Replace everything in this browser with the contents of “' + f.name + '” (' + nd.reports.length + ' reports, ' + nd.entities.length + ' entities)?')) return;
-        d = nd; persist(); toast('Imported.'); viewSettings();
-      } catch (e) { toast('Import failed: ' + e.message, true); }
-    };
+    rd.onload = function () { doImport(String(rd.result), '“' + f.name + '”'); };
     rd.readAsText(f);
   };
-  handlers['load-sample'] = function () {
-    if ((d.reports.length || d.entities.length) && !confirm('Replace the data in this browser with the fictional sample data? Export first if you need what is here.')) return;
-    d = CI.sampleData(); persist(); toast('Sample data loaded.'); go('#/reports');
+  handlers['import-paste'] = function () {
+    var t = val('import-text').trim();
+    if (!t) { toast('Paste the exported JSON first.', true); return; }
+    doImport(t, 'the pasted data');
   };
+  function loadSample() { d = CI.sampleData(); persist(); toast('Sample data loaded.'); go('#/reports'); }
+  handlers['load-sample'] = function () {
+    if ((d.reports.length || d.entities.length) && !d.sampleLoaded) askConfirm('Replace the data in this browser with the fictional sample data? Export first if you need what is here.', loadSample, { title: 'Load sample data', yes: 'Replace', danger: true });
+    else loadSample();
+  };
+  function wipe() { d = CI.emptyData(); d.started = true; persist(); toast('Index is empty.'); go('#/reports'); }
   handlers['clear-all'] = function () {
-    if (!confirm('Delete ALL reports, entities, connections and banks from this browser? This cannot be undone.')) return;
-    if (!confirm('Really delete everything? Export first if there is any chance you need it.')) return;
-    d = CI.emptyData(); persist(); go('#/reports');
+    askConfirm('Delete ALL reports, entities, connections and banks from this browser? This cannot be undone.', function () {
+      askConfirm('Really delete everything? Export first if there is any chance you need it.', wipe, { title: 'Last check', yes: 'Delete everything', danger: true });
+    }, { title: 'Clear everything', yes: 'Continue', danger: true });
+  };
+  handlers['start-fresh'] = function () {
+    askConfirm('Remove the fictional sample data and start with an empty index?', wipe, { title: 'Start fresh', yes: 'Remove sample data', danger: true });
   };
 
   /* ---------- exposed to chartview.js ---------- */
   CI.views = CI.views || {};
   CI.app = {
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
-    go: go, toast: toast, view: view, logEvent: logEvent, download: download, handlers: handlers
+    go: go, toast: toast, view: view, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
   };
   CI.views.quickBank = function (seeds, hops, name) {
     var b = d.banks.filter(function (x) { return x.quick; })[0];
@@ -553,7 +626,8 @@
   };
 
   CI.app.start = function () {
-    window.addEventListener('hashchange', route);
+    if (!d.started && !d.reports.length && !d.entities.length) { d = CI.sampleData(); persist(); }
+    document.getElementById('back-btn').addEventListener('click', function () { if (hist.length) { cur = hist.pop(); route(); } });
     route();
   };
 })();

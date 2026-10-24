@@ -35,7 +35,7 @@
   /* ---------- data container ---------- */
   CI.emptyData = function () {
     return {
-      version: 1,
+      version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
       counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0 },
       entities: [], reports: [], links: [], banks: [], log: [], merges: [],

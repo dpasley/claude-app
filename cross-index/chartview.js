@@ -44,6 +44,7 @@
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(frozen.at.slice(0, 16).replace('T', ' ')) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
       '<div id="cy"></div>' + legendHtml() + '</section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
+    A.view.className = 'wide';
     draw();
   }
 
@@ -98,7 +99,7 @@
   }
 
   function legendHtml() {
-    return '<div class="legend"><span><i style="color:' + CI.TYPE_COLOR.individual + '">●</i> individual</span><span><i style="color:' + CI.TYPE_COLOR.group + '">■</i> group</span><span><i style="color:' + CI.TYPE_COLOR.subject + '">◆</i> subject</span><span><i style="color:' + CI.TYPE_COLOR.location + '">⬢</i> location</span>' +
+    return '<div class="legend"><span><i style="color:var(--t-individual)">●</i> individual</span><span><i style="color:var(--t-group)">■</i> group</span><span><i style="color:var(--t-subject)">◆</i> subject</span><span><i style="color:var(--t-location)">⬢</i> location</span>' +
       '<span>arrow = direction</span><span>thickness = independent reports</span><span>dashed = mentioned together</span><span>orange = new / traced path</span><span>black ring = starting entity</span><span>double ring = high-connection node</span></div>';
   }
 
@@ -241,12 +242,13 @@
 
   H['cv-bank-pick'] = function (el) { A.go('#/chart/' + el.value); };
   H['cv-bank-new'] = function () {
-    var n = prompt('Name for the new bank?'); if (!n || !n.trim()) return;
-    var b = CI.newBank(D(), n.trim(), [], 1); D().banks.push(b); D().ui.bankId = b.id; A.persist(); A.go('#/chart/' + b.id);
+    A.ask('Name for the new bank?', '', function (n) {
+      var b = CI.newBank(D(), n, [], 1); D().banks.push(b); D().ui.bankId = b.id; A.persist(); A.go('#/chart/' + b.id);
+    }, { title: 'New bank', ok: 'Create' });
   };
   H['cv-bank-rename'] = function () {
-    var b = B(), n = prompt('New name?', b.name); if (!n || !n.trim()) return;
-    b.name = n.trim(); b.quick = false; A.persist(); renderShell();
+    var b = B();
+    A.ask('New name?', b.name, function (n) { b.name = n; b.quick = false; A.persist(); renderShell(); }, { title: 'Rename bank', ok: 'Rename' });
   };
   H['cv-bank-dup'] = function () {
     var b = B(), c = CI.clone(b); c.id = CI.nextId(D(), 'bank'); c.name = b.name + ' (copy)'; c.snapshots = []; c.compareId = ''; c.viewMode = 'live'; c.quick = false;
@@ -254,8 +256,9 @@
   };
   H['cv-bank-del'] = function () {
     var b = B();
-    if (!confirm('Delete the bank “' + b.name + '”' + (b.snapshots.length ? ' and its ' + b.snapshots.length + ' snapshot(s)' : '') + '? The reports and entities are not affected.')) return;
-    D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); D().ui.bankId = null; A.persist(); A.go('#/chart');
+    A.confirm('Delete the bank “' + b.name + '”' + (b.snapshots.length ? ' and its ' + b.snapshots.length + ' snapshot(s)' : '') + '? The reports and entities are not affected.', function () {
+      D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); D().ui.bankId = null; A.persist(); A.go('#/chart');
+    }, { title: 'Delete bank', yes: 'Delete', danger: true });
   };
   H['cv-seed-add'] = function (el) {
     var id = parseEntity(el.value); if (!id) { A.toast('No entity matches that.', true); return; }
@@ -293,11 +296,11 @@
 
   /* snapshots */
   H['cv-freeze'] = function () {
-    var b = B(), label = prompt('Label for this snapshot?', 'Handoff ' + CI.today());
-    if (!label || !label.trim()) return;
-    var live = CI.computeGraph(D(), b, A.idx());
-    var sn = { id: CI.nextId(D(), 'snapshot'), label: label.trim(), at: new Date().toISOString(), graph: CI.clone(live) };
-    b.snapshots.push(sn); b.compareId = sn.id; A.persist(); A.toast('Snapshot saved. The live view now highlights what is new since it.'); renderShell();
+    A.ask('Label for this snapshot?', 'Handoff ' + CI.today(), function (label) {
+      var b = B(), live = CI.computeGraph(D(), b, A.idx());
+      var sn = { id: CI.nextId(D(), 'snapshot'), label: label, at: new Date().toISOString(), graph: CI.clone(live) };
+      b.snapshots.push(sn); b.compareId = sn.id; A.persist(); A.toast('Snapshot saved. The live view now highlights what is new since it.'); renderShell();
+    }, { title: 'Freeze a snapshot', ok: 'Freeze' });
   };
   H['cv-view'] = function (el) {
     mutate(function (b) {
@@ -308,9 +311,11 @@
   H['cv-snap-pick'] = function (el) { mutate(function (b) { b.frozenId = el.value; b.viewMode = 'frozen'; }, true); };
   H['cv-compare'] = function (el) { mutate(function (b) { b.compareId = el.value; }); };
   H['cv-snap-del'] = function () {
-    var b = B(), id = b.frozenId || (b.snapshots.length && b.snapshots[b.snapshots.length - 1].id), s = snapOf(b, id);
-    if (!s || !confirm('Delete the snapshot “' + s.label + '”?')) return;
-    mutate(function (bb) { bb.snapshots = bb.snapshots.filter(function (x) { return x.id !== id; }); if (bb.compareId === id) bb.compareId = ''; bb.frozenId = ''; bb.viewMode = 'live'; }, true);
+    var b = B(), id = b.frozenId || (b.snapshots.length && b.snapshots[b.snapshots.length - 1].id), sn = snapOf(b, id);
+    if (!sn) return;
+    A.confirm('Delete the snapshot “' + sn.label + '”?', function () {
+      mutate(function (bb) { bb.snapshots = bb.snapshots.filter(function (x) { return x.id !== id; }); if (bb.compareId === id) bb.compareId = ''; bb.frozenId = ''; bb.viewMode = 'live'; }, true);
+    }, { title: 'Delete snapshot', yes: 'Delete', danger: true });
   };
 
   /* toolbar */
@@ -318,7 +323,7 @@
   H['cv-relayout'] = function () { CI.chart.relayout(B().layout, st.graph); };
   H['cv-png'] = function () {
     var uri = CI.chart.png(); if (!uri) return;
-    var a = document.createElement('a'); a.href = uri; a.download = (B().name.replace(/[^a-z0-9]+/gi, '-') || 'bank') + '.png'; document.body.appendChild(a); a.click(); a.remove();
+    A.modal('<h2>Chart image</h2><p class="muted small">Right-click (or press and hold) the image to save or copy it.</p><img alt="Connections chart" src="' + uri + '"><div class="row end"><button class="btn" data-action="modal-close">Close</button></div>', true);
   };
 
   /* details + path finder */
@@ -341,4 +346,12 @@
   };
   H['cv-path-pick'] = function (el) { st.path = st.results[Number(el.getAttribute('data-i'))]; st.fitPath = true; draw(); };
   H['cv-path-clear'] = function () { st.path = null; st.results = []; st.searched = false; draw(); };
+
+  // Canvas colours are read from the page theme, so redraw when the viewer's theme changes.
+  function themeChanged() { if (CI.chart.cy && document.getElementById('cy') && B()) draw(); }
+  try {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', themeChanged);
+    new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  } catch (e) { /* no theme listeners available */ }
 })();
