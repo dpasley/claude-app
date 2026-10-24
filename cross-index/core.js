@@ -81,6 +81,11 @@
       });
       d.schema = 3;
     }
+    if ((d.schema || 1) < 4) {
+      // sample data saved before case charts existed gets its case chart
+      if (d.sampleLoaded && typeof CI.seedSampleCaseChart === 'function') CI.seedSampleCaseChart(d);
+      d.schema = 4;
+    }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
     d.settings.linkTypes.forEach(function (t) { if (OLD_LINK[t.id]) { t.id = OLD_LINK[t.id]; t.label = t.id; } });

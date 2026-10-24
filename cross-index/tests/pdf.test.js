@@ -119,5 +119,8 @@ t('lead sheets and board produce real PDFs', async () => {});
   const m1 = CI.addEntity(dd, { type: 'individual', name: 'Orrin P.' }); CI.addPin(dd, iv, m1.id); CI.addPin(dd, iv, eid('Orrin Platt'));
   CI.mergeEntities(dd, m1.id, eid('Orrin Platt')); assert.equal(cc.pins.filter(p => p.entityId === eid('Orrin Platt')).length, 1); assert.ok(!cc.pins.some(p => p.entityId === m1.id));
   console.log('ok - case chart: pins, strings need reports, flags from open leads, cleanup on delete and merge'); n++;
+  const olds = JSON.parse(JSON.stringify(CI.sampleData())); olds.schema = 3; olds.investigations[0].caseChart = { pins: [], strings: [] }; olds.leads = olds.leads.filter(l => l.bankId !== olds.investigations[0].bankId);
+  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 4);
+  console.log('ok - sample data saved before case charts gets its case chart on load'); n++;
   console.log('\n' + n + ' PDF/lead checks passed'); process.exit(0);
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

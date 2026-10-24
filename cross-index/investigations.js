@@ -14,11 +14,11 @@
     var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><select data-on-change="inv-filter" id="inv-show">' + A.options([{ value: 'open', label: 'Open investigations' }, { value: 'all', label: 'All investigations' }], iv.show) + '</select></div></div>' +
       '<p class="muted">An investigation begins when a bank and its estimate are handed over. This is where executives see what is being worked and how far it has got.</p>';
     if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Hand over a bank from its <a href="#/chart">estimate</a> to start one.</div>';
-    else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Bank</th><th>Status</th><th>Investigator</th><th>Handed over</th><th class="num">Open leads</th><th>Legal on plan</th></tr></thead><tbody>' +
+    else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Bank</th><th>Status</th><th>Investigator</th><th>Handed over</th><th class="num">Open leads</th><th>Legal on plan</th><th>Case chart</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (v) {
         var b = bank(v.bankId), open = d.leads.filter(function (l) { return l.bankId === v.bankId && !CI.isClosed(l); }).length;
-        return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(b ? b.name : '(bank removed)') + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td><td>' + legalTag(v.plan) + '</td></tr>';
-      }).join('') : '<tr><td colspan="7" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
+        return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(b ? b.name : '(bank removed)') + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td><td>' + legalTag(v.plan) + '</td><td><a href="#/casechart/' + esc(v.id) + '">' + (CI.caseChartOf(v).pins.length ? CI.caseChartOf(v).pins.length + ' pinned' : 'Open') + '</a></td></tr>';
+      }).join('') : '<tr><td colspan="8" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
     A.view.className = ''; A.view.innerHTML = h;
   };
   H['inv-filter'] = function () { iv.show = val('inv-show'); CI.views.investigations(); };
