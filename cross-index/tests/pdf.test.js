@@ -72,5 +72,29 @@ t('lead sheets and board produce real PDFs', async () => {});
   const g = CI.computeGraph(d, b2); assert.equal(g.nodes.length, 4); assert.ok(g.nodes.some(x => x.seed)); assert.ok(g.trimmed > 0);
   assert.ok(g.edges.every(e => g.nodes.some(x => x.id === e.source) && g.nodes.some(x => x.id === e.target)));
   console.log('ok - top-N keeps the heaviest files and the starting entity'); n++;
+  // investigations and handling plans
+  assert.equal(d.investigations.length, 2); // sample's Depot 4 bank was already handed over; the invoice bank was just handed over
+  const inv = CI.investigationFor(d, b.id); assert.ok(inv && inv.status === 'HANDED_OVER' && /^V-\d{4}$/.test(inv.id));
+  CI.handOver(d, b); assert.equal(d.investigations.length, 2); // one investigation per bank
+  const base = { objective: 'Stop it', outcome: 'LEGAL', preparedBy: 'P', actions: [{ text: 'Do a thing', owner: 'Me' }], legalStatus: 'NOT_SUBMITTED', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' };
+  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { legalStatus: 'WITH_LEGAL', actions: [] })).error.includes('at least one action'));
+  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { execStatus: 'EXECUTING' })).error.includes('cleared'));
+  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { legalStatus: 'RETURNED', execStatus: 'EXECUTING' })).error);
+  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { legalStatus: 'CLEARED_WITH_CONDITIONS', reviewer: 'Counsel', legalDate: CI.today(), comments: 'Notify police first', execStatus: 'EXECUTING' })).plan);
+  assert.ok(CI.isCleared(inv.plan) && inv.plan.execution.status === 'EXECUTING');
+  const pb = CI.pdf.planSheet(d, inv.id); assert.ok(pb.size > 1500);
+  console.log('ok - investigations: one per bank, plan rules, legal clearance gates execution, plan sheet PDF'); n++;
+  // area rename migration
+  const old = JSON.parse(JSON.stringify(d)); old.schema = 2; old.entities.find(e => e.type === 'area').type = 'location'; old.banks[0].entityTypes = ['individual', 'location'];
+  old.banks[0].snapshots[0].graph.nodes.forEach(x => { if (x.type === 'area') x.type = 'location'; });
+  const mig = CI.normalize(old); assert.ok(mig.entities.every(e => e.type !== 'location')); assert.deepEqual(mig.banks[0].entityTypes, ['individual', 'area']);
+  assert.ok(mig.banks[0].snapshots[0].graph.nodes.every(x => x.type !== 'location')); assert.equal(CI.TYPE_LABEL.area, 'Area');
+  console.log('ok - old "location" files migrate to "area"'); n++;
+  // situation observation
+  const o = CI.observe(d, 14);
+  assert.ok(o.files.length >= 1); assert.ok(o.files.every(f => f.why.length && f.now >= 0));
+  assert.ok(o.clusters.every(c => c.ids.length >= 3));
+  const quiet = CI.observe(CI.emptyData(), 14); assert.equal(quiet.files.length, 0); assert.equal(quiet.clusters.length, 0);
+  console.log('ok - situation observation finds what moved (' + o.files.length + ' files, ' + o.clusters.length + ' clusters)'); n++;
   console.log('\n' + n + ' PDF/lead checks passed'); process.exit(0);
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

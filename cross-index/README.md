@@ -1,6 +1,6 @@
 # Cross-Index (prototype)
 
-A self-contained browser app for working out a cross-indexing workflow by hand: intake of reports, entity files (individuals, groups, subjects, locations), connections tied to their source reports, and a connections chart.
+A self-contained browser app for working out a cross-indexing workflow by hand: intake of reports, entity files (individuals, groups, subjects, areas), connections tied to their source reports, and a connections chart.
 
 ## Run it
 
@@ -11,6 +11,8 @@ Open `index.html` in a browser (double-click it). Nothing to install, no server,
 - **Reports** – intake form (source, intake basis, repost-of, summary, optional original text with a SHA-256 fingerprint), then indexing: add the entities the report mentions, then the connections it asserts.
 - **Entities** – the main files. Name/alias matching helps resolve "same entity or new one?"; entities can be merged (with undo). Heat = independent reports in a recent window.
 - **Chart** – directed, weighted connections graph. A *bank* is a saved view (starting entities, hops, filters) over the one main index; banks never copy data. Banks can be frozen as snapshots for handoff, and the live view then highlights what is new.
+- **Situation observation** – shows which files moved in the last 7–90 days (more independent reports than the period before, or new links) and which files are active together. It only points; deciding something needs looking into is the staff member's call. "Open a bank" records why the bank was opened.
+- **Investigations** – handing a bank over creates one investigation (`V-0001`) with its own status: Handed over, Investigating, Plan with legal, Executing, Closed. Each holds a simple handling plan (objective, outcome sought, actions with owners), one legal clearance for the whole plan (Cleared / Cleared with conditions / Returned), and execution, which cannot start until legal clears. A one-page plan sheet comes out as a PDF.
 - **Leads** – a lead is a question that comes out of a bank and its estimate. Kind: investigation (with Investigations) or data request (with Collection; retrieve and preserve only). Each names the bank, issued date, the report that raised it, a response and status. One-page lead sheets and an open-leads board come out as PDFs. Results come back through Intake: a report can say which lead it answers.
 - **Estimate** (from the chart toolbar) – summary plus statements marked *established* (must cite reports) or *working theory*. "Hand over" freezes a snapshot so later findings show as changes.
 - **Pictures** – individuals take a photo and groups a logo (Entity page). They are shrunk in the browser and stored on the entity (`photo`, a data URI), so they travel with the JSON export. Entities without one get a drawn placeholder.
@@ -23,10 +25,11 @@ The data is kept in the shape of a property graph so it can move to Neo4j later 
 
 | Kind | Name | Notes |
 |---|---|---|
-| Node label | `Individual`, `Group`, `Subject`, `Location` | the four main files; each has `id` (`E-0001`), `name`, `aliases`, `notes` |
+| Node label | `Individual`, `Group`, `Subject`, `Area` | the four main files; each has `id` (`E-0001`), `name`, `aliases`, `notes` |
 | Node label | `Report` | `id` (`R-0001`), `received`, `eventDate`, `sourceType`, `sourceRef`, `basis`, `summary`, `hash`, `dupOf` |
 | Node label | `Lead` | `id` (`L-0001`), `bankId`, `kind` (`INVESTIGATION`/`DATA_REQUEST`), `with`, `question`, `raisedBy` (report), `issued`, `status`, `response`; reports point back with `leadId` |
 | Node label | `Bank` | a saved view (starting entities, filters, saved positions, `topN`, `estimate`, `handedOver`), not a copy |
+| Node label | `Investigation` | `id` (`V-0001`), `bankId`, `status`, `investigator`, `notes`, `plan` (`objective`, `outcome`, `actions`, `legal`, `execution`) |
 | Relationship | `(:Report)-[:MENTIONS {role}]->(entity)` | role is one short word: `author`, `named`, `subject`, `payer`, `recipient`, `present` |
 | Relationship | `(a)-[:FUNDED {reportId, note}]->(b)` | one relationship per asserting report; never pre-merged |
 | Relationship types | `EMPLOYED_BY`, `MEMBER_OF`, `CONTROLS`, `FUNDED`, `LOCATED_AT`, `INVOLVED_IN`, `ACTED_AGAINST` | directed |

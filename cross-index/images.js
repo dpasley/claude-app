@@ -11,7 +11,7 @@
     individual: '<circle cx="48" cy="34" r="16"/><path d="M12 96c0-22 16-36 36-36s36 14 36 36z"/>',
     group: '<path d="M24 86V22a3 3 0 013-3h30a3 3 0 013 3v16h12a3 3 0 013 3v45z"/><g fill="CUT"><rect x="32" y="28" width="7" height="7"/><rect x="45" y="28" width="7" height="7"/><rect x="32" y="42" width="7" height="7"/><rect x="45" y="42" width="7" height="7"/><rect x="32" y="56" width="7" height="7"/><rect x="45" y="56" width="7" height="7"/><rect x="62" y="48" width="6" height="6"/><rect x="62" y="60" width="6" height="6"/><rect x="40" y="70" width="12" height="16"/></g>',
     subject: '<path d="M26 14h30l16 16v52H26z"/><path d="M56 14v16h16" fill="none" stroke="CUT" stroke-width="3"/><g fill="CUT"><rect x="35" y="42" width="28" height="4"/><rect x="35" y="52" width="28" height="4"/><rect x="35" y="62" width="18" height="4"/></g>',
-    location: '<path d="M48 10c-15 0-26 11-26 26 0 20 26 50 26 50s26-30 26-50c0-15-11-26-26-26z"/><circle cx="48" cy="36" r="10" fill="CUT"/>'
+    area: '<path d="M48 10c-15 0-26 11-26 26 0 20 26 50 26 50s26-30 26-50c0-15-11-26-26-26z"/><circle cx="48" cy="36" r="10" fill="CUT"/>'
   };
   function mix(hex, k) { // k>0 lightens toward white, k<0 darkens toward black
     var n = parseInt(hex.slice(1), 16), t = k < 0 ? 0 : 255, a = Math.abs(k), c = [n >> 16, (n >> 8) & 255, n & 255].map(function (v) { return Math.round(v + (t - v) * a); });
@@ -32,7 +32,7 @@
       body = '<rect width="200" height="200" rx="44" fill="' + color + '"/>' + (photo
         ? '<rect x="10" y="10" width="180" height="180" rx="34" fill="#fff"/><image xlink:href="' + photo + '" x="26" y="26" width="148" height="148" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
         : '<rect x="10" y="10" width="180" height="180" rx="34" fill="url(#g)"/>' + glyph(26, 26, 1.5, '#fff'));
-    } else if (type === 'location') {
+    } else if (type === 'area') {
       defs += '</defs>';
       body = '<polygon points="6,100 50,6 150,6 194,100 150,194 50,194" fill="url(#g)" stroke="' + color + '" stroke-width="12" stroke-linejoin="round"/>' + glyph(36, 34, 1.3, '#fff');
     } else {

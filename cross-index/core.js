@@ -6,8 +6,8 @@
 
   var STORAGE_KEY = 'cross-index-data-v1';
 
-  CI.ENTITY_TYPES = ['individual', 'group', 'subject', 'location'];
-  CI.TYPE_LABEL = { individual: 'Individual', group: 'Group', subject: 'Subject', location: 'Location' };
+  CI.ENTITY_TYPES = ['individual', 'group', 'subject', 'area'];
+  CI.TYPE_LABEL = { individual: 'Individual', group: 'Group', subject: 'Subject', area: 'Area' };
 
   CI.DEFAULT_SETTINGS = {
     basisList: ['Fraud', 'Sabotage', 'Theft', 'Harassment of staff', 'Credible violence', 'Coordinated damaging activity'],
@@ -52,8 +52,8 @@
     return {
       version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
-      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0 },
-      entities: [], reports: [], links: [], banks: [], leads: [], log: [], merges: [],
+      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0 },
+      entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [],
       ui: { bankId: null }
     };
   };
@@ -70,6 +70,16 @@
         d.settings.sourceTypes.splice(oi === -1 ? d.settings.sourceTypes.length : oi, 0, 'Investigator report');
       }
       d.schema = 2;
+    }
+    if ((d.schema || 1) < 3) {
+      // 'location' files are now called 'area'
+      d.entities.forEach(function (e) { if (e.type === 'location') e.type = 'area'; });
+      var fixT = function (a) { return a ? a.map(function (t) { return t === 'location' ? 'area' : t; }) : a; };
+      d.banks.forEach(function (b) {
+        b.entityTypes = fixT(b.entityTypes);
+        b.snapshots.forEach(function (sn) { ((sn.graph && sn.graph.nodes) || []).forEach(function (n) { if (n.type === 'location') n.type = 'area'; }); });
+      });
+      d.schema = 3;
     }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
@@ -90,7 +100,7 @@
   CI.normalize = function (d) {
     var e = CI.emptyData();
     d = d || {};
-    ['entities', 'reports', 'links', 'banks', 'leads', 'log', 'merges'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
+    ['entities', 'reports', 'links', 'banks', 'leads', 'investigations', 'log', 'merges'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
     d.settings = Object.assign({}, e.settings, d.settings || {});
     ['basisList', 'sourceTypes', 'roles', 'linkTypes'].forEach(function (k) { if (!Array.isArray(d.settings[k]) || !d.settings[k].length) d.settings[k] = e.settings[k]; });
     d.counters = Object.assign({}, e.counters, d.counters || {});
@@ -102,6 +112,7 @@
       if (!b.estimate || !Array.isArray(b.estimate.items)) b.estimate = { summary: '', items: [], updated: '' };
       if (b.topN == null) b.topN = 0;
       if (b.handedOver == null) b.handedOver = '';
+      if (!b.opened || typeof b.opened !== 'object') b.opened = { date: '', reason: '' };
       if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
     migrate(d);
     return d;
@@ -119,7 +130,7 @@
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
   };
 
-  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-' };
+  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-' };
   CI.nextId = function (d, kind) {
     d.counters[kind] = (d.counters[kind] || 0) + 1;
     return PREFIX[kind] + pad(d.counters[kind], 4);
@@ -394,7 +405,7 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '',
+      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' },
       estimate: { summary: '', items: [], updated: '' }
     };
   };
@@ -625,11 +636,88 @@
     bank.estimate.items.push(it); bank.estimate.updated = CI.today();
     return { item: it };
   };
+  /* ---------- investigations and handling plans ---------- */
+  CI.INV_STATUS = [{ id: 'HANDED_OVER', label: 'Handed over' }, { id: 'INVESTIGATING', label: 'Investigating' }, { id: 'PLAN_WITH_LEGAL', label: 'Plan with legal' }, { id: 'EXECUTING', label: 'Executing plan' }, { id: 'CLOSED', label: 'Closed' }];
+  CI.PLAN_OUTCOMES = [{ id: 'REFERRAL', label: 'Referral to law enforcement' }, { id: 'LEGAL', label: 'Legal response' }, { id: 'OTHER', label: 'Other' }];
+  CI.LEGAL_STATUS = [{ id: 'NOT_SUBMITTED', label: 'Not submitted' }, { id: 'WITH_LEGAL', label: 'With legal' }, { id: 'CLEARED', label: 'Cleared' }, { id: 'CLEARED_WITH_CONDITIONS', label: 'Cleared with conditions' }, { id: 'RETURNED', label: 'Returned' }];
+  CI.EXEC_STATUS = [{ id: 'NOT_STARTED', label: 'Not started' }, { id: 'EXECUTING', label: 'Executing' }, { id: 'DONE', label: 'Done' }];
+  var pick = function (list, id) { return list.filter(function (x) { return x.id === id; })[0] || list[0]; };
+  CI.invStatus = function (id) { return pick(CI.INV_STATUS, id); };
+  CI.legalStatus = function (id) { return pick(CI.LEGAL_STATUS, id); };
+  CI.execStatus = function (id) { return pick(CI.EXEC_STATUS, id); };
+  CI.isCleared = function (plan) { return !!plan && (plan.legal.status === 'CLEARED' || plan.legal.status === 'CLEARED_WITH_CONDITIONS'); };
+  CI.newPlan = function () {
+    return { objective: '', outcome: 'REFERRAL', actions: [], preparedBy: '', updated: '', legal: { status: 'NOT_SUBMITTED', reviewer: '', date: '', comments: '' }, execution: { status: 'NOT_STARTED', outcome: '' } };
+  };
+  CI.investigationFor = function (d, bankId) { return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
   CI.handOver = function (d, bank) {
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
     var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.today(), at: new Date().toISOString(), graph: clone(live) };
     bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today();
+    var inv = CI.investigationFor(d, bank.id);
+    if (!inv) {
+      inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, status: 'HANDED_OVER', investigator: '', opened: CI.today(), closed: '', notes: '', plan: CI.newPlan() };
+      d.investigations.push(inv);
+    }
     return sn;
+  };
+  /* Saves the plan fields; execution may only start once legal has cleared the whole plan. */
+  CI.savePlan = function (d, inv, o) {
+    var p = inv.plan;
+    var actions = (o.actions || []).map(function (a) { return { text: String(a.text || '').trim(), owner: String(a.owner || '').trim() }; }).filter(function (a) { return a.text; });
+    if (!pick(CI.LEGAL_STATUS, o.legalStatus) || !CI.LEGAL_STATUS.some(function (x) { return x.id === o.legalStatus; })) return { error: 'Choose a legal clearance status.' };
+    if (!CI.EXEC_STATUS.some(function (x) { return x.id === o.execStatus; })) return { error: 'Choose an execution status.' };
+    if (o.execStatus !== 'NOT_STARTED' && o.legalStatus !== 'CLEARED' && o.legalStatus !== 'CLEARED_WITH_CONDITIONS') return { error: 'The plan cannot be carried out until legal has cleared it.' };
+    if (o.legalStatus !== 'NOT_SUBMITTED' && !actions.length) return { error: 'Add at least one action before sending the plan to legal.' };
+    p.objective = String(o.objective || '').trim(); p.outcome = o.outcome || 'OTHER'; p.actions = actions; p.preparedBy = String(o.preparedBy || '').trim();
+    p.legal = { status: o.legalStatus, reviewer: String(o.reviewer || '').trim(), date: o.legalDate || '', comments: String(o.comments || '').trim() };
+    p.execution = { status: o.execStatus, outcome: String(o.execOutcome || '').trim() };
+    p.updated = CI.today();
+    return { plan: p };
+  };
+
+  /* ---------- situation observation ---------- */
+  /* What moved in the last `days` days compared with the same length of time before. Reposts count once. */
+  CI.observe = function (d, days, idx) {
+    idx = idx || CI.buildIndex(d);
+    var cutNow = CI.daysAgo(days), cutPrev = CI.daysAgo(days * 2), seen = {}, items = [];
+    function countFor(eid, from, to) {
+      var roots = {};
+      (idx.reportsByEntity[eid] || []).forEach(function (rid) {
+        var r = idx.report[rid], t = r && (r.received || '');
+        if (r && t >= from && (!to || t < to)) roots[idx.rootOf(rid)] = true;
+      });
+      return Object.keys(roots).length;
+    }
+    // links asserted by reports received in the window; a neighbour is "new" if it had no link before the window
+    var before = {}, inWin = {}, nbr = function (m, a, b) { (m[a] = m[a] || {})[b] = true; (m[b] = m[b] || {})[a] = true; };
+    d.links.forEach(function (l) {
+      var r = idx.report[l.reportId], t = r && (r.received || ''); if (!r) return;
+      if (t >= cutNow) nbr(inWin, l.from, l.to); else nbr(before, l.from, l.to);
+    });
+    d.entities.forEach(function (e) {
+      var now = countFor(e.id, cutNow), prev = countFor(e.id, cutPrev, cutNow);
+      var fresh = Object.keys(inWin[e.id] || {}).filter(function (n) { return !(before[e.id] && before[e.id][n]); });
+      var why = [];
+      if (now >= 2 && now > prev) why.push(now + ' independent reports in the last ' + days + ' days' + (prev ? ', up from ' + prev : ', none before'));
+      if (fresh.length >= 2) why.push('linked to ' + fresh.length + ' files it was not linked to before');
+      if (!why.length) return;
+      var score = (now > prev ? now - prev : 0) * 2 + fresh.length;
+      items.push({ kind: 'FILE', id: e.id, type: e.type, name: e.name, now: now, prev: prev, fresh: fresh.length, why: why, score: score });
+    });
+    items.sort(function (a, b) { return b.score - a.score || a.name.localeCompare(b.name); });
+    // clusters: files active in the window that are linked to each other by links made in the window
+    var active = {}, parent = {};
+    d.entities.forEach(function (e) { if (countFor(e.id, cutNow) >= 1 && inWin[e.id]) active[e.id] = true; });
+    var find = function (x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
+    Object.keys(active).forEach(function (x) { parent[x] = x; });
+    Object.keys(active).forEach(function (a) { Object.keys(inWin[a]).forEach(function (b) { if (active[b]) parent[find(a)] = find(b); }); });
+    var groups = {};
+    Object.keys(active).forEach(function (x) { (groups[find(x)] = groups[find(x)] || []).push(x); });
+    var clusters = Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length >= 3; }).map(function (g) {
+      return { kind: 'CLUSTER', ids: g, names: g.map(function (id) { return idx.entity[id].name; }), score: g.length };
+    }).sort(function (a, b) { return b.score - a.score; });
+    return { files: items, clusters: clusters, days: days };
   };
 
   CI.fmtDate = function (iso) {

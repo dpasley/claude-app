@@ -69,7 +69,7 @@
     }
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
-      a.className = h.indexOf('#/' + key) === 0 || (key === 'reports' && h.indexOf('#/report') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) ? 'active' : '';
+      a.className = h.indexOf('#/' + key) === 0 || (key === 'reports' && h.indexOf('#/report') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && h.indexOf('#/investigation') === 0) ? 'active' : '';
     });
     var rc = document.getElementById('review-count'), n = openCount();
     rc.textContent = n ? n : ''; rc.style.display = n ? 'inline-block' : 'none';
@@ -113,6 +113,9 @@
     else if (name === 'entities') viewEntities();
     else if (name === 'entity') viewEntity(parts[1]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
+    else if (name === 'observation') CI.views.observation();
+    else if (name === 'investigations') CI.views.investigations();
+    else if (name === 'investigation') CI.views.investigation(parts[1]);
     else if (name === 'leads') CI.views.leads();
     else if (name === 'lead') CI.views.lead(parts[1]);
     else if (name === 'estimate') CI.views.estimate(parts[1]);
@@ -249,7 +252,7 @@
       (reposts.length ? '<dt>Reposts</dt><dd>' + reposts.map(function (x) { return repLink(x.id); }).join(', ') + '</dd>' : '') +
       '<dt>Summary</dt><dd>' + esc(r.summary) + '</dd></dl></div>';
 
-    h += '<div class="card"><h2>1. Entities in this report</h2><p class="muted small">Every individual, group, subject and location the report mentions. Pick the existing file when it is the same one; create a new file only when it is not.</p>';
+    h += '<div class="card"><h2>1. Entities in this report</h2><p class="muted small">Every individual, group, subject and area the report mentions. Pick the existing file when it is the same one; create a new file only when it is not.</p>';
     if (r.entities.length) {
       h += '<table class="tight"><thead><tr><th>Entity</th><th>Type</th><th>Role in report</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
@@ -319,8 +322,8 @@
     var q = ae.q.trim(), msg = document.getElementById('ae-msg'), type = val('ae-type');
     if (!q) { msg.textContent = 'Type a name or handle first.'; return; }
     if (!type) {
-      msg.textContent = 'Choose what type of entity this is (individual, group, subject or location).';
-      logEvent('unclear-type', '“' + q + '” was not added because no type was chosen (individual, group, subject or location).', ae.reportId); persist(); return;
+      msg.textContent = 'Choose what type of entity this is (individual, group, subject or area).';
+      logEvent('unclear-type', '“' + q + '” was not added because no type was chosen (individual, group, subject or area).', ae.reportId); persist(); return;
     }
     var role = val('ae-role').trim(), flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
@@ -476,8 +479,7 @@
   };
   handlers['chart-entity'] = function (el) { CI.views.quickBank([el.getAttribute('data-id')], 1, 'Quick view'); };
   handlers['bank-entity'] = function (el) {
-    var e = idx().entity[el.getAttribute('data-id')], b = CI.newBank(d, 'Bank: ' + e.name, [e.id], 2);
-    d.banks.push(b); d.ui.bankId = b.id; persist(); go('#/chart/' + b.id);
+    CI.views.openBank([el.getAttribute('data-id')], '', '');
   };
   handlers['merge-entity'] = function (el) {
     var id = el.getAttribute('data-id'), into = val('merge-into');
@@ -569,7 +571,7 @@
       '<div class="row wrap"><button class="btn" data-action="export">Export\u2026</button><label class="btn">Import from file<input type="file" accept="application/json,.json" id="import-file" data-on-change="import" hidden></label>' +
       '<button class="btn" data-action="load-sample">Load fictional sample data</button><button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
       '<label class="form-inline">Or paste exported JSON here<textarea id="import-text" class="mono" rows="3" placeholder="{ &quot;version&quot;: 1, ... }"></textarea></label><div class="row"><button class="btn small" data-action="import-paste">Import pasted JSON</button></div>' +
-      '<p class="muted small" style="margin-top:10px">Now holding ' + d.reports.length + ' reports, ' + d.entities.length + ' entities, ' + d.links.length + ' connections, ' + d.banks.length + ' banks, ' + d.leads.length + ' leads.</p></div>';
+      '<p class="muted small" style="margin-top:10px">Now holding ' + d.reports.length + ' reports, ' + d.entities.length + ' entities, ' + d.links.length + ' connections, ' + d.banks.length + ' banks, ' + d.leads.length + ' leads, ' + d.investigations.length + ' investigations.</p></div>';
     view.innerHTML = h;
   }
   function ltRow(t, i) {

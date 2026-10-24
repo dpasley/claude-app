@@ -64,7 +64,7 @@ t('link type, entity type, date and exclusion filters', () => {
   const d = CI.sampleData(); const b = CI.newBank(d, 'x', [], 1);
   b.linkTypes = ['FUNDED']; assert.ok(CI.computeGraph(d, b).edges.every(e => e.type === 'FUNDED'));
   b.linkTypes = null; b.entityTypes = ['individual', 'group'];
-  assert.ok(CI.computeGraph(d, b).nodes.every(n => n.type !== 'location' && n.type !== 'subject'));
+  assert.ok(CI.computeGraph(d, b).nodes.every(n => n.type !== 'area' && n.type !== 'subject'));
   b.entityTypes = null; b.dateFrom = CI.daysAgo(5);
   const recent = CI.computeGraph(d, b);
   assert.ok(recent.edges.length < CI.computeGraph(d, CI.newBank(d, 'y', [], 1)).edges.length);

@@ -8,8 +8,8 @@
   var CI = root.CI = root.CI || {};
 
   // Okabe-Ito colours (colour-blind safe); shape and the placeholder icon also encode type.
-  CI.TYPE_COLOR = { individual: '#0072B2', group: '#D55E00', subject: '#009E73', location: '#CC79A7' };
-  CI.TYPE_SHAPE = { individual: 'ellipse', group: 'round-rectangle', subject: 'diamond', location: 'hexagon' };
+  CI.TYPE_COLOR = { individual: '#0072B2', group: '#D55E00', subject: '#009E73', area: '#CC79A7' };
+  CI.TYPE_SHAPE = { individual: 'ellipse', group: 'round-rectangle', subject: 'diamond', area: 'hexagon' };
 
   CI.PAPER = {
     text: '#1d2230', bg: '#ffffff', edge: '#6f7589', edgeText: '#2c3142', chip: '#c3c8d6', seed: '#1d2230', hub: '#6f7589',

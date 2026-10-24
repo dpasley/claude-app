@@ -263,6 +263,7 @@
     var b = B();
     var nl = D().leads.filter(function (l) { return l.bankId === b.id; }).length;
     if (nl) { A.toast('This bank has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
+    if (CI.investigationFor(D(), b.id)) { A.toast('This bank has been handed over and has an investigation, so it cannot be deleted.', true); return; }
     A.confirm('Delete the bank “' + b.name + '”' + (b.snapshots.length ? ' and its ' + b.snapshots.length + ' snapshot(s)' : '') + '? The reports and entities are not affected.', function () {
       D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); D().ui.bankId = null; A.persist(); A.go('#/chart');
     }, { title: 'Delete bank', yes: 'Delete', danger: true });

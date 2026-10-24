@@ -131,7 +131,8 @@
     }
     var leads = d.leads.filter(function (l) { return l.bankId === b.id; });
     var h = '<div class="page-head"><h1>Estimate: ' + esc(b.name) + '</h1><div class="row wrap"><a class="btn" href="#/chart/' + esc(b.id) + '">Back to chart</a></div></div>' +
-      (b.handedOver ? '<div class="card callout">Handed to Investigations on ' + esc(CI.fmtDate(b.handedOver)) + '. The chart now highlights what has changed since. <a href="#/leads">Leads</a></div>' : '') +
+      (b.opened && b.opened.reason ? '<div class="card"><h3>Why this bank was opened</h3><p>' + esc(b.opened.reason) + '</p><p class="muted small">' + esc(CI.fmtDate(b.opened.date)) + '</p></div>' : '') +
+      (b.handedOver ? '<div class="card callout">Handed to Investigations on ' + esc(CI.fmtDate(b.handedOver)) + '. The chart now highlights what has changed since. ' + (CI.investigationFor(d, b.id) ? '<a href="#/investigation/' + esc(CI.investigationFor(d, b.id).id) + '">Investigation ' + esc(CI.investigationFor(d, b.id).id) + '</a> · ' : '') + '<a href="#/leads">Leads</a></div>' : '') +
       '<form class="card form" onsubmit="return false"><label>Summary <span class="hint">where things stand, in a few plain sentences</span><textarea id="est-sum" rows="5">' + esc(est.summary) + '</textarea></label>' +
       '<div class="row"><button class="btn primary" data-action="est-save" data-bank="' + esc(b.id) + '">Save summary</button>' + (est.updated ? '<span class="muted small">Updated ' + esc(CI.fmtDate(est.updated)) + '</span>' : '') + '</div></form>' +
       '<div class="card"><h3>What the files establish</h3>' + list(ests) + '<h3 class="sep">Working theories (not yet established)</h3>' + list(hyp) + '</div>' +
@@ -152,7 +153,7 @@
   H['est-del'] = function (el) { var b = bankOf(el), id = el.getAttribute('data-id'); b.estimate.items = b.estimate.items.filter(function (i) { return i.id !== id; }); A.persist(); CI.views.estimate(b.id); };
   H['est-handover'] = function (el) {
     var b = bankOf(el);
-    A.confirm('Freeze “' + b.name + '” as it stands and mark it handed to Investigations?', function () { CI.handOver(D(), b); A.persist(); A.closeModal(); A.toast('Handed over. A snapshot was saved.'); CI.views.estimate(b.id); }, { title: 'Hand over', yes: 'Hand over' });
+    A.confirm('Freeze “' + b.name + '” as it stands and hand it to Investigations? This opens an investigation for it.', function () { CI.handOver(D(), b); A.persist(); A.closeModal(); A.toast('Handed over. A snapshot was saved.'); CI.views.estimate(b.id); }, { title: 'Hand over', yes: 'Hand over' });
   };
   H['lead-new-bank'] = function (el) { CI.views.openLead({ bankId: el.getAttribute('data-bank') }); };
 })();

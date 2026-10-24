@@ -215,4 +215,64 @@
     });
     return doc.output('blob');
   };
+
+  /* ---------- handling plan sheet ---------- */
+  function tick(doc, x, y, on, label) {
+    doc.setDrawColor(17); doc.setLineWidth(1.3); doc.rect(x, y, 12, 12);
+    if (on) { doc.setLineWidth(1.6); doc.line(x + 2.5, y + 2.5, x + 9.5, y + 9.5); doc.line(x + 9.5, y + 2.5, x + 2.5, y + 9.5); }
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(label, x + 19, y + 10);
+    return x + 19 + doc.getTextWidth(label) + 26;
+  }
+  CI.pdf.planSheet = function (d, invId) {
+    var JS = JsPDF(), doc = new JS({ unit: 'pt', format: 'letter', compress: true });
+    var inv = d.investigations.filter(function (v) { return v.id === invId; })[0];
+    if (!inv) throw new Error('No such investigation.');
+    var bank = d.banks.filter(function (b) { return b.id === inv.bankId; })[0], p = inv.plan;
+    header(doc, 'HANDLING PLAN', inv.id, true);
+    lab(doc, 'Bank', X0, 112); lab(doc, 'Prepared by', X0 + 250, 112); lab(doc, 'Date', X0 + 385, 112);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+    doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 235), X0, 132);
+    doc.text(oneLine(doc, p.preparedBy || '', 125), X0 + 250, 132); doc.text(p.updated ? CI.fmtDate(p.updated) : '', X0 + 385, 132);
+    lab(doc, 'Objective', X0, 172);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
+    var ob = lines(doc, p.objective || '', W, 3), y = 194;
+    ob.forEach(function (ln, i) { doc.text(ln, X0, y + i * 21); });
+    y += Math.max(ob.length, 1) * 21 + 14;
+    lab(doc, 'Outcome sought', X0, y); var x = X0;
+    CI.PLAN_OUTCOMES.forEach(function (o) { x = tick(doc, x, y + 8, p.outcome === o.id, o.label); });
+    y += 44;
+    lab(doc, 'Actions', X0, y); lab(doc, 'Owner', X0 + 385, y);
+    doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y + 6, X1, y + 6); y += 24;
+    var shown = 0;
+    p.actions.forEach(function (a, i) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+      var al = lines(doc, a.text, 330, 3), h = al.length * 14;
+      if (y + h > 520) return;
+      doc.setFont('helvetica', 'bold'); doc.text(String(i + 1) + '.', X0, y);
+      doc.setFont('helvetica', 'normal'); al.forEach(function (ln, k) { doc.text(ln, X0 + 20, y + k * 14); });
+      doc.text(oneLine(doc, a.owner, 100), X0 + 385, y);
+      doc.setDrawColor(190); doc.setLineWidth(0.6); doc.line(X0, y + h + 2, X1, y + h + 2);
+      y += h + 17; shown++;
+    });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(95);
+    if (!p.actions.length) doc.text('No actions yet.', X0, y);
+    else if (shown < p.actions.length) doc.text('…and ' + (p.actions.length - shown) + ' more action(s) in the app.', X0, y);
+    doc.setTextColor(17);
+    doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, 548, X1, 548);
+    lab(doc, 'Legal clearance (whole plan)', X0, 566);
+    x = X0;
+    [['CLEARED', 'Cleared'], ['CLEARED_WITH_CONDITIONS', 'Cleared with conditions'], ['RETURNED', 'Returned']].forEach(function (o) { x = tick(doc, x, 576, p.legal.status === o[0], o[1]); });
+    lab(doc, 'Comments or conditions', X0, 612);
+    doc.setDrawColor(140); doc.setLineWidth(0.6); doc.line(X0, 640, X1, 640); doc.line(X0, 664, X1, 664);
+    if (p.legal.comments) { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); lines(doc, p.legal.comments, W, 2).forEach(function (ln, i) { doc.text(ln, X0 + 2, 636 + i * 24); }); }
+    var segs = [[X0, X0 + 215, 'Reviewed by', p.legal.reviewer], [X0 + 240, X0 + 345, 'Date', p.legal.date ? CI.fmtDate(p.legal.date) : ''], [X0 + 370, X1, 'Signature', '']];
+    doc.setDrawColor(17); doc.setLineWidth(1);
+    segs.forEach(function (sg) {
+      doc.line(sg[0], 722, sg[1], 722);
+      if (sg[3]) { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(oneLine(doc, sg[3], sg[1] - sg[0] - 4), sg[0] + 2, 718); }
+      lab(doc, sg[2], sg[0], 734);
+    });
+    footer(doc);
+    return doc.output('blob');
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

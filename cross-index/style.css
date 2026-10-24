@@ -32,7 +32,7 @@
   --t-individual: #0072b2;
   --t-group: #d55e00;
   --t-subject: #009e73;
-  --t-location: #cc79a7;
+  --t-area: #cc79a7;
 
   --cy-bg: #ffffff;
   --cy-text: #1d2230;
@@ -72,7 +72,7 @@
     --t-individual: #56b4e9;
     --t-group: #e69f00;
     --t-subject: #2dc79b;
-    --t-location: #e39bc4;
+    --t-area: #e39bc4;
     --cy-bg: #1b1e26;
     --cy-text: #e5e8f0;
     --cy-edge: #8b92aa;
@@ -112,7 +112,7 @@
   --t-individual: #56b4e9;
   --t-group: #e69f00;
   --t-subject: #2dc79b;
-  --t-location: #e39bc4;
+  --t-area: #e39bc4;
   --cy-bg: #1b1e26;
   --cy-text: #e5e8f0;
   --cy-edge: #8b92aa;
@@ -230,7 +230,7 @@ td input[type=text] { margin-top: 0; min-width: 120px; }
 .tag.t-individual { background: color-mix(in srgb, var(--t-individual) 22%, var(--panel)); }
 .tag.t-group { background: color-mix(in srgb, var(--t-group) 22%, var(--panel)); }
 .tag.t-subject { background: color-mix(in srgb, var(--t-subject) 22%, var(--panel)); }
-.tag.t-location { background: color-mix(in srgb, var(--t-location) 22%, var(--panel)); }
+.tag.t-area { background: color-mix(in srgb, var(--t-area) 22%, var(--panel)); }
 
 /* chart screen */
 .chart-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr) 310px; grid-template-rows: minmax(0, 1fr); gap: 12px; height: calc(100vh - 110px); min-height: 520px; }

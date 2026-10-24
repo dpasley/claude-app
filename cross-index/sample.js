@@ -22,9 +22,9 @@
     E('keystone', 'group', 'Keystone Courier Partners', ['Keystone']);
     E('invoice', 'subject', 'Q3 vendor invoice scheme');
     E('outage', 'subject', 'Depot 4 equipment outage');
-    E('harborst', 'location', '410 Harbor Street, Unit 6', ['410 Harbor St #6']);
-    E('pobox', 'location', 'PO Box 2291, Dunmore');
-    E('depot4', 'location', 'Northwind Depot 4');
+    E('harborst', 'area', '410 Harbor Street, Unit 6', ['410 Harbor St #6']);
+    E('pobox', 'area', 'PO Box 2291, Dunmore');
+    E('depot4', 'area', 'Northwind Depot 4');
 
     function R(daysAgo, eventAgo, sourceType, sourceRef, basis, summary, people, links, dupOf) {
       var r = {
@@ -102,6 +102,16 @@
     lead('DATA_REQUEST', 'Collection', 'The current state business filing for Brightwater Holdings LLC, with all amendments and the agent and address history.', 'R-0002', ['bright'], 'IN_PROGRESS');
     lead('DATA_REQUEST', 'Collection', 'Depot 4 badge and sign-in records for the 48 hours before the outage.', 'R-0008', ['depot4', 'keystone'], 'NOT_STARTED');
     bank.handedOver = '';
+    bank.opened = { date: ago(6), reason: 'Seven Harborline invoices paid in two weeks with no purchase orders, and a payment forwarded to Brightwater the next day.' };
+    var b2 = CI.newBank(d, 'Depot 4 outage bank', [ent.outage.id], 2);
+    b2.opened = { date: ago(3), reason: 'A public post predicted the outage, and then the cabling was found cut.' };
+    d.banks.push(b2);
+    b2.estimate.summary = 'The GridWatch Now post named Depot 4 before the outage. A Keystone Courier contractor was on site the night before.';
+    CI.addEstimateItem(d, b2, { kind: 'ESTABLISHED', text: 'GridWatch Now announced the outage before it happened.', reportIds: 'R-0006' });
+    CI.handOver(d, b2);
+    var inv = CI.investigationFor(d, b2.id);
+    inv.status = 'PLAN_WITH_LEGAL'; inv.investigator = 'Sample investigator';
+    CI.savePlan(d, inv, { objective: 'Establish who cut the cabling and refer the matter.', outcome: 'REFERRAL', preparedBy: 'Sample investigator', actions: [{ text: 'Interview the Depot 4 night supervisor', owner: 'Investigator' }, { text: 'Prepare the badge and maintenance records for law enforcement', owner: 'Collection' }, { text: 'Brief the police liaison once legal clears the plan', owner: 'Security manager' }], legalStatus: 'WITH_LEGAL', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' });
     return d;
   };
 })(typeof window !== 'undefined' ? window : globalThis);
