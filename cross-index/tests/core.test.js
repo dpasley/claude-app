@@ -189,9 +189,42 @@ t('export/import round trip', () => {
   assert.throws(() => CI.importJson('{"nope":1}'));
 });
 
-t('validation requires basis and source fields', () => {
-  assert.equal(CI.validateReport({ received: '2026-01-01', sourceType: 'Social post', sourceRef: 'x', summary: 's', basis: '' }).length, 1);
-  assert.equal(CI.validateReport({}).length, 5);
+t('validation needs only date, subject and source', () => {
+  assert.deepEqual(CI.validateReport({ received: '2026-01-01', subject: 'Lot 4 break-in', sourceRef: 'Officer Ames' }), []);
+  assert.equal(CI.validateReport({ received: '2026-01-01', sourceRef: 'x' }).length, 1);
+  assert.equal(CI.validateReport({}).length, 3);
+});
+
+t('items are index entries beside the four file types', () => {
+  assert.deepEqual(CI.FILE_TYPES, ['individual', 'group', 'subject', 'area']);
+  assert.ok(CI.ENTITY_TYPES.indexOf('item') !== -1);
+  const d = CI.emptyData();
+  const it = CI.addEntity(d, { type: 'item', name: 'ABC-1234', itemType: ' vehicle plate ' });
+  assert.equal(it.itemType, 'vehicle plate');
+  assert.ok(CI.isItem(it));
+  assert.equal(CI.addEntity(d, { type: 'individual', name: 'Pat' }).itemType, undefined);
+  // plates typed differently find the same item
+  assert.equal(CI.findCandidates(d, 'abc 1234')[0].entity.id, it.id);
+});
+
+t('suggested plain-language connection types are added once and read as sentences', () => {
+  const d = CI.emptyData();
+  const before = d.settings.linkTypes.length, pre = new Set(d.settings.linkTypes.map(t => t.id));
+  const n = CI.addSuggestedLinkTypes(d);
+  assert.equal(n, CI.SUGGESTED_LINK_TYPES.filter(s => !pre.has(CI.toToken(s.label))).length);
+  assert.equal(d.settings.linkTypes.find(t => t.id === 'MEMBER_OF').label, 'Member of');   // older default takes the plain label
+  assert.equal(d.settings.linkTypes.length, before + n);
+  assert.equal(CI.addSuggestedLinkTypes(d), 0);                       // nothing added the second time
+  const ids = d.settings.linkTypes.map(t => t.id);
+  assert.equal(new Set(ids).size, ids.length);                         // no duplicate ids
+  const co = d.settings.linkTypes.find(t => t.label === 'Co-offender with');
+  assert.equal(co.id, 'CO_OFFENDER_WITH'); assert.equal(co.directed, false);
+  assert.equal(d.settings.linkTypes.find(t => t.id === 'FUNDED').group, 'Older names');
+  // a connection can join an individual to an item
+  const rep = { id: 'R-1', received: '2026-01-01', subject: 's', sourceRef: 'x', entities: [] }; d.reports.push(rep);
+  const a = CI.addEntity(d, { type: 'individual', name: 'Pat Lee' }), c = CI.addEntity(d, { type: 'item', name: 'ABC1234', itemType: 'plate' });
+  CI.addEntityToReport(d, 'R-1', a.id, ''); CI.addEntityToReport(d, 'R-1', c.id, '');
+  assert.equal(CI.addLink(d, { reportId: 'R-1', from: a.id, to: c.id, type: 'OWNS', note: 'registered owner' }).error, undefined);
 });
 
 t('old saves migrate to graph-style names (links, roles, banks, snapshots)', () => {

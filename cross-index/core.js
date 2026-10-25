@@ -6,8 +6,12 @@
 
   var STORAGE_KEY = 'cross-index-data-v1';
 
-  CI.ENTITY_TYPES = ['individual', 'group', 'subject', 'area'];
-  CI.TYPE_LABEL = { individual: 'Individual', group: 'Group', subject: 'Subject', area: 'Area' };
+  // The four kinds of main file, plus items (a plate, phone, email, account...). An item has no folder:
+  // it is an index entry that reports and connections point to.
+  CI.FILE_TYPES = ['individual', 'group', 'subject', 'area'];
+  CI.ENTITY_TYPES = CI.FILE_TYPES.concat(['item']);
+  CI.TYPE_LABEL = { individual: 'Individual', group: 'Group', subject: 'Subject', area: 'Area', item: 'Item' };
+  CI.isItem = function (e) { return !!e && e.type === 'item'; };
 
   CI.DEFAULT_SETTINGS = {
     basisList: ['Fraud', 'Sabotage', 'Theft', 'Harassment of staff', 'Credible violence', 'Coordinated damaging activity'],
@@ -28,6 +32,66 @@
     heatWindowDays: 14,
     heatThreshold: 5,
     hubDegree: 8
+  };
+
+  /* Plain-language connection types for staff. Each reads as a sentence: "A [label] B".
+   * The stored id is the label in UPPER_SNAKE_CASE (Neo4j style). Any pair of file or item types is allowed;
+   * the note on the connection says what kind. Added once to every data set by CI.addSuggestedLinkTypes. */
+  CI.SUGGESTED_LINK_TYPES = [
+    { group: 'People', label: 'Knows', directed: false },
+    { group: 'People', label: 'Family of', directed: false },
+    { group: 'People', label: 'Lives with', directed: false },
+    { group: 'Work', label: 'Works for', directed: true },
+    { group: 'Work', label: 'Works with', directed: false },
+    { group: 'Work', label: 'Supervises', directed: true },
+    { group: 'Groups', label: 'Member of', directed: true },
+    { group: 'Groups', label: 'Linked with', directed: false },
+    { group: 'Groups', label: 'Part of', directed: true },
+    { group: 'Corporate', label: 'Owns', directed: true },
+    { group: 'Corporate', label: 'Officer of', directed: true },
+    { group: 'Corporate', label: 'Registered at', directed: true },
+    { group: 'Corporate', label: 'Agent for', directed: true },
+    { group: 'Finance', label: 'Pays', directed: true },
+    { group: 'Finance', label: 'Lends to', directed: true },
+    { group: 'Finance', label: 'Funds', directed: true },
+    { group: 'Property and items', label: 'Rents', directed: true },
+    { group: 'Property and items', label: 'Uses', directed: true },
+    { group: 'Property and items', label: 'Registered with', directed: true },
+    { group: 'Property and items', label: 'Contacts', directed: true },
+    { group: 'Places', label: 'Lives in', directed: true },
+    { group: 'Places', label: 'Based in', directed: true },
+    { group: 'Places', label: 'Active in', directed: true },
+    { group: 'Places', label: 'Seen at', directed: true },
+    { group: 'Places', label: 'Within', directed: true },
+    { group: 'Subjects and crime', label: 'Involved in', directed: true },
+    { group: 'Subjects and crime', label: 'Suspected in', directed: true },
+    { group: 'Subjects and crime', label: 'Charged in', directed: true },
+    { group: 'Subjects and crime', label: 'Convicted in', directed: true },
+    { group: 'Subjects and crime', label: 'Victim of', directed: true },
+    { group: 'Subjects and crime', label: 'Witness to', directed: true },
+    { group: 'Subjects and crime', label: 'Co-offender with', directed: false },
+    { group: 'Subjects and crime', label: 'Supplies', directed: true },
+    { group: 'Subjects and crime', label: 'Used in', directed: true },
+    { group: 'Subjects and crime', label: 'Occurs in', directed: true },
+    { group: 'Subjects and crime', label: 'Related to', directed: false },
+    { group: 'General', label: 'Connected to', directed: false }
+  ];
+  /* Adds any suggested type that is not already there, ahead of the older names. Returns how many were added. */
+  CI.addSuggestedLinkTypes = function (d) {
+    var have = {}; d.settings.linkTypes.forEach(function (t) { have[t.id] = t; });
+    var add = [];
+    CI.SUGGESTED_LINK_TYPES.forEach(function (s) {
+      var id = CI.toToken(s.label);
+      if (have[id]) {
+        // An older default with the same id (MEMBER_OF, INVOLVED_IN) takes the plain label unless someone already renamed it.
+        if (have[id].label === have[id].id) { have[id].label = s.label; have[id].group = s.group; }
+        return;
+      }
+      have[id] = true; add.push({ id: id, label: s.label, directed: s.directed, group: s.group });
+    });
+    d.settings.linkTypes.forEach(function (t) { if (!t.group) t.group = 'Older names'; });
+    d.settings.linkTypes = add.concat(d.settings.linkTypes);
+    return add.length;
   };
 
   /* Leads: an open question raised by a report, worked by one of the three areas. */
@@ -242,12 +306,11 @@
 
   /* ---------- validation ---------- */
   CI.validateReport = function (r) {
+    // The paper form has a date, a subject and a source. Everything else on the report is optional.
     var p = [];
-    if (!r.sourceType) p.push('Source type is required.');
-    if (!String(r.sourceRef || '').trim()) p.push('Source identifier (URL, handle or document title) is required.');
-    if (!String(r.summary || '').trim()) p.push('A short summary is required.');
-    if (!r.basis) p.push('Intake basis is required: pick the threat category this report meets.');
-    if (!r.received) p.push('Date received is required.');
+    if (!r.received) p.push('Date of report is required.');
+    if (!String(r.subject || '').trim()) p.push('Subject of report is required.');
+    if (!String(r.sourceRef || '').trim()) p.push('Source of report is required (a name, URL, handle or document title).');
     return p;
   };
 
@@ -261,6 +324,7 @@
       notes: o.notes || '',
       created: CI.today()
     };
+    if (o.type === 'item') e.itemType = String(o.itemType || '').trim();
     d.entities.push(e);
     return e;
   };

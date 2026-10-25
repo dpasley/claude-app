@@ -61,7 +61,7 @@
       var r = {
         id: CI.nextId(d, 'report'), received: ago(daysAgo), eventDate: eventAgo == null ? '' : ago(eventAgo),
         sourceType: sourceType, sourceRef: sourceRef, archiveLoc: 'sample data', originalText: '', hash: '', hashAt: '',
-        dupOf: dupOf || '', summary: summary, basis: basis, entities: [], created: CI.today(), updated: CI.today()
+        dupOf: dupOf || '', subject: String(summary).split(/[.;]/)[0].slice(0, 80), summary: summary, basis: basis, entities: [], created: CI.today(), updated: CI.today()
       };
       d.reports.push(r);
       people.forEach(function (p) { CI.addEntityToReport(d, r.id, ent[p[0]].id, p[1]); });
