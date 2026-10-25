@@ -98,6 +98,8 @@
       { selector: 'edge.extra', style: { 'opacity': 0.75 } },
       { selector: 'edge.hl', style: { 'line-color': t.accent, 'target-arrow-color': t.accent, 'opacity': 1, 'z-index': 20 } },
       { selector: 'edge:selected', style: { 'line-color': t.sel, 'target-arrow-color': t.sel, 'overlay-color': t.sel, 'overlay-opacity': 0.12 } },
+      { selector: 'node.note', style: { 'background-opacity': 1, 'background-color': '#fff3b8', 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 'label', 'padding': '12px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'text-max-width': 190, 'text-wrap': 'wrap', 'font-size': 13, 'font-weight': 'normal', 'color': '#3b3200', 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 1, 'border-color': '#d1b94a' } },
+      { selector: 'node.flag', style: { 'background-opacity': 1, 'background-color': t.accent, 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 18, 'padding': '6px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'font-size': 10, 'font-weight': 'bold', 'color': '#ffffff', 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 0, 'events': 'no', 'z-index': 30 } },
       { selector: 'node.dim', style: { 'opacity': 0.16, 'text-opacity': 0.25 } },
       { selector: 'edge.dim', style: { 'opacity': 0.1, 'text-opacity': 0 } }
     ];

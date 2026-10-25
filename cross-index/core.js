@@ -52,7 +52,7 @@
     return {
       version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
-      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0 },
+      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0 },
       entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [],
       ui: { bankId: null }
     };
@@ -81,10 +81,10 @@
       });
       d.schema = 3;
     }
-    if ((d.schema || 1) < 4) {
-      // sample data saved before case charts existed gets its case chart
+    if ((d.schema || 1) < 5) {
+      // sample data saved before case charts (or their labels) existed gets them
       if (d.sampleLoaded && typeof CI.seedSampleCaseChart === 'function') CI.seedSampleCaseChart(d);
-      d.schema = 4;
+      d.schema = 5;
     }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
@@ -136,7 +136,7 @@
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
   };
 
-  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-' };
+  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-', caseNote: 'W-' };
   CI.nextId = function (d, kind) {
     d.counters[kind] = (d.counters[kind] || 0) + 1;
     return PREFIX[kind] + pad(d.counters[kind], 4);
@@ -688,9 +688,11 @@
   /* ---------- case chart (the investigators' board) ---------- */
   /* Pins are files from the main files; strings are drawn by hand and every string must cite at least one report that names one of its ends. */
   CI.caseChartOf = function (inv) {
-    if (!inv.caseChart || typeof inv.caseChart !== 'object') inv.caseChart = { pins: [], strings: [] };
+    if (!inv.caseChart || typeof inv.caseChart !== 'object') inv.caseChart = { pins: [], strings: [], notes: [], title: '' };
     if (!Array.isArray(inv.caseChart.pins)) inv.caseChart.pins = [];
     if (!Array.isArray(inv.caseChart.strings)) inv.caseChart.strings = [];
+    if (!Array.isArray(inv.caseChart.notes)) inv.caseChart.notes = [];
+    if (typeof inv.caseChart.title !== 'string') inv.caseChart.title = '';
     return inv.caseChart;
   };
   CI.addPin = function (d, inv, entityId, pos) {
@@ -745,6 +747,39 @@
     return { string: t };
   };
   CI.removeString = function (d, inv, id) { var cc = CI.caseChartOf(inv); cc.strings = cc.strings.filter(function (t) { return t.id !== id; }); };
+  /* Free text labels placed on the board, and the board's title (printed on the wall copy). */
+  CI.addNote = function (d, inv, text, pos) {
+    text = String(text || '').trim(); if (!text) return { error: 'Write the label text.' };
+    var n = { id: CI.nextId(d, 'caseNote'), text: text, x: pos && isFinite(pos.x) ? Math.round(pos.x) : 0, y: pos && isFinite(pos.y) ? Math.round(pos.y) : 0 };
+    CI.caseChartOf(inv).notes.push(n); return { note: n };
+  };
+  CI.updateNote = function (d, inv, id, text) {
+    text = String(text || '').trim(); if (!text) return { error: 'Write the label text.' };
+    var n = CI.caseChartOf(inv).notes.filter(function (x) { return x.id === id; })[0]; if (!n) return { error: 'That label no longer exists.' };
+    n.text = text; return { note: n };
+  };
+  CI.removeNote = function (d, inv, id) { var cc = CI.caseChartOf(inv); cc.notes = cc.notes.filter(function (x) { return x.id !== id; }); };
+  CI.setCaseTitle = function (d, inv, title) { CI.caseChartOf(inv).title = String(title || '').trim(); };
+  /* Connections already recorded in the main files between pinned files, as case chart connections not yet on the board. */
+  CI.indexConnections = function (d, inv) {
+    var cc = CI.caseChartOf(inv), pinned = {}, groups = {}, out = [];
+    cc.pins.forEach(function (p) { pinned[p.entityId] = 1; });
+    d.links.forEach(function (l) {
+      if (!pinned[l.from] || !pinned[l.to]) return;
+      var type = CI.linkType(d, l.type), k = l.from + '|' + l.to + '|' + type.label;
+      var g = groups[k] || (groups[k] = { a: l.from, b: l.to, label: type.label, reportIds: [] });
+      if (g.reportIds.indexOf(l.reportId) === -1) g.reportIds.push(l.reportId);
+    });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k];
+      var have = cc.strings.some(function (t) { return t.label.toLowerCase() === g.label.toLowerCase() && ((t.a === g.a && t.b === g.b) || (t.a === g.b && t.b === g.a)); });
+      if (!have) out.push(g);
+    });
+    return out;
+  };
+  CI.addIndexConnections = function (d, inv) {
+    var n = 0; CI.indexConnections(d, inv).forEach(function (g) { if (CI.addString(d, inv, g).string) n++; }); return n;
+  };
   /* The case chart as a graph the chart canvas can draw. Open leads of the investigation flag the files they are about. */
   CI.caseGraph = function (d, inv, idx) {
     idx = idx || CI.buildIndex(d);
@@ -766,7 +801,7 @@
       var ls = open.filter(function (l) { return (l.about || []).indexOf(t.a) !== -1 && (l.about || []).indexOf(t.b) !== -1; });
       if (ls.length) flags.edges[t.id] = ls.map(function (l) { return l.id; });
     });
-    return { graph: { nodes: nodes, edges: edges }, positions: positions, flags: flags, openLeads: open };
+    return { graph: { nodes: nodes, edges: edges }, positions: positions, flags: flags, openLeads: open, notes: cc.notes.slice() };
   };
   function caseChartsDo(d, fn) { d.investigations.forEach(function (v) { if (v.caseChart) fn(v.caseChart); }); }
   CI.caseChartDropReport = function (d, rid) {

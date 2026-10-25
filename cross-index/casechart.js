@@ -1,6 +1,7 @@
-/* Case chart: the investigators' board for one investigation.
- * Files are pinned from the main files; strings are drawn by hand and each one cites the reports behind it.
- * Open leads flag the pins and strings they are about, so the board shows what is found and what is next. */
+/* Case chart: the investigators' picture of the major players and how they are related in one investigation.
+ * It looks and prints like the working chart, but shows only the main files chosen for it, arranged for the best view of the situation.
+ * Connections can be drawn by hand; each cites the reports behind it. Labels and a title can be added for the wall copy.
+ * Open leads put a flag badge on the files they are about, so the board shows what is next. */
 (function () {
   'use strict';
   var A = CI.app, H = A.handlers, esc = A.esc;
@@ -18,6 +19,7 @@
     return c ? c.entity.id : '';
   }
   function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
+  function isNote(id) { return /^W-/.test(id); }
 
   CI.views.casechart = function (id) {
     var d = D(), v = d.investigations.filter(function (x) { return x.id === id; })[0];
@@ -26,58 +28,82 @@
     shell();
   };
 
+  function titleText() { var v = inv(); return 'Case chart ' + v.id + (CI.caseChartOf(v).title ? ' · ' + CI.caseChartOf(v).title : ''); }
+
   function shell() {
     var v = inv(), d = D(), cc = CI.caseChartOf(v);
     var pinned = {}; cc.pins.forEach(function (p) { pinned[p.entityId] = 1; });
     var free = d.entities.filter(function (e) { return !pinned[e.id]; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     var b = d.banks.filter(function (x) { return x.id === v.bankId; })[0];
     var h = '<datalist id="cc-dl">' + free.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>' +
-      '<div class="chart-layout"><aside class="panel" id="ctl"></aside><section class="stage"><div class="toolbar"><strong>Case chart ' + esc(v.id) + '</strong><span id="summary" class="muted small" style="margin-left:10px"></span><span class="spacer"></span>' +
+      '<div class="chart-layout"><aside class="panel" id="ctl"></aside><section class="stage"><div class="toolbar"><strong id="cc-title">' + esc(titleText()) + '</strong><span id="summary" class="muted small" style="margin-left:10px"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cc-fit">Fit</button><button class="btn small" data-action="cc-relayout">Auto-arrange</button><button class="btn small" data-action="cc-png">Image</button><button class="btn small" data-action="cc-print">Print for the wall…</button>' +
       '<a class="btn small" href="#/investigation/' + esc(v.id) + '">Investigation</a>' + (b ? '<a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a>' : '') +
       '<button class="btn small primary" data-action="cc-raise">Raise a lead</button></div>' +
-      '<div id="cy"></div><div class="legend"><span>pins are files from the main files</span><span>a string always cites the reports behind it</span><span>orange = an open lead is about this</span><span>drag pins to arrange; the arrangement is kept</span></div></section><aside class="panel" id="detail"></aside></div>';
+      '<div id="cy"></div><div class="legend"><span>photo or logo tile = individual / group</span><span>every connection cites the reports behind it</span><span>orange badge = an open lead is about this file</span><span>yellow = label</span><span>drag to arrange; the arrangement is kept and prints</span></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.className = 'wide'; A.view.innerHTML = h;
     ctl(); draw();
   }
 
   function ctl() {
-    var v = inv(), cc = CI.caseChartOf(v), box = document.getElementById('ctl'); if (!box) return;
-    var h = '<h3>Pin a file</h3><input type="text" list="cc-dl" id="cc-pin-input" placeholder="Search the main files…" data-on-change="cc-pin-add"><p class="muted small">Choose a person, group, subject or area from the index to pin it to the board.</p>' +
-      '<h3>Pinned files (' + cc.pins.length + ')</h3>' + (cc.pins.length ? '<ul class="plain">' + cc.pins.map(function (p) {
-        var e = ent(p.entityId); if (!e) return '';
-        return '<li><a href="#" data-action="cc-pick-node" data-id="' + esc(e.id) + '">' + esc(e.name) + '</a> <span class="muted small">' + esc(CI.TYPE_LABEL[e.type].toLowerCase()) + '</span></li>';
-      }).join('') + '</ul>' : '<p class="muted small">Nothing pinned yet.</p>') +
-      '<h3>Strings (' + cc.strings.length + ')</h3>' + (cc.strings.length ? '<ul class="plain">' + cc.strings.map(function (t) {
-        return '<li><a href="#" data-action="cc-pick-edge" data-id="' + esc(t.id) + '">' + esc(name(t.a)) + ' — ' + esc(t.label || 'connected') + ' — ' + esc(name(t.b)) + '</a> <span class="muted small">' + t.reportIds.length + ' report' + (t.reportIds.length === 1 ? '' : 's') + '</span></li>';
-      }).join('') + '</ul>' : '<p class="muted small">No strings yet.</p>') +
-      '<div class="row"><button class="btn small primary" data-action="cc-string-new"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Add a string</button></div>' +
-      '<p class="muted small">Every string must cite at least one report. Anyone working the investigation can edit this board.</p>';
-    box.innerHTML = h;
+    var v = inv(), box = document.getElementById('ctl'); if (!box) return;
+    var cc = CI.caseChartOf(v), avail = CI.indexConnections(D(), v).length;
+    box.innerHTML = '<h3>Add a main file</h3><input type="text" list="cc-dl" id="cc-pin-input" placeholder="Search the main files…" data-on-change="cc-pin-add"><p class="muted small">Choose the major players for this investigation. You can also send them from the working chart.</p>' +
+      '<h3>Connections</h3><div class="stack"><button class="btn small primary" data-action="cc-string-new"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Draw a connection</button>' +
+      '<button class="btn small" data-action="cc-index-add"' + (avail ? '' : ' disabled') + '>Add the ' + avail + ' already in the main files</button></div>' +
+      '<p class="muted small">A connection you draw must cite at least one report. Click one to see its reports.</p>' +
+      '<h3>Labels</h3><div class="stack"><button class="btn small" data-action="cc-note-new">Add a label</button><button class="btn small" data-action="cc-title">Set the title</button></div>' +
+      '<p class="muted small">Labels and the title print on the wall copy. Anyone working the investigation can edit this board.</p>';
+  }
+
+  function placeBadge(n) {
+    var cy = CI.chart.cy, b = cy && cy.getElementById('F-' + n.id());
+    if (b && b.length) { var p = n.position(); var bw = 14 + 6.4 * String(b.data('label')).length, w = n.width() || 70, h = n.height() || 70; b.position({ x: p.x + w / 2 - 14 + bw / 2, y: p.y - h / 2 - 2 }); }
+  }
+  function flagBadges(g) {
+    var cy = CI.chart.cy; if (!cy) return;
+    cy.nodes('.flag').remove();
+    Object.keys(g.flags.nodes).forEach(function (id) {
+      var n = cy.getElementById(id); if (!n.length) return;
+      cy.add({ group: 'nodes', data: { id: 'F-' + id, label: g.flags.nodes[id].join(' · '), degree: 0 }, classes: 'flag', position: { x: n.position().x, y: n.position().y }, selectable: false, grabbable: false });
+      placeBadge(n);
+    });
+  }
+  function decorate(g) {
+    var cy = CI.chart.cy; if (!cy) return;
+    cy.nodes('.note').remove();
+    g.notes.forEach(function (n) { cy.add({ group: 'nodes', data: { id: n.id, label: n.text, degree: 0 }, classes: 'note', position: { x: n.x, y: n.y } }); });
+    flagBadges(g);
+    cy.off('drag.cc'); cy.on('drag.cc', 'node', function (ev) { if (!ev.target.hasClass('note') && !ev.target.hasClass('flag')) placeBadge(ev.target); });
+    cy.fit(null, 40);
   }
 
   function draw() {
     var v = inv(), d = D(), g = CI.caseGraph(d, v, A.idx());
     st.graph = g;
     var hl = { nodes: {}, edges: {} };
-    Object.keys(g.flags.nodes).forEach(function (k) { hl.nodes[k] = 1; });
     Object.keys(g.flags.edges).forEach(function (k) { hl.edges[k] = 1; });
     var el = document.getElementById('cy');
     if (!g.graph.nodes.length) {
       if (CI.chart) CI.chart.destroy();
-      el.innerHTML = '<p class="empty" style="padding:40px;text-align:center">The board is empty. Pin the key files from the panel on the left, then draw strings between them.</p>';
+      el.innerHTML = '<p class="empty" style="padding:40px;text-align:center">The board is empty. Add the major players from the panel on the left, then draw how they are connected.</p>';
     } else {
       CI.chart.render(el, g.graph, {
         layout: 'cose', positions: g.positions, edgeLabels: true, hl: hl,
         photoOf: function (id) { var e = ent(id); return e && e.photo ? e.photo : ''; },
-        onMoved: function (id, p) { var pin = CI.caseChartOf(v).pins.filter(function (x) { return x.entityId === id; })[0]; if (pin) { pin.x = p.x; pin.y = p.y; A.persist(); } },
-        onNode: function (id) { st.sel = { kind: 'node', id: id }; detail(); },
+        onMoved: function (id, p) {
+          var cc = CI.caseChartOf(v), t = isNote(id) ? cc.notes.filter(function (x) { return x.id === id; })[0] : cc.pins.filter(function (x) { return x.entityId === id; })[0];
+          if (t) { t.x = p.x; t.y = p.y; A.persist(); }
+        },
+        onNode: function (id) { if (/^F-/.test(id)) return; st.sel = isNote(id) ? { kind: 'note', id: id } : { kind: 'node', id: id }; detail(); },
         onEdge: function (id) { st.sel = { kind: 'edge', id: id }; detail(); },
         onBackground: function () { st.sel = null; detail(); }
       });
+      decorate(g);
     }
     var s = document.getElementById('summary');
-    if (s) s.textContent = g.graph.nodes.length + ' pinned · ' + g.graph.edges.length + ' strings · ' + Object.keys(g.flags.nodes).length + ' flagged';
+    if (s) s.textContent = g.graph.nodes.length + ' main files · ' + g.graph.edges.length + ' connections' + (Object.keys(g.flags.nodes).length ? ' · ' + Object.keys(g.flags.nodes).length + ' flagged' : '');
+    var t = document.getElementById('cc-title'); if (t) t.textContent = titleText();
     detail();
   }
 
@@ -90,48 +116,53 @@
 
   function detail() {
     var box = document.getElementById('detail'); if (!box) return;
-    var v = inv(), d = D(), idx = A.idx(), cc = CI.caseChartOf(v), g = st.graph || { flags: { nodes: {}, edges: {} } }, h = '';
+    var v = inv(), idx = A.idx(), cc = CI.caseChartOf(v), g = st.graph || { flags: { nodes: {}, edges: {} } }, h = '';
     if (st.sel && st.sel.kind === 'node' && ent(st.sel.id)) {
       var e = ent(st.sel.id), mine = cc.strings.filter(function (t) { return t.a === e.id || t.b === e.id; });
       h += '<h3>' + esc(e.name) + '</h3><p>' + A.tag(e.type) + '</p><p class="muted small">' + (idx.reportsByEntity[e.id] || []).length + ' report' + ((idx.reportsByEntity[e.id] || []).length === 1 ? '' : 's') + ' in the main file.</p>';
       if (g.flags.nodes[e.id]) h += '<div class="group-label">Next: open leads about this file</div>' + leadItems(g.flags.nodes[e.id]);
-      h += mine.length ? '<div class="group-label">Strings</div><ul class="plain">' + mine.map(function (t) {
+      h += mine.length ? '<div class="group-label">Connections</div><ul class="plain">' + mine.map(function (t) {
         var other = t.a === e.id ? t.b : t.a;
         return '<li><a href="#" data-action="cc-pick-edge" data-id="' + esc(t.id) + '">' + esc(t.label || 'connected') + ' ' + esc(name(other)) + '</a> <span class="muted small">' + t.reportIds.length + ' report' + (t.reportIds.length === 1 ? '' : 's') + '</span></li>';
-      }).join('') + '</ul>' : '<p class="muted small">No strings from this file yet.</p>';
-      h += '<div class="stack"><a class="btn small" href="#/entity/' + esc(e.id) + '">Open file</a><button class="btn small" data-action="cc-string-from" data-id="' + esc(e.id) + '"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Add a string from here</button>' +
+      }).join('') + '</ul>' : '<p class="muted small">No connections from this file yet.</p>';
+      h += '<div class="stack"><a class="btn small" href="#/entity/' + esc(e.id) + '">Open main file</a><button class="btn small" data-action="cc-string-from" data-id="' + esc(e.id) + '"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Draw a connection from here</button>' +
         '<button class="btn small" data-action="cc-raise-node" data-id="' + esc(e.id) + '">Raise a lead about this</button><button class="btn small danger" data-action="cc-pin-del" data-id="' + esc(e.id) + '">Remove from the board</button></div>';
     } else if (st.sel && st.sel.kind === 'edge') {
       var t = cc.strings.filter(function (x) { return x.id === st.sel.id; })[0];
       if (t) {
-        h += '<h3>String</h3><p>' + esc(name(t.a)) + ' <span class="rel">— ' + esc(t.label || 'connected') + ' —</span> ' + esc(name(t.b)) + '</p><div class="group-label">Reports behind it</div><ul class="plain">' +
+        h += '<h3>Connection</h3><p>' + esc(name(t.a)) + ' <span class="rel">— ' + esc(t.label || 'connected') + ' —</span> ' + esc(name(t.b)) + '</p><div class="group-label">Reports behind it</div><ul class="plain">' +
           t.reportIds.map(function (rid) { var r = idx.report[rid] || {}; return '<li>' + A.repLink(rid) + (r.dupOf ? ' <span class="tag">repost of ' + esc(r.dupOf) + '</span>' : '') + ' <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.reportDate(r)) + '</span><div class="muted small">' + esc(A.trunc(r.summary || '', 120)) + '</div></li>'; }).join('') + '</ul>';
         if (g.flags.edges[t.id]) h += '<div class="group-label">Next: open leads about both files</div>' + leadItems(g.flags.edges[t.id]);
-        h += '<div class="stack"><button class="btn small" data-action="cc-string-edit" data-id="' + esc(t.id) + '">Change label or reports</button><button class="btn small" data-action="cc-raise-edge" data-id="' + esc(t.id) + '">Raise a lead about this</button><button class="btn small danger" data-action="cc-string-del" data-id="' + esc(t.id) + '">Remove string</button></div>';
+        h += '<div class="stack"><button class="btn small" data-action="cc-string-edit" data-id="' + esc(t.id) + '">Change label or reports</button><button class="btn small" data-action="cc-raise-edge" data-id="' + esc(t.id) + '">Raise a lead about this</button><button class="btn small danger" data-action="cc-string-del" data-id="' + esc(t.id) + '">Remove connection</button></div>';
       }
+    } else if (st.sel && st.sel.kind === 'note') {
+      var nt = cc.notes.filter(function (x) { return x.id === st.sel.id; })[0];
+      if (nt) h += '<h3>Label</h3><p>' + esc(nt.text) + '</p><div class="stack"><button class="btn small" data-action="cc-note-edit" data-id="' + esc(nt.id) + '">Change the text</button><button class="btn small danger" data-action="cc-note-del" data-id="' + esc(nt.id) + '">Remove label</button></div>';
     }
-    if (!h) h = '<h3>Details</h3><p class="muted small">Click a pin or a string. Pin files from the left, then add strings. Each string needs a report behind it. Orange marks what an open lead is still chasing.</p>';
+    if (!h) h = '<h3>Details</h3><p class="muted small">Click a main file, a connection or a label. Each connection lists the reports behind it. An orange badge marks a file an open lead is still chasing.</p>';
     var open = (g.openLeads || []);
     if (open.length) h += '<h3 class="sep">Open leads (' + open.length + ')</h3>' + leadItems(open.map(function (l) { return l.id; }));
     box.innerHTML = h;
   }
 
-  /* ---------- pins ---------- */
+  /* ---------- main files on the board ---------- */
   H['cc-pin-add'] = function (el) {
-    var id = parseEntity(el.value); if (!id) { A.toast('No file matches that.', true); return; }
+    var id = parseEntity(el.value); if (!id) { A.toast('No main file matches that.', true); return; }
     var res = CI.addPin(D(), inv(), id); if (res.error) { A.toast(res.error, true); return; }
     A.persist(); shell();
   };
-  H['cc-pick-node'] = function (el) { var id = el.getAttribute('data-id'); st.sel = { kind: 'node', id: id }; if (CI.chart.cy) { CI.chart.cy.$(':selected').unselect(); CI.chart.cy.getElementById(id).select(); CI.chart.focus(id); } detail(); };
   H['cc-pick-edge'] = function (el) { var id = el.getAttribute('data-id'); st.sel = { kind: 'edge', id: id }; if (CI.chart.cy) { CI.chart.cy.$(':selected').unselect(); CI.chart.cy.getElementById(id).select(); CI.chart.focus(id); } detail(); };
   H['cc-pin-del'] = function (el) {
     var id = el.getAttribute('data-id'), n = CI.caseChartOf(inv()).strings.filter(function (t) { return t.a === id || t.b === id; }).length;
-    A.confirm('Take ' + name(id) + ' off the board' + (n ? ' along with its ' + n + ' string' + (n === 1 ? '' : 's') : '') + '? The main file is not changed.', function () {
+    A.confirm('Take ' + name(id) + ' off the board' + (n ? ' along with its ' + n + ' connection' + (n === 1 ? '' : 's') : '') + '? The main file is not changed.', function () {
       CI.removePin(D(), inv(), id); A.persist(); st.sel = null; shell();
     }, { title: 'Remove from the board', yes: 'Remove', danger: true });
   };
+  H['cc-index-add'] = function () {
+    var n = CI.addIndexConnections(D(), inv()); A.persist(); A.toast(n ? n + ' connection' + (n === 1 ? '' : 's') + ' added.' : 'Nothing new to add.'); ctl(); draw();
+  };
 
-  /* ---------- strings ---------- */
+  /* ---------- connections ---------- */
   function reportRow(rid, on) {
     var r = A.idx().report[rid] || {};
     return '<label class="chk"><input type="checkbox" data-id="' + esc(rid) + '" class="cs-r"' + (on ? ' checked' : '') + '> <b>' + esc(rid) + '</b> <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.reportDate(r)) + ' · ' + esc(A.trunc(r.summary || '', 90)) + '</span></label>';
@@ -140,17 +171,17 @@
     var f = st.form, cc = CI.caseChartOf(inv()), pins = cc.pins.filter(function (p) { return ent(p.entityId); });
     var opts = function (sel) { return A.options(pins.map(function (p) { return { value: p.entityId, label: name(p.entityId) }; }), sel); };
     var rs = f.a && f.b && f.a !== f.b ? CI.reportsForString(D(), f.a, f.b, A.idx()) : { both: [], one: [] };
-    var h = '<h2>' + (f.edit ? 'Change string' : 'Add a string') + '</h2><div class="form"><datalist id="cs-types">' + D().settings.linkTypes.map(function (t) { return '<option value="' + esc(t.label) + '">'; }).join('') + '</datalist>' +
+    var h = '<h2>' + (f.edit ? 'Change connection' : 'Draw a connection') + '</h2><div class="form"><datalist id="cs-types">' + D().settings.linkTypes.map(function (t) { return '<option value="' + esc(t.label) + '">'; }).join('') + '</datalist>' +
       '<div class="grid2"><label>From<select id="cs-a" data-on-change="cs-pair"' + (f.edit ? ' disabled' : '') + '>' + opts(f.a) + '</select></label><label>To<select id="cs-b" data-on-change="cs-pair"' + (f.edit ? ' disabled' : '') + '>' + opts(f.b) + '</select></label></div>' +
       '<label>What connects them <span class="hint">a few words, such as “paid by” or “same address”</span><input type="text" id="cs-label" list="cs-types" value="' + esc(f.label) + '"></label>' +
       '<div class="group-label">Reports behind it <span class="hint">choose at least one</span></div>';
     if (f.a === f.b) h += '<p class="muted small">Choose two different files.</p>';
-    else if (!rs.both.length && !rs.one.length) h += '<p class="muted small">No report names either file, so there is nothing to base a string on.</p>';
+    else if (!rs.both.length && !rs.one.length) h += '<p class="muted small">No report names either file, so there is nothing to base a connection on.</p>';
     else {
       if (rs.both.length) h += '<div class="small muted">Name both files</div>' + rs.both.map(function (r) { return reportRow(r, !!f.ids[r]); }).join('');
       if (rs.one.length) h += '<div class="small muted" style="margin-top:6px">Name one of them</div>' + rs.one.map(function (r) { return reportRow(r, !!f.ids[r]); }).join('');
     }
-    h += '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="cs-save">' + (f.edit ? 'Save' : 'Add string') + '</button></div>';
+    h += '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="cs-save">' + (f.edit ? 'Save' : 'Add connection') + '</button></div>';
     A.modal(h, true);
   }
   function captureForm() {
@@ -182,7 +213,24 @@
   };
   H['cc-string-del'] = function (el) {
     var id = el.getAttribute('data-id');
-    A.confirm('Remove this string? The reports behind it are not changed.', function () { CI.removeString(D(), inv(), id); A.persist(); st.sel = null; ctl(); draw(); }, { title: 'Remove string', yes: 'Remove', danger: true });
+    A.confirm('Remove this connection? The reports behind it are not changed.', function () { CI.removeString(D(), inv(), id); A.persist(); st.sel = null; ctl(); draw(); }, { title: 'Remove connection', yes: 'Remove', danger: true });
+  };
+
+  /* ---------- labels and title ---------- */
+  H['cc-note-new'] = function () {
+    A.ask('What should the label say?', '', function (text) {
+      var cy = CI.chart.cy, ex = cy ? cy.extent() : null, c = ex ? { x: (ex.x1 + ex.x2) / 2, y: (ex.y1 + ex.y2) / 2 } : { x: 0, y: 0 };
+      var res = CI.addNote(D(), inv(), text, c); if (res.error) { A.toast(res.error, true); return; }
+      A.persist(); st.sel = { kind: 'note', id: res.note.id }; draw();
+    }, { title: 'Add a label', ok: 'Add' });
+  };
+  H['cc-note-edit'] = function (el) {
+    var id = el.getAttribute('data-id'), nt = CI.caseChartOf(inv()).notes.filter(function (x) { return x.id === id; })[0]; if (!nt) return;
+    A.ask('What should the label say?', nt.text, function (text) { var res = CI.updateNote(D(), inv(), id, text); if (res.error) { A.toast(res.error, true); return; } A.persist(); draw(); }, { title: 'Change the label', ok: 'Save' });
+  };
+  H['cc-note-del'] = function (el) { CI.removeNote(D(), inv(), el.getAttribute('data-id')); A.persist(); st.sel = null; draw(); };
+  H['cc-title'] = function () {
+    A.ask('Title for the board (printed on the wall copy)?', CI.caseChartOf(inv()).title, function (text) { CI.setCaseTitle(D(), inv(), text); A.persist(); draw(); }, { title: 'Board title', ok: 'Save' });
   };
 
   /* ---------- leads ---------- */
@@ -200,11 +248,16 @@
   /* ---------- view tools ---------- */
   H['cc-fit'] = function () { CI.chart.fit(); };
   H['cc-relayout'] = function () {
-    if (!CI.chart.cy || !st.graph) return;
+    var cy = CI.chart.cy; if (!cy || !st.graph) return;
+    cy.nodes('.flag,.note').remove();
+    var cc = CI.caseChartOf(inv()), centre = function () { var ns = cy.nodes(), x = 0, y = 0; ns.forEach(function (n) { x += n.position().x; y += n.position().y; }); return { x: x / (ns.length || 1), y: y / (ns.length || 1) }; };
+    var c0 = centre();
     CI.chart.relayout('cose', st.graph.graph);
-    var pins = CI.caseChartOf(inv()).pins;
-    CI.chart.cy.nodes().forEach(function (n) { var p = n.position(), pin = pins.filter(function (x) { return x.entityId === n.id(); })[0]; if (pin) { pin.x = Math.round(p.x); pin.y = Math.round(p.y); } });
+    var c1 = centre();
+    cc.notes.forEach(function (n) { n.x = Math.round(n.x + c1.x - c0.x); n.y = Math.round(n.y + c1.y - c0.y); });
+    cy.nodes().forEach(function (n) { var p = n.position(), pin = cc.pins.filter(function (x) { return x.entityId === n.id(); })[0]; if (pin) { pin.x = Math.round(p.x); pin.y = Math.round(p.y); } });
     A.persist();
+    decorate(st.graph);
   };
   H['cc-png'] = function () {
     var uri = CI.chart.png(); if (!uri) { A.toast('The board is empty.', true); return; }
@@ -232,7 +285,7 @@
   H['cc-pr-go'] = function () {
     var btn = document.getElementById('cp-go'); btn.disabled = true; btn.textContent = 'Working…';
     var v = inv();
-    CI.tiledChart({ chart: CI.chart, bankName: 'Case chart ' + v.id, paper: pr.paper, orientation: pr.orientation, cols: pr.cols, rows: pr.rows, quality: pr.quality,
+    CI.tiledChart({ chart: CI.chart, bankName: titleText(), paper: pr.paper, orientation: pr.orientation, cols: pr.cols, rows: pr.rows, quality: pr.quality,
       onProgress: function (i, n) { btn.textContent = 'Page ' + i + ' of ' + n + '…'; } }).then(function (r) {
       return CI.saveFile('Case-chart-' + v.id + '-' + pr.cols + 'x' + pr.rows + '.pdf', r.blob).then(function (res) {
         A.closeModal();

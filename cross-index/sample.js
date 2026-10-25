@@ -9,7 +9,15 @@
     var ent = function (prefix) { return d.entities.filter(function (e) { return e.name.indexOf(prefix) === 0; })[0]; };
     var b2 = d.banks.filter(function (b) { return b.name === 'Depot 4 outage bank'; })[0];
     var inv = b2 && CI.investigationFor(d, b2.id);
-    if (!inv || CI.caseChartOf(inv).pins.length) return false;
+    if (!inv) return false;
+    var cc0 = CI.caseChartOf(inv);
+    if (cc0.pins.length) {
+      if (cc0.title || cc0.notes.length) return false;
+      CI.setCaseTitle(d, inv, 'Depot 4: who is behind the outage');
+      CI.addNote(d, inv, 'Public account that predicted the outage', { x: -240, y: -250 });
+      CI.addNote(d, inv, 'Contractor on site the night before', { x: 240, y: 10 });
+      return true;
+    }
     var E = { grid: ent('GridWatch'), tobias: ent('Tobias'), outage: ent('Depot 4 equipment'), depot4: ent('Northwind Depot 4'), keystone: ent('Keystone'), mara: ent('Mara'), harborst: ent('410 Harbor') };
     if (Object.keys(E).some(function (k) { return !E[k]; })) return false;
     if (!d.leads.some(function (l) { return l.bankId === b2.id; })) {
@@ -20,6 +28,9 @@
     [['grid', 'outage', 'announced it beforehand', 'R-0006'], ['tobias', 'grid', 'administers the account', 'R-0006'], ['keystone', 'depot4', 'on site the night before', 'R-0008'], ['keystone', 'mara', 'director', 'R-0009'], ['keystone', 'harborst', 'registered address', 'R-0009']].forEach(function (t) {
       CI.addString(d, inv, { a: E[t[0]].id, b: E[t[1]].id, label: t[2], reportIds: [t[3]] });
     });
+    CI.setCaseTitle(d, inv, 'Depot 4: who is behind the outage');
+    CI.addNote(d, inv, 'Public account that predicted the outage', { x: -240, y: -250 });
+    CI.addNote(d, inv, 'Contractor on site the night before', { x: 240, y: 10 });
     return true;
   };
 
