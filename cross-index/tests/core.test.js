@@ -281,9 +281,28 @@ t('pointers: shared item, hidden, together-not-connected, growing, loose ends, d
   assert.ok(p.looseEnds.some(x => x.id === lone.id));
   assert.equal(p.duplicates.length, 1);
   assert.equal(p.growing.filter(x => x.id === g.id).length, 1, 'Crew gained 3 files today');
+  assert.equal(CI.discoveries(d).filter(x => x.kind === 'path').length, 0, 'one report alone reveals no cross-report path');
   const ci = CI.connectionIndex(d, a.id);
   assert.equal(ci.map(x => x.label).join(), 'Groups,Phone (item)');
   const ni = CI.noteIndex(d); assert.equal(ni[0].text, 'n'); assert.equal(ni[0].count, 7);
 });
 
+t('discoveries: a later report ties two files together through a third', () => {
+  const d = CI.emptyData(); d.started = true;
+  const mk = (type, name) => CI.addEntity(d, { type, name });
+  const a = mk('individual', 'Ann'), b = mk('individual', 'Bob'), c = mk('group', 'Crew'), x = mk('individual', 'Xi'), y = mk('individual', 'Yu');
+  const rep = (ids) => { const r = { id: CI.nextId(d, 'report'), received: '2026-10-01', subject: 's', sourceRef: 'x', summary: '', entities: ids.map(i => ({ entityId: i.id, role: '', flag: false, flagNote: '' })) }; d.reports.push(r); return r; };
+  const r1 = rep([a, b]), r2 = rep([b, c]), r3 = rep([x, y]), r4 = rep([c, x]);
+  const link = (p, q, r) => { const res = CI.addLink(d, { reportId: r.id, from: p.id, to: q.id, type: 'ASSOCIATED_WITH', note: 'n' }); assert.ok(!res.error, res.error); };
+  link(a, b, r1);
+  assert.equal(CI.discoveries(d).length, 0, 'first connection reveals nothing');
+  link(b, c, r2);
+  let dc = CI.discoveries(d);
+  assert.equal(dc.length, 1); assert.equal(dc[0].kind, 'path'); assert.equal(dc[0].via, b.id);
+  assert.deepEqual([dc[0].a, dc[0].c], [a.id, c.id], 'Ann is now tied to Crew through Bob');
+  link(x, y, r3); link(c, x, r4);
+  dc = CI.discoveries(d);
+  assert.ok(dc.some(q => q.kind === 'join' && q.sizeA === 3 && q.sizeB === 2), 'two separate groups were joined');
+  assert.equal(CI.discoveries(d, null, '2999-01-01').length, 0, 'since filter');
+});
 console.log('\n' + n + ' tests passed');

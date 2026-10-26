@@ -146,4 +146,49 @@
     });
     return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.count - a.count || a.key.localeCompare(b.key); });
   };
+
+  /* What new connections revealed. Connections are replayed in the order they were entered. When one is added:
+   *  - "path": it ties file A to file C through B, where A–B came from a different report. Nobody reading either report alone would see A and C together.
+   *  - "join": it links two groups of files that had no connection to each other before.
+   * since: only discoveries made by connections entered on or after this date (YYYY-MM-DD); empty = all. Newest first. */
+  CI.discoveries = function (d, idx, since) {
+    idx = idx || CI.buildIndex(d);
+    var ent = idx.entity, adj = {}, parent = {}, size = {}, out = [];
+    function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+    function ensure(x) { if (parent[x] === undefined) { parent[x] = x; size[x] = 1; } }
+    d.links.forEach(function (l) {
+      if (!ent[l.from] || !ent[l.to] || l.from === l.to) return;
+      var x = l.from, y = l.to;
+      ensure(x); ensure(y);
+      var fresh = !since || (l.created || '') >= since;
+      var direct = adj[x] && adj[x][y];
+      if (fresh && !direct) {
+        var rx = find(x), ry = find(y);
+        if (rx !== ry && size[rx] >= 2 && size[ry] >= 2) out.push({ kind: 'join', link: l, a: x, b: y, sizeA: size[rx], sizeB: size[ry] });
+        [[x, y], [y, x]].forEach(function (p) {
+          // p[0] is the shared middle file, p[1] the other end of the new connection
+          Object.keys(adj[p[0]] || {}).forEach(function (n) {
+            if (n === p[1] || (adj[n] && adj[n][p[1]])) return;
+            var olds = adj[p[0]][n].filter(function (o) { return o.reportId !== l.reportId; });
+            if (!olds.length) return;
+            out.push({ kind: 'path', link: l, a: n, via: p[0], c: p[1], oldLink: olds[0] });
+          });
+        });
+      }
+      // add the connection
+      (adj[x] = adj[x] || {}); (adj[y] = adj[y] || {});
+      (adj[x][y] = adj[x][y] || []).push(l); (adj[y][x] = adj[y][x] || []).push(l);
+      var a = find(x), b = find(y);
+      if (a !== b) { parent[a] = b; size[b] += size[a]; }
+    });
+    out.reverse();
+    // The same two files can be reached through several middles: show each pair once, newest first.
+    var seenPair = {};
+    return out.filter(function (x) {
+      if (x.kind !== 'path') return true;
+      var k = pairKey(x.a, x.c);
+      if (seenPair[k]) return false;
+      return (seenPair[k] = true);
+    });
+  };
 })();
