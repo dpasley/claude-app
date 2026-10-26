@@ -214,6 +214,7 @@
     if (!document.querySelector('#modal-root .overlay')) return;
     if (ev.key === 'Escape') closeModal();
     else if (ev.key === 'Enter' && ev.target && ev.target.id === 'modal-input') { ev.preventDefault(); handlers['modal-ok'](); }
+    else if (ev.key === 'Enter' && ev.target && (ev.target.id === 'nn-name' || ev.target.id === 'nn-type')) { ev.preventDefault(); handlers['ae-new-ok'](); }
   });
   handlers['date-fix'] = function (el) {
     var v = CI.parseDate(el.value);
@@ -329,20 +330,13 @@
       (r.archiveLoc ? '<div class="grow"><span class="fl">Preserved copy</span><span class="fv">' + esc(r.archiveLoc) + '</span></div>' : '') + '</div>' +
       (r.summary ? '<p class="rs-notes">' + esc(r.summary) + '</p>' : '') +
       ((dupInfo || r.leadId || reposts.length || r.basis) ? '<p class="rs-extra muted small">' + (r.basis ? 'Intake basis: ' + esc(r.basis) + ' ' : '') + (dupInfo ? dupInfo + ' ' : '') + (r.leadId ? 'Answers lead <a href="#/lead/' + esc(r.leadId) + '">' + esc(r.leadId) + '</a> ' : '') + (reposts.length ? 'Reposts: ' + reposts.map(function (x) { return repLink(x.id); }).join(', ') : '') + '</p>' : '') + '</div>';
-    h += '<div class="steps"><a href="#" class="step on" data-action="jump" data-to="sec-names"><span class="num">1</span>Names mentioned <span class="pill">' + r.entities.length + '</span></a><span class="arrow">›</span>' +
-      '<a href="#" class="step' + (r.entities.length >= 2 ? ' on' : ' off') + '" data-action="jump" data-to="sec-links"><span class="num">2</span>Connections <span class="pill">' + mine.length + '</span></a><span class="arrow">›</span>' +
-      '<a href="#" class="step" data-action="jump" data-to="sec-done"><span class="num">3</span>Finish</a></div>';
 
-    h += '<div class="card sec" id="sec-names"><div class="sec-head"><span class="num">1</span><div><h2>Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one, and create a new one only when it is not. Press Enter to add.</p></div></div>';
-    h += '<div class="addbox primary-box"><label class="big-lbl">Add a name<input type="text" id="ae-q" class="big-in" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
+    h += '<div class="card sec" id="sec-names"><h2>Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one. If it does not exist yet, press Enter to create it.</p>';
+    h += '<label class="big-lbl">Add a name<input type="text" id="ae-q" class="big-in" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
       '<label class="chk"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label>' +
-      '<div id="ae-results"></div>' +
-      '<div class="newrow"><span class="nr-lbl">Not found? Create it:</span><select id="ae-type" data-on-change="ae-type-change">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Type…') + '</select>' +
-      '<input type="text" id="ae-details" class="wide-in" placeholder="Identifying details (optional): date of birth or age, address, nickname, description" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + '>' +
-      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button></div>' +
-      '<p class="muted small nr-hint">Area: a city, region or campus. Phones, plates, accounts and addresses are not indexed; if one matters, put it in the identifying details or a connection note.</p><div id="ae-msg" class="errors"></div></div>';
+      '<div id="ae-results"></div><div id="ae-msg" class="errors"></div>';
     if (r.entities.length) {
-      h += '<table class="fixed list"><colgroup><col style="width:44%"><col style="width:16%"><col style="width:28%"><col style="width:12%"></colgroup><thead><tr><th>Names so far</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
+      h += '<table class="fixed list spaced"><colgroup><col style="width:44%"><col style="width:16%"><col style="width:28%"><col style="width:12%"></colgroup><thead><tr><th>Names so far</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
         return '<tr><td>' + entLink(x.entityId) + (e && e.details ? ' <span class="muted small">' + esc(e.details) + '</span>' : '') + (e && e.aliases.length ? ' <span class="muted small">also: ' + esc(e.aliases.join(', ')) + '</span>' : '') + '</td><td>' + kindTag(e) + '</td>' +
           '<td><label class="chk"><input type="checkbox" data-on-change="flag-toggle" data-eid="' + esc(x.entityId) + '"' + (x.flag ? ' checked' : '') + '> flag</label>' +
@@ -352,25 +346,25 @@
     } else h += '<p class="callout-inline">No names yet. This report is not indexed until at least one is added.</p>';
     h += '</div>';
 
-    h += '<div class="card sec' + (r.entities.length >= 2 ? '' : ' dim') + '" id="sec-links"><div class="sec-head"><span class="num">2</span><div><h2>Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p></div></div>';
+    h += '<div class="card sec' + (r.entities.length >= 2 ? '' : ' dim') + '" id="sec-links"><h2>Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
     if (r.entities.length >= 2) {
       var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
-      h += '<div class="addbox primary-box"><div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
+      h += '<div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
         '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? '' : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
         '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label></div>' +
         '<label class="big-lbl">What is the connection? <span class="hint">required: brother, treasurer, owner of the plate…</span><input type="text" id="lk-note" class="big-in"></label>' +
         '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
-        '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button><button class="btn primary" data-action="add-link">Add connection</button></span></div><div id="lk-msg" class="errors"></div></div>';
+        '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button><button class="btn primary" data-action="add-link">Add connection</button></span></div><div id="lk-msg" class="errors"></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     if (mine.length) {
-      h += '<table class="fixed list"><colgroup><col style="width:26%"><col style="width:17%"><col style="width:26%"><col style="width:22%"><col style="width:9%"></colgroup>' +
+      h += '<table class="fixed list spaced"><colgroup><col style="width:26%"><col style="width:17%"><col style="width:26%"><col style="width:22%"><col style="width:9%"></colgroup>' +
         '<thead><tr><th>Connections so far: from</th><th>Connection</th><th>To</th><th>What it is</th><th></th></tr></thead><tbody>' + mine.map(function (l) {
         var t = lt(l.type);
         return '<tr><td>' + entLink(l.from) + '</td><td title="' + esc(t.label) + '">' + (t.directed ? '→ ' : '↔ ') + esc(t.label) + '</td><td>' + entLink(l.to) + '</td><td title="' + esc(l.note) + '">' + esc(l.note) + '</td><td class="right"><button class="btn small" data-action="del-link" data-id="' + esc(l.id) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else if (r.entities.length >= 2) h += '<p class="muted">No connections recorded for this report yet.</p>';
     h += '</div>';
-    h += '<div class="card row spread" id="sec-done"><span class="muted"><b>3.</b> Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
+    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
   }
@@ -380,21 +374,19 @@
     var box = document.getElementById('ae-results');
     if (!box) return;
     var r = idx().report[ae.reportId];
-    var btn = document.getElementById('ae-create-btn');
     var q = ae.q.trim();
-    if (btn) btn.textContent = q ? 'Create “' + trunc(q, 30) + '” as new' : 'Create as new';
     if (!q) { box.innerHTML = ''; return; }
     var cands = CI.findCandidates(d, q);
     aeCands = cands;
     if (aeSel >= cands.length) aeSel = cands.length - 1;
-    if (!cands.length) { box.innerHTML = '<p class="muted small">Nothing existing looks like this. Choose a type below to create it.</p>'; return; }
+    if (!cands.length) { box.innerHTML = '<p class="nomatch">Nothing existing looks like this. <button class="btn small" data-action="ae-create">Create “' + esc(trunc(q, 40)) + '” as a new name</button> <span class="muted small">or press Enter</span></p>'; return; }
     box.innerHTML = cands.map(function (c, i) {
       var inRep = r.entities.some(function (x) { return x.entityId === c.entity.id; });
       var nrep = (idx().reportsByEntity[c.entity.id] || []).length;
       return '<div class="cand' + (i === aeSel ? ' active' : '') + '"><div><strong>' + esc(c.entity.name) + '</strong> ' + kindTag(c.entity) + '<div class="small">' + (c.entity.details ? esc(c.entity.details) : '<span class="muted">no identifying details yet</span>') + '</div><div class="muted small">' + (c.score === 1 ? 'exact match' : 'possible match') +
         (c.via !== c.entity.name ? ' on “' + esc(c.via) + '”' : '') + ' · ' + esc(c.entity.id) + ' · ' + nrep + ' report' + (nrep === 1 ? '' : 's') + '</div></div>' +
         (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this one</button>') + '</div>';
-    }).join('');
+    }).join('') + '<p class="nomatch">None of these? <button class="btn small" data-action="ae-create">Create “' + esc(trunc(q, 40)) + '” as a new name</button> <span class="muted small">or press Enter with none highlighted</span></p>';
   }
   /* Search box in the header: names and reports. */
   var gsHits = [];
@@ -473,25 +465,39 @@
     ae.q = ''; persist(); viewReport(ae.reportId);
     var q = document.getElementById('ae-q'); if (q) q.focus();
   };
+  /* Opens a small dialog with the typed name already in place; only the type and identifying details are left to fill in. */
   handlers['ae-create'] = function () {
-    var q = ae.q.trim(), msg = document.getElementById('ae-msg'), type = val('ae-type');
+    var q = ae.q.trim(), msg = document.getElementById('ae-msg');
     if (!q) { msg.textContent = 'Type a name first.'; return; }
+    var flag = document.getElementById('ae-flag').checked;
+    modal('<h2>New name</h2><p class="muted small">Nothing existing matches. Choose what it is and add anything that tells it apart from others of the same name.</p>' +
+      '<div class="form"><label>Name<input type="text" id="nn-name" value="' + esc(q) + '" autocomplete="off"></label>' +
+      '<label>Type<select id="nn-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Choose…') + '</select><span class="hint">Area: a city, region or campus. Phones, plates, accounts and addresses are not indexed; put them in the details or a connection note.</span></label>' +
+      '<label>Identifying details <span class="hint">optional: date of birth or age, address, nickname, description</span><textarea id="nn-details" rows="3">' + esc(ae.details || '') + '</textarea></label>' +
+      '<label class="chk"><input type="checkbox" id="nn-flag"' + (flag ? ' checked' : '') + '> Unsure this is the same one – flag for review</label><div id="nn-msg" class="errors"></div></div>' +
+      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="ae-new-ok">Create name</button></div>');
+    var f = document.getElementById(ae.type ? 'nn-details' : 'nn-type'); if (f) f.focus();
+  };
+  handlers['ae-new-ok'] = function () {
+    var q = val('nn-name').trim(), type = val('nn-type'), msg = document.getElementById('nn-msg');
+    if (!q) { msg.textContent = 'The name cannot be empty.'; return; }
     if (!type) {
       msg.textContent = 'Choose what type this is (individual, group, area or subject).';
       logEvent('unclear-type', '“' + q + '” was not added because no type was chosen (individual, group, area or subject).', ae.reportId); persist(); return;
     }
     ae.type = type;
-    var role = '', flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
+    var details = val('nn-details').trim(), flag = document.getElementById('nn-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
     function create() {
+      closeModal();
       if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar names exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', rid);
-      var e = CI.addEntity(d, { type: type, name: q, details: val('ae-details').trim() });
+      var e = CI.addEntity(d, { type: type, name: q, details: details });
       ae.details = '';
-      CI.addEntityToReport(d, rid, e.id, role, flag, '');
+      CI.addEntityToReport(d, rid, e.id, '', flag, '');
       ae.q = ''; persist(); viewReport(rid);
       var qi = document.getElementById('ae-q'); if (qi) qi.focus();
     }
-    if (exact) askConfirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate ' + CI.TYPE_LABEL[exact.entity.type].toLowerCase() + ' anyway?', create, { title: 'Possible duplicate', yes: 'Create anyway' });
+    if (exact) askConfirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate ' + CI.TYPE_LABEL[exact.entity.type].toLowerCase() + ' anyway?', create, { title: 'Possible duplicate', yes: 'Create a separate one' });
     else create();
   };
   function repEntity(el) {

@@ -477,3 +477,11 @@ table.fixed td.nm { border-bottom: 1px solid var(--border); }
 table.list thead th { text-transform: uppercase; font-size: 11px; letter-spacing: .06em; }
 @media (max-width: 700px) { .sentence { grid-template-columns: 1fr; } }
 .primary-box .newrow select { width: 150px; flex: none; }
+.sec-head, .steps { display: none; }
+.card.sec h2 { margin: 0 0 4px; }
+.card.sec > p.muted.small { margin: 0 0 16px; }
+.card.sec .big-lbl { margin-bottom: 8px; }
+table.list.spaced { margin-top: 20px; }
+.nomatch { margin: 10px 0 0; font-size: 14px; }
+.card.sec .sentence { margin-top: 4px; }
+.card.sec .row.between { margin-bottom: 4px; }
