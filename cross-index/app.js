@@ -34,8 +34,11 @@
   }
   function tag(t) { return '<span class="tag t-' + esc(t) + '">' + esc(CI.TYPE_LABEL[t] || t) + '</span>'; }
   /* Dates are typed and shown as day, short month, year (25 Oct. 2026) and kept as YYYY-MM-DD underneath. */
-  function dateInput(id, iso) {
-    return '<input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="25 Oct. 2026" autocomplete="off" data-on-change="date-fix">';
+  function dateInput(id, iso, onchange, extra) {
+    return '<span class="datebox"><input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="25 Oct. 2026" autocomplete="off" data-on-change="' + (onchange || 'date-fix') + '"' + (extra || '') + '>' +
+      '<button type="button" class="cal-btn" data-action="date-pick" data-for="' + esc(id) + '" title="Pick from a calendar" aria-label="Pick from a calendar">' +
+      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1.5v3M11 1.5v3"/></svg></button>' +
+      '<input type="date" class="cal-hide" tabindex="-1" aria-hidden="true" data-for="' + esc(id) + '" data-on-change="date-chosen"></span>';
   }
   function readDate(id) { return CI.parseDate(val(id)); }
   var DATE_HELP = 'Not a date I can read. Try 25 Oct. 2026.';
@@ -180,6 +183,17 @@
     if (v === null) { el.classList.add('bad'); el.title = DATE_HELP; }
     else { el.classList.remove('bad'); el.title = ''; el.value = CI.fmtDate(v); }
   };
+  handlers['date-pick'] = function (el) {
+    var box = el.parentNode, cal = box.querySelector('.cal-hide'), txt = box.querySelector('.date-in');
+    cal.value = CI.parseDate(txt.value) || '';
+    if (cal.showPicker) { try { cal.showPicker(); return; } catch (e) {} }
+    cal.style.cssText = 'position:static;opacity:1;width:auto;height:auto;pointer-events:auto'; cal.focus();
+  };
+  handlers['date-chosen'] = function (el) {
+    var txt = document.getElementById(el.getAttribute('data-for'));
+    if (txt && el.value) { txt.value = CI.fmtDate(el.value); txt.classList.remove('bad'); txt.title = ''; txt.dispatchEvent(new Event('change', { bubbles: true })); }
+    el.style.cssText = '';
+  };
   handlers['modal-close'] = function () { closeModal(); };
   handlers['modal-bg'] = function (el, ev) { if (ev.target === el) closeModal(); };
   handlers['modal-yes'] = function () { var f = pend && pend.yes; closeModal(); if (f) f(); };
@@ -226,33 +240,29 @@
   function viewReportForm(id) {
     var r = id ? idx().report[id] : null;
     if (id && !r) return notFound('Report');
-    r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceType: '', sourceRef: '', archiveLoc: '', originalText: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
+    r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
     repDefaults = null;
-    var st = d.settings.sourceTypes;
-    var more = !!(r.eventDate || r.archiveLoc || r.summary || r.originalText);
     view.innerHTML = '<div class="page-head"><h1>' + (id ? 'Edit report – ' + esc(id) : 'New report') + '</h1></div>' +
-      '<form class="card form" id="rep-form" onsubmit="return false">' +
-      '<div class="grid2"><label>Date of report ' + '<span class="hint">e.g. 25 Oct. 2026</span>' + dateInput('f-received', r.received) + '</label>' +
-      '<label>Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label></div>' +
-      '<div class="grid2"><label>Source of report <span class="hint">name, URL, handle or document title</span><input type="text" id="f-ref" value="' + esc(r.sourceRef) + '"></label>' +
-      '<label>Kind of source <span class="hint">optional</span><select id="f-type">' + options(st, r.sourceType, 'Choose…') + '</select></label></div>' +
-      '<p class="muted small">Next you add the names the report mentions and the connections it shows.</p>' +
-      '<details class="more"' + (more ? ' open' : '') + '><summary>More detail (all optional)</summary>' +
-      '<div class="grid2"><label>Date of the event or posting <span class="hint">if different</span>' + dateInput('f-event', r.eventDate) + '</label><span></span></div>' +
-      '<label>Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
+      '<form class="card form rep-form" id="rep-form" onsubmit="return false">' +
+      '<p class="form-intro">Record the report first. Next you add the names it mentions and the connections it shows.</p>' +
+      '<div class="rf-grid">' +
+      '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
+      '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
+      '<label class="rf-source">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
+      '<label class="rf-date">Date of the event or posting <span class="hint">if different</span>' + dateInput('f-event', r.eventDate) + '</label>' +
+      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
+      '<label class="rf-wide">Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
+      '</div>' +
       (r.leadId ? '<input type="hidden" id="f-lead" value="' + esc(r.leadId) + '"><p class="muted small">This report was started from lead ' + esc(r.leadId) + ' and answers it.</p>' : '') +
-      '<label>Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="3">' + esc(r.summary) + '</textarea></label>' +
-      '<label>Original text <span class="hint">a SHA-256 fingerprint is stored with the capture time</span><textarea id="f-original" rows="4">' + esc(r.originalText) + '</textarea></label>' +
-      (r.hash ? '<p class="muted small">Fingerprint ' + esc(r.hash.slice(0, 16)) + '… captured ' + esc(CI.fmtDateTime(r.hashAt)) + '</p>' : '') + '</details>' +
       '<div id="form-errors" class="errors" role="alert"></div>' +
-      '<div class="row"><button class="btn primary" data-action="save-report" data-id="' + esc(id || '') + '">' + (id ? 'Save' : 'Save, then add names and connections') + '</button><a class="btn" href="' + (id ? '#/report/' + esc(id) : '#/reports') + '">Cancel</a></div></form>';
+      '<div class="rf-actions"><button class="btn primary" data-action="save-report" data-id="' + esc(id || '') + '">' + (id ? 'Save' : 'Save, then add names and connections') + '</button><a class="btn" href="' + (id ? '#/report/' + esc(id) : '#/reports') + '">Cancel</a></div></form>';
   }
   handlers['save-report'] = function (el) {
     var id = el.getAttribute('data-id'), ex = id ? idx().report[id] : null;
     var rec = readDate('f-received'), ev = readDate('f-event');
     var r = {
-      received: rec || '', subject: val('f-subject').trim(), eventDate: ev || '', sourceType: val('f-type'), sourceRef: val('f-ref').trim(),
-      archiveLoc: val('f-arch').trim(), summary: val('f-summary').trim(), originalText: val('f-original')
+      received: rec || '', subject: val('f-subject').trim(), eventDate: ev || '', sourceRef: val('f-ref').trim(),
+      archiveLoc: val('f-arch').trim(), summary: val('f-summary').trim()
     };
     var leadEl = document.getElementById('f-lead'); if (leadEl) r.leadId = leadEl.value;
     var problems = CI.validateReport(r), box = document.getElementById('form-errors');
@@ -274,10 +284,7 @@
         d.reports.push(n); persist(); go('#/report/' + n.id);
       }
     };
-    if (r.originalText && (!ex || ex.originalText !== r.originalText)) {
-      CI.sha256(r.originalText).then(function (h) { finish({ hash: h, at: new Date().toISOString() }); });
-    } else if (!r.originalText && ex) finish({ hash: '', at: '' });
-    else finish();
+    finish();
   };
 
   /* ---------- REPORT PAGE (indexing) ---------- */

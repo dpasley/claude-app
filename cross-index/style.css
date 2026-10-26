@@ -403,3 +403,28 @@ table.fixed td.nm { border-bottom: 1px solid var(--border); }
 .find.heat .rel { margin-top: 4px; }
 .find.heat .pic > .box, .find.heat .pic > a { min-width: 240px; }
 .hbars { width: 250px; }
+
+/* Report form */
+.rep-form { max-width: 860px; padding: 24px 28px 22px; }
+.rep-form .form-intro { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+.rf-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px 16px; }
+.rf-grid > label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px; margin: 0; }
+.rf-grid .rf-date { grid-column: span 4; }
+.rf-grid .rf-subject { grid-column: span 8; }
+.rf-grid .rf-source { grid-column: span 8; }
+.rf-grid .rf-wide { grid-column: span 12; }
+.rf-grid input[type=text], .rf-grid textarea { width: 100%; box-sizing: border-box; }
+.rf-grid textarea { resize: vertical; }
+.rf-actions { display: flex; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line, #e3e5ea); }
+.datebox { position: relative; display: block; }
+.datebox .date-in { width: 100%; box-sizing: border-box; padding-right: 38px; }
+.cal-btn { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--muted); border-radius: 6px; cursor: pointer; }
+.cal-btn:hover { background: rgba(0,0,0,.06); color: inherit; }
+.cal-hide { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+@media (max-width: 700px) { .rf-grid .rf-date, .rf-grid .rf-subject, .rf-grid .rf-source { grid-column: span 12; } }
+.rf-grid > label { display: block; }
+.rf-grid > label > input, .rf-grid > label > textarea, .rf-grid > label > .datebox { display: block; margin-top: 6px; width: 100%; box-sizing: border-box; }
+.rf-grid .datebox .date-in { width: 100%; margin-top: 0; }
+.rf-grid .hint { margin-left: 6px; }
+.rf-grid > label > .datebox { margin-top: 6px; }
+.datebox .date-in, .rf-grid .datebox .date-in { width: 100% !important; max-width: none !important; }

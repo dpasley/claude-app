@@ -74,7 +74,7 @@
       '<div class="group-label">Entity types</div>' + CI.ENTITY_TYPES.map(function (t) {
         return chk('et', !bank.entityTypes || bank.entityTypes.indexOf(t) !== -1, CI.TYPE_LABEL[t] + 's', 'data-on-change="cv-etypes" data-id="' + t + '"');
       }).join('') +
-      '<div class="grid2 tight-grid"><label>From<input type="text" class="date-in" placeholder="25 Oct. 2026" value="' + esc(CI.fmtDate(bank.dateFrom)) + '" data-on-change="cv-date" data-k="dateFrom"></label><label>To<input type="text" class="date-in" placeholder="25 Oct. 2026" value="' + esc(CI.fmtDate(bank.dateTo)) + '" data-on-change="cv-date" data-k="dateTo"></label></div>' +
+      '<div class="grid2 tight-grid"><label>From ' + A.dateInput('cv-from', bank.dateFrom, 'cv-date', ' data-k="dateFrom"') + '</label><label>To ' + A.dateInput('cv-to', bank.dateTo, 'cv-date', ' data-k="dateTo"') + '</label></div>' +
       '<p class="muted small">Dates use the event date, or the received date when none was given.</p>' +
       '<label>Show only the heaviest names <span class="hint">0 shows everything; starting entities are always kept</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"></label>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
