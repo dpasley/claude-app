@@ -393,3 +393,13 @@ table.fixed td.num, table.fixed th.num { text-align: right; }
 .lrow { white-space: nowrap; overflow: hidden; }
 .lrow > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 table.fixed td.nm { border-bottom: 1px solid var(--border); }
+
+/* Heating up */
+.find.heat .pic { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.find.heat .hsel { font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+.hbars { display: grid; gap: 3px; min-width: 220px; font-size: 12px; }
+.hbars .k { display: inline-block; width: 90px; color: var(--muted, #666); }
+.hbars .bar { display: inline-block; width: 120px; vertical-align: middle; }
+.find.heat .rel { margin-top: 4px; }
+.find.heat .pic > .box, .find.heat .pic > a { min-width: 240px; }
+.hbars { width: 250px; }

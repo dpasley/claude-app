@@ -68,7 +68,7 @@ t('link type, entity type, date and exclusion filters', () => {
   b.entityTypes = null; b.dateFrom = CI.daysAgo(5);
   const recent = CI.computeGraph(d, b);
   assert.ok(recent.edges.length < CI.computeGraph(d, CI.newBank(d, 'y', [], 1)).edges.length);
-  const hs = d.entities.find(e => e.name === '410 Harbor Street, Unit 6').id;
+  const hs = d.entities.find(e => e.name === 'Harbor Street business park').id;
   const b2 = CI.newBank(d, 'z', [], 1); b2.excluded = [hs];
   assert.ok(!CI.computeGraph(d, b2).nodes.some(n => n.id === hs));
 });
@@ -121,7 +121,7 @@ t('addLink rejects bad input and duplicates', () => {
 
 t('removing an entity from a report removes that report\'s links to it', () => {
   const d = CI.sampleData(); const r = d.reports[0]; const before = d.links.length;
-  const pobox = d.entities.find(e => e.name.startsWith('PO Box')).id;
+  const pobox = d.entities.find(e => e.name === 'Dunmore').id;
   assert.equal(CI.removeEntityFromReport(d, r.id, pobox), 1);
   assert.equal(d.links.length, before - 1);
 });
@@ -209,9 +209,9 @@ t('dates show as day, short month, year and are read back from what people type'
   assert.ok(/^\d{1,2} [A-Z][a-z]+\.? \d{4} \d{2}:\d{2}$/.test(CI.fmtDateTime('2026-10-25T18:05:00.000Z')));
 });
 
-t('items are index entries beside the four file types', () => {
+t('items are no longer recorded, but older saves holding them still work', () => {
   assert.deepEqual(CI.FILE_TYPES, ['individual', 'group', 'area', 'subject']);
-  assert.ok(CI.ENTITY_TYPES.indexOf('item') !== -1);
+  assert.ok(CI.ENTITY_TYPES.indexOf('item') === -1);
   const d = CI.emptyData();
   const it = CI.addEntity(d, { type: 'item', name: 'ABC-1234', itemType: ' vehicle plate ' });
   assert.equal(it.itemType, 'vehicle plate');
@@ -306,3 +306,11 @@ t('discoveries: a later report ties two files together through a third', () => {
   assert.equal(CI.discoveries(d, null, '2999-01-01').length, 0, 'since filter');
 });
 console.log('\n' + n + ' tests passed');
+
+t('heating: subjects and areas with fresh reports, with fattest related names', () => {
+  const d = CI.sampleData(), h = CI.heating(d, 3650);
+  assert.ok(h.every(x => x.type === 'subject' || x.type === 'area'));
+  assert.ok(h.length > 0);
+  const idx = CI.buildIndex(d), st = CI.materialStats(d, idx);
+  h.forEach(x => { for (let i = 1; i < x.related.length; i++) assert.ok(CI.statsFor(st, x.related[i - 1]).score >= CI.statsFor(st, x.related[i]).score); });
+});

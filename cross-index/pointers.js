@@ -191,4 +191,17 @@
       return (seenPair[k] = true);
     });
   };
+
+  /* Subjects and areas that are heating up: more independent reports in the last `days` than in the `days` before,
+   * or newly connected to two or more names. Each comes with its fattest related names (the heaviest-connected ones). */
+  CI.heating = function (d, days, idx) {
+    idx = idx || CI.buildIndex(d);
+    var res = CI.observe(d, days, idx), stats = CI.materialStats(d, idx), adj = {};
+    d.links.forEach(function (l) { (adj[l.from] = adj[l.from] || {})[l.to] = 1; (adj[l.to] = adj[l.to] || {})[l.from] = 1; });
+    return res.files.filter(function (f) { return f.type === 'subject' || f.type === 'area'; }).map(function (f) {
+      var rel = Object.keys(adj[f.id] || {}).filter(function (id) { return idx.entity[id] && !CI.isItem(idx.entity[id]); });
+      rel.sort(function (a, b) { return CI.statsFor(stats, b).score - CI.statsFor(stats, a).score || idx.entity[a].name.localeCompare(idx.entity[b].name); });
+      return { id: f.id, type: f.type, now: f.now, prev: f.prev, fresh: f.fresh, why: f.why, score: f.score, related: rel.slice(0, 6), relatedTotal: rel.length };
+    });
+  };
 })();

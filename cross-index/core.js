@@ -9,7 +9,7 @@
   // The four kinds of main file, plus items (a plate, phone, email, account...). An item has no folder:
   // it is an index entry that reports and connections point to.
   CI.FILE_TYPES = ['individual', 'group', 'area', 'subject'];
-  CI.ENTITY_TYPES = CI.FILE_TYPES.concat(['item']);
+  CI.ENTITY_TYPES = CI.FILE_TYPES;   // items (plates, phones...) are no longer recorded; older saves that hold them still open
   CI.TYPE_LABEL = { individual: 'Individual', group: 'Group', subject: 'Subject', area: 'Area', item: 'Item' };
   CI.isItem = function (e) { return !!e && e.type === 'item'; };
 

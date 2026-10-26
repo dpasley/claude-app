@@ -103,7 +103,7 @@
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
       a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)));
-      if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/items') === 0 || h.indexOf('#/observation') === 0)) a.classList.add('active');
+      if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/observation') === 0)) a.classList.add('active');
     });
     var rc = document.getElementById('review-count'), n = openCount();
     rc.textContent = n ? n : ''; rc.style.display = n ? 'inline-block' : 'none';
@@ -146,7 +146,7 @@
     else if (name === 'report' && parts[2] === 'edit') viewReportForm(parts[1]);
     else if (name === 'report') viewReport(parts[1]);
     else if (name === 'entities') { if (parts[1]) entStates.files.type = decodeURIComponent(parts[1]); viewEntities('files'); }
-    else if (name === 'items') CI.views.indexes('items', parts[1]);
+    else if (name === 'items') CI.views.indexes('', '');
     else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '', parts[2]);
     else if (name === 'entity') viewEntity(parts[1]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
@@ -286,7 +286,7 @@
   function viewReport(id) {
     var r = idx().report[id];
     if (!r) return notFound('Report');
-    if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '', itemType: ae.itemType || '' };
+    if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '' };
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
     var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="raise-lead-report" data-id="' + esc(id) + '">Raise a lead</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
@@ -301,7 +301,7 @@
       (reposts.length ? '<dt>Reposts</dt><dd>' + reposts.map(function (x) { return repLink(x.id); }).join(', ') + '</dd>' : '') +
       (r.summary ? '<dt>Notes</dt><dd>' + esc(r.summary) + '</dd>' : '') + '</dl></div>';
 
-    h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, subject, area and item (plate, phone, email, account…) the report names. Start typing: pick the existing name or item when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
+    h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
     if (r.entities.length) {
       h += '<table class="fixed"><colgroup><col style="width:44%"><col style="width:22%"><col style="width:22%"><col style="width:12%"></colgroup><thead><tr><th>Name</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
@@ -311,16 +311,12 @@
           '<td><button class="btn small" data-action="remove-entity" data-eid="' + esc(x.entityId) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="callout-inline">No names yet. This report is not indexed until at least one is added.</p>';
-    var kinds = ['vehicle plate', 'phone', 'email', 'address', 'online account', 'website', 'financial account'];
-    d.entities.forEach(function (e) { if (e.itemType && kinds.indexOf(e.itemType) === -1) kinds.push(e.itemType); });
-    h += '<datalist id="itemtypes-dl">' + kinds.map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>';
-    h += '<div class="addbox"><h3>Add a name</h3><div class="grid3"><label>Name, plate, number, address or handle<input type="text" id="ae-q" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
+    h += '<div class="addbox"><h3>Add a name</h3><div class="grid3"><label>Name<input type="text" id="ae-q" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
       '<label class="chk lower"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label></div>' +
       '<div id="ae-results"></div>' +
       '<div class="row create wrap"><select id="ae-type" data-on-change="ae-type-change">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Type if new…') + '</select>' +
-      '<input type="text" id="ae-itemtype" list="itemtypes-dl" placeholder="What kind of item? plate, phone, email…" value="' + esc(ae.itemType) + '" data-on-input="ae-itemtype"' + (ae.type === 'item' ? '' : ' hidden') + '>' +
-      '<input type="text" id="ae-details" class="wide-in" placeholder="Anything that tells this one apart: date of birth or age, address, nickname, description (optional)" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + (ae.type === 'item' ? ' hidden' : '') + '>' +
-      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button><span class="muted small">Area: a city, region or campus. Item: a plate, phone, email, account or address (an address is an item, not an area); it has no folder, only an index entry.</span></div><div id="ae-msg" class="errors"></div></div></div>';
+      '<input type="text" id="ae-details" class="wide-in" placeholder="Anything that tells this one apart: date of birth or age, address, nickname, description (optional)" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + '>' +
+      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button><span class="muted small">Area: a city, region or campus. Phones, plates, accounts and addresses are not indexed; if one matters, put it in the identifying details or a connection note.</span></div><div id="ae-msg" class="errors"></div></div></div>';
 
     h += '<div class="card"><h2>2. Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
     var mine = d.links.filter(function (l) { return l.reportId === id; });
@@ -367,7 +363,7 @@
         (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this one</button>') + '</div>';
     }).join('');
   }
-  /* Search box in the header: files, items and reports. */
+  /* Search box in the header: names and reports. */
   var gsHits = [];
   handlers['gs-input'] = function (el) {
     var q = CI.norm(el.value), box = document.getElementById('gs-results'), out = [];
@@ -388,10 +384,7 @@
   handlers['ae-input'] = function (el) { ae.q = el.value; aeSel = -1; renderAeResults(); document.getElementById('ae-msg').textContent = ''; };
   handlers['ae-type-change'] = function (el) {
     ae.type = el.value;
-    var it = document.getElementById('ae-itemtype'); if (it) { it.hidden = el.value !== 'item'; if (el.value === 'item') it.focus(); }
-    var dt = document.getElementById('ae-details'); if (dt) dt.hidden = el.value === 'item';
   };
-  handlers['ae-itemtype'] = function (el) { ae.itemType = el.value; };
   handlers['ae-details'] = function (el) { ae.details = el.value; };
   /* Enter in the name box: use the exact match if there is one, otherwise create it as the chosen type. */
   document.addEventListener('keydown', function (ev) {
@@ -447,19 +440,18 @@
     var q = document.getElementById('ae-q'); if (q) q.focus();
   };
   handlers['ae-create'] = function () {
-    var q = ae.q.trim(), msg = document.getElementById('ae-msg'), type = val('ae-type'), itemType = val('ae-itemtype').trim();
-    if (!q) { msg.textContent = 'Type a name, plate, number or handle first.'; return; }
+    var q = ae.q.trim(), msg = document.getElementById('ae-msg'), type = val('ae-type');
+    if (!q) { msg.textContent = 'Type a name first.'; return; }
     if (!type) {
-      msg.textContent = 'Choose what type this is (individual, group, subject, area or item).';
-      logEvent('unclear-type', '“' + q + '” was not added because no type was chosen (individual, group, subject, area or item).', ae.reportId); persist(); return;
+      msg.textContent = 'Choose what type this is (individual, group, area or subject).';
+      logEvent('unclear-type', '“' + q + '” was not added because no type was chosen (individual, group, area or subject).', ae.reportId); persist(); return;
     }
-    if (type === 'item' && !itemType) { msg.textContent = 'Say what kind of item this is (plate, phone, email, account…).'; return; }
-    ae.type = type; ae.itemType = itemType;
+    ae.type = type;
     var role = '', flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
     function create() {
       if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar names exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', rid);
-      var e = CI.addEntity(d, { type: type, name: q, itemType: itemType, details: type === 'item' ? '' : val('ae-details').trim() });
+      var e = CI.addEntity(d, { type: type, name: q, details: val('ae-details').trim() });
       ae.details = '';
       CI.addEntityToReport(d, rid, e.id, role, flag, '');
       ae.q = ''; persist(); viewReport(rid);

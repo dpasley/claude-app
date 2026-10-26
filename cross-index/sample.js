@@ -18,7 +18,7 @@
       CI.addNote(d, inv, 'Contractor on site the night before', { x: 240, y: 10 });
       return true;
     }
-    var E = { grid: ent('GridWatch'), tobias: ent('Tobias'), outage: ent('Depot 4 equipment'), depot4: ent('Northwind Depot 4'), keystone: ent('Keystone'), mara: ent('Mara'), harborst: ent('410 Harbor') };
+    var E = { grid: ent('GridWatch'), tobias: ent('Tobias'), outage: ent('Depot 4 equipment'), depot4: ent('Northwind Depot 4'), keystone: ent('Keystone'), mara: ent('Mara'), harborst: ent('Harbor Street business') };
     if (Object.keys(E).some(function (k) { return !E[k]; })) return false;
     if (!d.leads.some(function (l) { return l.bankId === b2.id; })) {
       var cl = CI.addLead(d, { bankId: b2.id, kind: 'INVESTIGATION', with: 'Investigations', question: 'Who authorised the Keystone contractor\u2019s access to Depot 4 on the night before the outage?', raisedBy: 'R-0008', about: [E.keystone.id, E.depot4.id], issued: CI.today() }).lead;
@@ -53,8 +53,8 @@
     E('keystone', 'group', 'Keystone Courier Partners', ['Keystone']);
     E('invoice', 'subject', 'Q3 vendor invoice scheme');
     E('outage', 'subject', 'Depot 4 equipment outage');
-    E('harborst', 'item', '410 Harbor Street, Unit 6', ['410 Harbor St #6'], '', 'address');
-    E('pobox', 'item', 'PO Box 2291, Dunmore', [], '', 'address');
+    E('harborst', 'area', 'Harbor Street business park', ['Harbor St park']);
+    E('pobox', 'area', 'Dunmore');
     E('depot4', 'area', 'Northwind Depot 4');
 
     function R(daysAgo, eventAgo, sourceType, sourceRef, basis, summary, people, links, dupOf) {
@@ -74,11 +74,11 @@
       [['harbor', 'payer'], ['pobox', 'named'], ['invoice', 'subject']],
       [['harbor', 'pobox', 'LOCATED_AT'], ['harbor', 'invoice', 'INVOLVED_IN']]);
     R(5, 20, 'Corporate document', 'State business filing, Brightwater Holdings LLC', 'Fraud',
-      'Annual filing for Brightwater lists Vera Linden as registered agent and 410 Harbor Street, Unit 6 as the business address.',
+      'Annual filing for Brightwater lists Vera Linden as registered agent and the Harbor Street business park as the business address.',
       [['bright', 'subject'], ['vera', 'named'], ['harborst', 'named']],
       [['vera', 'bright', 'EMPLOYED_BY', 'registered agent'], ['bright', 'harborst', 'LOCATED_AT']]);
     R(6, 400, 'Corporate document', 'State business filing, Harborline Supply Co.', 'Fraud',
-      'Older filing for Harborline names Orrin Platt as officer and gives 410 Harbor Street, Unit 6 as its former address.',
+      'Older filing for Harborline names Orrin Platt as officer and gives the Harbor Street business park as its former address.',
       [['harbor', 'subject'], ['orrin', 'named'], ['harborst', 'named']],
       [['orrin', 'harbor', 'EMPLOYED_BY', 'listed officer'], ['harbor', 'harborst', 'LOCATED_AT', 'former address']]);
     R(7, 7, 'Staff report', 'AP clerk memo to finance manager', 'Fraud',
@@ -102,7 +102,7 @@
       [['depot4', 'present'], ['keystone', 'named'], ['outage', 'subject']],
       [['keystone', 'depot4', 'LOCATED_AT', 'badge log'], ['keystone', 'outage', 'INVOLVED_IN']]);
     R(8, 60, 'Corporate document', 'State business filing, Keystone Courier Partners', 'Coordinated damaging activity',
-      'Keystone Courier Partners lists Mara Quill as director and 410 Harbor Street, Unit 6 as its registered address.',
+      'Keystone Courier Partners lists Mara Quill as director and the Harbor Street business park as its registered address.',
       [['keystone', 'subject'], ['mara', 'named'], ['harborst', 'named']],
       [['mara', 'keystone', 'EMPLOYED_BY', 'director'], ['keystone', 'harborst', 'LOCATED_AT']]);
     R(1, 1, 'Social post', 'https://social.example/tcrane_speaks/post/9012', 'Harassment of staff',
@@ -123,7 +123,7 @@
     d.ui.bankId = bank.id;
     bank.estimate.summary = 'Payments for the Q3 vendor invoices appear to pass through Harborline Supply to Brightwater Holdings, which shares an address with both Harborline (formerly) and Keystone Courier. The Depot 4 outage is a separate thread that touches the same address through Keystone.';
     CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Harborline forwarded Northwind\u2019s payment to Brightwater Holdings within a day.', reportIds: 'R-0005' });
-    CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Brightwater and Harborline have both been registered at 410 Harbor Street, Unit 6.', reportIds: 'R-0002, R-0003' });
+    CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Brightwater and Harborline have both been registered at the Harbor Street business park.', reportIds: 'R-0002, R-0003' });
     CI.addEstimateItem(d, bank, { kind: 'HYPOTHESIS', text: 'Harborline is a pass-through for payments that end at Brightwater.', reportIds: '' });
     var lead = function (kind, who, question, rep, about, status) {
       var r = CI.addLead(d, { bankId: bank.id, kind: kind, with: who, question: question, raisedBy: rep, about: about.map(function (k) { return ent[k].id; }), issued: CI.today() });
