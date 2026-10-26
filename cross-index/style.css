@@ -366,3 +366,14 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .barrow .c { flex: 0 0 30px; text-align: right; font-variant-numeric: tabular-nums; }
 .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; align-items: start; }
 .dirgrid a.item { border-style: dashed; }
+
+.tabs.sub { margin: 0 0 10px; border-bottom-width: 1px; }
+.tabs.sub .tab { font-weight: 500; padding: 6px 12px; }
+.tabs .badge { background: var(--accent); color: #fff; border-radius: 10px; padding: 1px 7px; font-size: 0.8em; margin-left: 4px; }
+.cfentry { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.cfentry:last-child { border-bottom: 0; }
+.cfrow { display: flex; gap: 12px; padding: 2px 0; }
+.cfrow .k { flex: 0 0 130px; color: var(--muted, #667); font-size: 0.9em; }
+.cfrow .v { flex: 1; }
+.barrow.wide { flex-wrap: wrap; }
+.barrow.wide .ex { flex: 0 0 100%; margin: -2px 0 6px; }

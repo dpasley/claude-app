@@ -136,8 +136,8 @@
     else if (name === 'report' && parts[2] === 'edit') viewReportForm(parts[1]);
     else if (name === 'report') viewReport(parts[1]);
     else if (name === 'entities') { if (parts[1]) entStates.files.type = decodeURIComponent(parts[1]); viewEntities('files'); }
-    else if (name === 'items') { entStates.items.type = parts[1] ? decodeURIComponent(parts[1]) : ''; viewEntities('items'); }
-    else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '');
+    else if (name === 'items') CI.views.indexes('items', parts[1]);
+    else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '', parts[2]);
     else if (name === 'entity') viewEntity(parts[1]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
     else if (name === 'observation') CI.views.observation();
