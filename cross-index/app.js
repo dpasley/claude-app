@@ -35,11 +35,51 @@
   function tag(t) { return '<span class="tag t-' + esc(t) + '">' + esc(CI.TYPE_LABEL[t] || t) + '</span>'; }
   /* Dates are typed and shown as day, short month, year (25 Oct. 2026) and kept as YYYY-MM-DD underneath. */
   function dateInput(id, iso, onchange, extra) {
-    return '<span class="datebox"><input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="25 Oct. 2026" autocomplete="off" data-on-change="' + (onchange || 'date-fix') + '"' + (extra || '') + '>' +
+    return '<span class="datebox"><input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="25 Oct. 2026" autocomplete="off" data-cal="1" data-on-change="' + (onchange || 'date-fix') + '"' + (extra || '') + '>' +
       '<button type="button" class="cal-btn" data-action="date-pick" data-for="' + esc(id) + '" title="Pick from a calendar" aria-label="Pick from a calendar">' +
-      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1.5v3M11 1.5v3"/></svg></button>' +
-      '<input type="date" class="cal-hide" tabindex="-1" aria-hidden="true" data-for="' + esc(id) + '" data-on-change="date-chosen"></span>';
+      '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1.5v3M11 1.5v3"/></svg></button></span>';
   }
+  /* A small calendar that opens under a date box. Typing still works; picking writes the date and fires the field's change. */
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  var calQuiet = false, cal = { el: null, input: null, y: 0, m: 0 };
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function calClose() { if (cal.el) { cal.el.remove(); cal.el = null; cal.input = null; } }
+  function calDraw() {
+    var sel = CI.parseDate(cal.input.value) || '', today = CI.today(), first = new Date(cal.y, cal.m, 1), lead = (first.getDay() + 6) % 7, days = new Date(cal.y, cal.m + 1, 0).getDate();
+    var h = '<div class="cal-head"><button type="button" data-cal-nav="-1" aria-label="Previous month">\u2039</button><b>' + MONTHS[cal.m] + ' ' + cal.y + '</b><button type="button" data-cal-nav="1" aria-label="Next month">\u203a</button></div><div class="cal-grid">' +
+      ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(function (x) { return '<span class="dow">' + x + '</span>'; }).join('');
+    for (var i = 0; i < lead; i++) h += '<span></span>';
+    for (var n = 1; n <= days; n++) {
+      var iso = cal.y + '-' + pad2(cal.m + 1) + '-' + pad2(n);
+      h += '<button type="button" class="day' + (iso === sel ? ' sel' : '') + (iso === today ? ' today' : '') + '" data-cal-day="' + iso + '">' + n + '</button>';
+    }
+    h += '</div><div class="cal-foot"><button type="button" data-cal-day="' + today + '">Today</button><button type="button" data-cal-day="">Clear</button></div>';
+    cal.el.innerHTML = h;
+  }
+  function calOpen(input) {
+    if (cal.input === input) return;
+    calClose();
+    var base = CI.parseDate(input.value) || CI.today();
+    cal.y = Number(base.slice(0, 4)); cal.m = Number(base.slice(5, 7)) - 1; cal.input = input;
+    cal.el = document.createElement('div'); cal.el.className = 'cal-pop'; cal.el.setAttribute('role', 'dialog');
+    input.parentNode.appendChild(cal.el); calDraw();
+  }
+  function calSet(iso) {
+    var input = cal.input; if (!input) return;
+    input.value = iso ? CI.fmtDate(iso) : ''; input.classList.remove('bad'); input.title = '';
+    input.dispatchEvent(new Event('change', { bubbles: true })); calClose(); calQuiet = true; input.focus(); calQuiet = false;
+  }
+  document.addEventListener('focusin', function (ev) { if (!calQuiet && ev.target.matches && ev.target.matches('input[data-cal]')) calOpen(ev.target); });
+  document.addEventListener('click', function (ev) {
+    var t = ev.target; if (!t.closest) return;
+    var nav = t.closest('[data-cal-nav]'), day = t.closest('[data-cal-day]');
+    if (nav && cal.el) { cal.m += Number(nav.getAttribute('data-cal-nav')); if (cal.m < 0) { cal.m = 11; cal.y--; } if (cal.m > 11) { cal.m = 0; cal.y++; } calDraw(); return; }
+    if (day && cal.el) { calSet(day.getAttribute('data-cal-day')); return; }
+    var btn = t.closest('[data-action="date-pick"]');
+    if (btn) { var inp = document.getElementById(btn.getAttribute('data-for')); if (cal.input === inp) calClose(); else { calClose(); if (inp) calOpen(inp); } return; }
+    if (cal.el && !t.closest('.cal-pop') && !(t.matches && t.matches('input[data-cal]'))) calClose();
+  }, true);
+  document.addEventListener('keydown', function (ev) { if (cal.el && (ev.key === 'Escape' || ev.key === 'Tab')) calClose(); });
   function readDate(id) { return CI.parseDate(val(id)); }
   var DATE_HELP = 'Not a date I can read. Try 25 Oct. 2026.';
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
@@ -99,10 +139,7 @@
     var h = '#/' + cur;
     var back = document.getElementById('back-btn'); if (back) back.disabled = !hist.length;
     var sb = document.getElementById('sample-banner');
-    if (sb) {
-      sb.hidden = !d.sampleLoaded;
-      if (d.sampleLoaded) sb.innerHTML = 'Fictional sample data is loaded so you can look around. <button class="btn small" data-action="start-fresh">Start fresh</button>';
-    }
+    if (sb) sb.hidden = true;
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
       a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)));
@@ -183,17 +220,7 @@
     if (v === null) { el.classList.add('bad'); el.title = DATE_HELP; }
     else { el.classList.remove('bad'); el.title = ''; el.value = CI.fmtDate(v); }
   };
-  handlers['date-pick'] = function (el) {
-    var box = el.parentNode, cal = box.querySelector('.cal-hide'), txt = box.querySelector('.date-in');
-    cal.value = CI.parseDate(txt.value) || '';
-    if (cal.showPicker) { try { cal.showPicker(); return; } catch (e) {} }
-    cal.style.cssText = 'position:static;opacity:1;width:auto;height:auto;pointer-events:auto'; cal.focus();
-  };
-  handlers['date-chosen'] = function (el) {
-    var txt = document.getElementById(el.getAttribute('data-for'));
-    if (txt && el.value) { txt.value = CI.fmtDate(el.value); txt.classList.remove('bad'); txt.title = ''; txt.dispatchEvent(new Event('change', { bubbles: true })); }
-    el.style.cssText = '';
-  };
+  handlers['date-pick'] = function () {};
   handlers['modal-close'] = function () { closeModal(); };
   handlers['modal-bg'] = function (el, ev) { if (ev.target === el) closeModal(); };
   handlers['modal-yes'] = function () { var f = pend && pend.yes; closeModal(); if (f) f(); };
@@ -734,7 +761,7 @@
       '<div class="row"><button class="btn primary" data-action="save-settings">Save settings</button></div></form>' +
       '<div class="card"><h2>Data</h2><p class="muted">Everything is stored in this browser only. Export regularly. <strong>Export files contain report data about real people – keep them out of the GitHub repository.</strong> The repository should hold the app and fictional sample data only.</p>' +
       '<div class="row wrap"><button class="btn" data-action="export">Export\u2026</button><label class="btn">Import from file<input type="file" accept="application/json,.json" id="import-file" data-on-change="import" hidden></label>' +
-      '<button class="btn" data-action="load-sample">Load fictional sample data</button><button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
+      '<button class="btn" data-action="load-sample">Load fictional sample data</button>' + (d.sampleLoaded ? '<button class="btn" data-action="start-fresh">Start fresh (remove the sample data)</button>' : '') + '<button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
       '<label class="form-inline">Or paste exported JSON here<textarea id="import-text" class="mono" rows="3" placeholder="{ &quot;version&quot;: 1, ... }"></textarea></label><div class="row"><button class="btn small" data-action="import-paste">Import pasted JSON</button></div>' +
       '<p class="muted small" style="margin-top:10px">Now holding ' + d.reports.length + ' reports, ' + d.entities.length + ' entities, ' + d.links.length + ' connections, ' + d.banks.length + ' banks, ' + d.leads.length + ' leads, ' + d.investigations.length + ' investigations.</p></div>';
     view.innerHTML = h;

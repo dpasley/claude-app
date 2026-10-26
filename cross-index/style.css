@@ -428,3 +428,15 @@ table.fixed td.nm { border-bottom: 1px solid var(--border); }
 .rf-grid .hint { margin-left: 6px; }
 .rf-grid > label > .datebox { margin-top: 6px; }
 .datebox .date-in, .rf-grid .datebox .date-in { width: 100% !important; max-width: none !important; }
+.cal-hide { display: none; }
+.cal-pop { position: absolute; z-index: 60; top: calc(100% + 4px); left: 0; width: 264px; background: var(--card, #fff); border: 1px solid var(--line, #d9dce3); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 10px; font-weight: 400; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-head button { border: 0; background: transparent; font-size: 20px; line-height: 1; width: 30px; height: 28px; border-radius: 6px; cursor: pointer; color: inherit; }
+.cal-head button:hover, .cal-foot button:hover, .cal-grid .day:hover { background: rgba(0,0,0,.07); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-grid .dow { font-size: 11px; color: var(--muted); padding: 3px 0; }
+.cal-grid .day { border: 0; background: transparent; height: 30px; border-radius: 6px; cursor: pointer; font-size: 13px; color: inherit; }
+.cal-grid .day.today { outline: 1px solid var(--accent, #3b4fd1); }
+.cal-grid .day.sel { background: var(--accent, #3b4fd1); color: #fff; }
+.cal-foot { display: flex; justify-content: space-between; margin-top: 8px; }
+.cal-foot button { border: 0; background: transparent; color: var(--accent, #3b4fd1); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 13px; }
