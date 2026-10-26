@@ -142,7 +142,7 @@
     if (sb) sb.hidden = true;
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
-      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)));
+      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && (h.indexOf('#/estimate') === 0 || h.indexOf('#/bank') === 0)) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)));
       if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/observation') === 0)) a.classList.add('active');
     });
     var rc = document.getElementById('review-count'), n = openCount();
@@ -190,13 +190,14 @@
     else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '', parts[2]);
     else if (name === 'entity') viewEntity(parts[1]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
+    else if (name === 'bank') CI.views.bank(parts[1] || '', parts[2] || '');
     else if (name === 'observation') CI.views.observation();
     else if (name === 'investigations') CI.views.investigations();
     else if (name === 'investigation') CI.views.investigation(parts[1]);
     else if (name === 'casechart') CI.views.casechart(parts[1]);
     else if (name === 'leads') CI.views.leads();
     else if (name === 'lead') CI.views.lead(parts[1]);
-    else if (name === 'estimate') CI.views.estimate(parts[1]);
+    else if (name === 'estimate') CI.views.estimate(parts[1], parts[2]);
     else if (name === 'review') viewReview();
     else if (name === 'settings') viewSettings();
     else viewReportForm(null);

@@ -485,3 +485,8 @@ table.list.spaced { margin-top: 20px; }
 .panel .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; margin: 8px 0; }
 @media (max-width: 900px) { .chart-layout.nodetail { grid-template-columns: minmax(0, 1fr); } }
 .panel .tight-grid { grid-template-columns: 1fr; gap: 0; }
+.bank-why { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
+.bank-why .fl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-right: 6px; }
+.sub-h { font-size: 17px; margin: 16px 2px 8px; display: flex; align-items: center; gap: 10px; }
+.filepick { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+.filepick .pickfile { display: block; margin: 5px 0; font-weight: 400; }

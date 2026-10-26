@@ -29,47 +29,49 @@
   function listRows() {
     var d = D(), q = CI.norm(cl.q), idx = A.idx();
     var rows = d.banks.slice().reverse().filter(function (b) {
+      if (b.quick) return false;
       var seeds = b.seeds.map(function (id) { return idx.entity[id] ? idx.entity[id].name : ''; }).join(' ');
       return !q || CI.norm([b.name, seeds, (b.opened && b.opened.reason) || ''].join(' ')).indexOf(q) !== -1;
     });
-    if (!rows.length) return '<p class="muted pad">' + (d.banks.length ? 'No chart matches that.' : 'No charts yet. Start one with “New chart”, or from Indexes (Heating up) or a name’s page.') + '</p>';
-    return '<table class="fixed"><colgroup><col style="width:28%"><col style="width:34%"><col style="width:12%"><col style="width:8%"><col style="width:18%"></colgroup>' +
-      '<thead><tr><th>Chart</th><th>Starts from</th><th>Opened</th><th class="num">Leads</th><th></th></tr></thead><tbody>' + rows.map(function (b) {
-        var seeds = b.seeds.map(function (id) { return idx.entity[id] ? idx.entity[id].name : id; }).join(', ');
-        var nl = d.leads.filter(function (l) { return l.bankId === b.id; }).length;
-        var tag = b.handedOver ? ' <span class="tag">handed over</span>' : (b.quick ? ' <span class="tag">quick view</span>' : '');
-        return '<tr class="pick"><td class="ellip" title="' + esc(b.name) + '"><a href="#/chart/' + esc(b.id) + '"><b>' + esc(b.name) + '</b></a>' + tag + '</td>' +
-          '<td class="ellip muted" title="' + esc(seeds) + '">' + (esc(seeds) || 'every connected name') + '</td>' +
-          '<td>' + (b.opened && b.opened.date ? esc(CI.fmtDate(b.opened.date)) : '') + '</td><td class="num">' + nl + '</td>' +
+    if (!rows.length) return '<p class="muted pad">' + (d.banks.some(function (b) { return !b.quick; }) ? 'No special bank matches that.' : 'No special banks yet. Open one from Indexes (Heating up), or start one with “New special bank”.') + '</p>';
+    return '<table class="fixed"><colgroup><col style="width:26%"><col style="width:30%"><col style="width:11%"><col style="width:7%"><col style="width:9%"><col style="width:17%"></colgroup>' +
+      '<thead><tr><th>Special bank</th><th>Opened because</th><th>Opened</th><th class="num">Files</th><th class="num">Estimates</th><th></th></tr></thead><tbody>' + rows.map(function (b) {
+        var why = (b.opened && b.opened.reason) || '';
+        var tag = b.handedOver ? ' <span class="tag">handed over</span>' : '';
+        return '<tr class="pick"><td class="ellip" title="' + esc(b.name) + '"><a href="#/bank/' + esc(b.id) + '"><b>' + esc(b.name) + '</b></a>' + tag + '</td>' +
+          '<td class="ellip muted" title="' + esc(why) + '">' + esc(why) + '</td>' +
+          '<td>' + (b.opened && b.opened.date ? esc(CI.fmtDate(b.opened.date)) : '') + '</td><td class="num">' + (b.files || []).length + '</td><td class="num">' + b.estimates.length + '</td>' +
           '<td class="right"><button class="btn small" data-action="cl-rename" data-id="' + esc(b.id) + '">Rename</button> <button class="btn small" data-action="cl-dup" data-id="' + esc(b.id) + '">Copy</button> <button class="btn small danger" data-action="cl-del" data-id="' + esc(b.id) + '">Delete</button></td></tr>';
       }).join('') + '</tbody></table>';
   }
   function renderList() {
     A.view.className = '';
-    A.view.innerHTML = '<div class="page-head"><h1>Charts</h1><button class="btn primary" data-action="cv-bank-new">New chart</button></div>' +
-      '<div class="card"><input type="search" id="cl-q" data-lookup="#cl-list" autocomplete="off" placeholder="Find a chart by name, starting name or reason…" value="' + esc(cl.q) + '" data-on-input="cl-q">' +
-      '<p class="muted small" style="margin:8px 0 0">A chart is a saved view of the main files. It never copies data. Open one to change what it shows.</p></div>' +
+    A.view.innerHTML = '<div class="page-head"><h1>Special banks</h1><button class="btn primary" data-action="cv-bank-new">New special bank</button></div>' +
+      '<div class="card"><input type="search" id="cl-q" data-lookup="#cl-list" autocomplete="off" placeholder="Find a special bank by name or reason…" value="' + esc(cl.q) + '" data-on-input="cl-q">' +
+      '<p class="muted small" style="margin:8px 0 0">A special bank is opened when a staff member spots a potential situation in the main files. It holds the related files, fattest first, with their chart and estimates, and can be handed over to Investigations.</p></div>' +
       '<div class="card flush" id="cl-list">' + listRows() + '</div>';
   }
   H['cl-q'] = function (el) { cl.q = el.value; var b = document.getElementById('cl-list'); if (b) b.innerHTML = listRows(); };
   function bankOf(el) { return D().banks.filter(function (b) { return b.id === el.getAttribute('data-id'); })[0]; }
   H['cl-rename'] = function (el) {
     var b = bankOf(el); if (!b) return;
-    A.ask('New name?', b.name, function (n) { b.name = n; b.quick = false; A.persist(); renderList(); }, { title: 'Rename chart', ok: 'Rename' });
+    A.ask('New name?', b.name, function (n) { b.name = n; A.persist(); if (el.getAttribute('data-then') === 'bank') A.go('#/bank/' + b.id); else renderList(); }, { title: 'Rename special bank', ok: 'Rename' });
   };
   H['cl-dup'] = function (el) {
     var b = bankOf(el); if (!b) return;
-    var c = CI.clone(b); c.id = CI.nextId(D(), 'bank'); c.name = b.name + ' (copy)'; c.snapshots = []; c.compareId = ''; c.viewMode = 'live'; c.quick = false; c.handedOver = '';
-    D().banks.push(c); A.persist(); renderList();
+    var c = CI.clone(b); c.id = CI.nextId(D(), 'bank'); c.name = b.name + ' (copy)'; c.snapshots = []; c.compareId = ''; c.viewMode = 'live'; c.quick = false; c.handedOver = ''; c.handedOverEstimate = '';
+    D().banks.push(c); A.persist();
+    if (el.getAttribute('data-then') === 'bank') A.go('#/bank/' + c.id); else renderList();
   };
   H['cl-del'] = function (el) {
     var b = bankOf(el); if (!b) return;
     var nl = D().leads.filter(function (l) { return l.bankId === b.id; }).length;
-    if (nl) { A.toast('This chart has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
-    if (CI.investigationFor(D(), b.id)) { A.toast('This chart has been handed over and has an investigation, so it cannot be deleted.', true); return; }
-    A.confirm('Delete the chart “' + b.name + '”? The reports and names are not affected.', function () {
-      D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); A.persist(); renderList();
-    }, { title: 'Delete chart', yes: 'Delete', danger: true });
+    if (nl) { A.toast('This special bank has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
+    if (CI.investigationFor(D(), b.id)) { A.toast('This special bank has been handed over and has an investigation, so it cannot be deleted.', true); return; }
+    A.confirm('Delete the special bank “' + b.name + '”, with its chart and estimates? The reports and files are not affected.', function () {
+      D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); A.persist();
+      if (el.getAttribute('data-then') === 'list') A.go('#/chart'); else renderList();
+    }, { title: 'Delete special bank', yes: 'Delete', danger: true });
   };
 
   function currentGraph(bank) {
@@ -86,12 +88,12 @@
     var ents = d.entities.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
     var frozen = bank.viewMode === 'frozen' && snapOf(bank, bank.frozenId);
     var h = '<datalist id="ent-dl">' + ents.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>';
-    h += '<div class="chart-head"><a href="#/chart" class="back">‹ All charts</a><h1>' + esc(bank.name) + '</h1>' +
-      '<span class="spacer"></span><button class="btn small" data-action="cv-bank-rename">Rename</button><button class="btn small" data-action="cv-bank-dup">Copy</button><button class="btn small danger" data-action="cv-bank-del">Delete</button></div>';
+    if (bank.quick) h += '<div class="chart-head"><a href="#/chart" class="back">‹ Special banks</a><h1>Quick look</h1><span class="spacer"></span><button class="btn small primary" data-action="cv-save-preview">Open a special bank from this</button></div><p class="bank-why">A quick look is not saved. The next one replaces it.</p>';
+    else h += CI.views.bankHead(bank, 'chart');
     h += '<div class="chart-layout nodetail" id="cl"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
-      '<a class="btn small" href="#/estimate/' + esc(bank.id) + '">Estimate</a><button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
+      '<button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
       '<div id="cy"></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
@@ -104,14 +106,9 @@
   }
 
   function controlsHtml(bank, frozen) {
-    var h = '<h3>Starts from</h3><div class="chips">' + (bank.seeds.length ? bank.seeds.map(function (id) {
-      var e = A.idx().entity[id];
-      return '<span class="chip">' + esc(e ? e.name : id) + '<button data-action="cv-seed-del" data-id="' + esc(id) + '" aria-label="Remove">×</button></span>';
-    }).join('') : '<span class="muted small">Every name that has a connection.</span>') + '</div>' +
-      '<input type="text" list="ent-dl" placeholder="Add a name…" data-on-change="cv-seed-add" id="cv-seed-input">';
+    var h = bank.quick ? '' : '<h3>Files</h3><p class="small" style="margin:0 0 4px">' + (bank.files || []).length + ' file' + ((bank.files || []).length === 1 ? '' : 's') + ' in this special bank. <a href="#/bank/' + esc(bank.id) + '">Add or remove</a></p>';
     h += '<div' + (frozen ? ' class="off"' : '') + '><h3>Show</h3>' +
-      '<label>How far out from those names<select data-on-change="cv-hops"' + (frozen ? ' disabled' : '') + '>' + [0, 1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (bank.hops === n ? ' selected' : '') + '>' + (n === 0 ? 'Only those names' : n + (n === 1 ? ' step' : ' steps')) + '</option>'; }).join('') + '</select></label>' +
-      '<label>Only the heaviest names <span class="hint">0 = all</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"' + (frozen ? ' disabled' : '') + '></label>' +
+      (bank.quick ? '<label>How far out from those names<select data-on-change="cv-hops"' + (frozen ? ' disabled' : '') + '>' + [0, 1, 2, 3].map(function (n) { return '<option value="' + n + '"' + (bank.hops === n ? ' selected' : '') + '>' + (n === 0 ? 'Only those names' : n + (n === 1 ? ' step' : ' steps')) + '</option>'; }).join('') + '</select></label>' : '') +
       '<div class="checks">' + CI.ENTITY_TYPES.map(function (t) {
         return chk('et', !bank.entityTypes || bank.entityTypes.indexOf(t) !== -1, CI.TYPE_LABEL[t] + 's', 'data-on-change="cv-etypes" data-id="' + t + '"' + (frozen ? ' disabled' : ''));
       }).join('') + '</div>' +
@@ -219,7 +216,7 @@
       } else h += '<p class="muted small">No connections in this view.</p>';
       h += '<div class="stack"><a class="btn small" href="#/entity/' + esc(id) + '">Open file</a>';
       if (!frozen) {
-        h += '<button class="btn small" data-action="cv-node-seed" data-id="' + esc(id) + '">Add as starting entity</button><button class="btn small" data-action="cv-node-hide" data-id="' + esc(id) + '">Hide in this bank</button>';
+        h += '<button class="btn small" data-action="cv-node-hide" data-id="' + esc(id) + '">Hide in this bank</button>';
       }
       h += '<button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-pin-case" data-id="' + esc(id) + '">Pin to the case chart</button>' : '') + '</div>';
     } else if (st.sel && st.sel.kind === 'edge') {
@@ -277,28 +274,8 @@
   function recompute() { document.getElementById('ctl').innerHTML = controlsHtml(B(), B().viewMode === 'frozen' && !!snapOf(B(), B().frozenId)); }
 
   H['cv-bank-pick'] = function (el) { A.go('#/chart/' + el.value); };
-  H['cv-bank-new'] = function () {
-    A.ask('Name for the new bank?', '', function (n) {
-      var b = CI.newBank(D(), n, [], 1); D().banks.push(b); D().ui.bankId = b.id; A.persist(); A.go('#/chart/' + b.id);
-    }, { title: 'New bank', ok: 'Create' });
-  };
-  H['cv-bank-rename'] = function () {
-    var b = B();
-    A.ask('New name?', b.name, function (n) { b.name = n; b.quick = false; A.persist(); renderShell(); }, { title: 'Rename bank', ok: 'Rename' });
-  };
-  H['cv-bank-dup'] = function () {
-    var b = B(), c = CI.clone(b); c.id = CI.nextId(D(), 'bank'); c.name = b.name + ' (copy)'; c.snapshots = []; c.compareId = ''; c.viewMode = 'live'; c.quick = false;
-    D().banks.push(c); D().ui.bankId = c.id; A.persist(); A.go('#/chart/' + c.id);
-  };
-  H['cv-bank-del'] = function () {
-    var b = B();
-    var nl = D().leads.filter(function (l) { return l.bankId === b.id; }).length;
-    if (nl) { A.toast('This bank has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
-    if (CI.investigationFor(D(), b.id)) { A.toast('This bank has been handed over and has an investigation, so it cannot be deleted.', true); return; }
-    A.confirm('Delete the bank “' + b.name + '”' + (b.snapshots.length ? ' and its ' + b.snapshots.length + ' snapshot(s)' : '') + '? The reports and entities are not affected.', function () {
-      D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); D().ui.bankId = null; A.persist(); A.go('#/chart');
-    }, { title: 'Delete bank', yes: 'Delete', danger: true });
-  };
+  H['cv-bank-new'] = function () { CI.views.newBank(); };
+  H['cv-save-preview'] = function () { CI.views.openBank(B().seeds, '', ''); };
   H['cv-seed-add'] = function (el) {
     var id = parseEntity(el.value); if (!id) { A.toast('No entity matches that.', true); return; }
     mutate(function (b) { if (b.seeds.indexOf(id) === -1) b.seeds.push(id); b.excluded = b.excluded.filter(function (x) { return x !== id; }); }, true);

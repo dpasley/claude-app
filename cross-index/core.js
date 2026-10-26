@@ -178,13 +178,23 @@
     d.reports.forEach(function (r) { if (!Array.isArray(r.entities)) r.entities = []; });
     d.banks.forEach(function (b) {
       if (!b.positions || typeof b.positions !== 'object') b.positions = {};
-      if (!b.estimate || !Array.isArray(b.estimate.items)) b.estimate = { summary: '', items: [], updated: '' };
+      if (!Array.isArray(b.estimates)) {
+        var old = b.estimate && Array.isArray(b.estimate.items) ? b.estimate : { summary: '', items: [], updated: '' };
+        b.estimates = [{ id: 'EST-1', label: 'Estimate 1', created: (b.opened && b.opened.date) || '', summary: old.summary || '', items: old.items, updated: old.updated || '' }];
+      }
+      delete b.estimate;
+      b.estimates.forEach(function (x) { if (!Array.isArray(x.items)) x.items = []; });
       if (b.topN == null) b.topN = 0;
       if (b.handedOver == null) b.handedOver = '';
       if (!b.opened || typeof b.opened !== 'object') b.opened = { date: '', reason: '' };
       if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
     d.investigations.forEach(function (v) { CI.caseChartOf(v); });
     migrate(d);
+    // Special banks hold a chosen list of main files. Older banks get the names their chart showed.
+    d.banks.forEach(function (b) {
+      if (b.quick || Array.isArray(b.files)) return;
+      b.files = CI.computeGraph(d, b).nodes.map(function (n) { return n.id; });
+    });
     return d;
   };
 
@@ -479,8 +489,8 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' },
-      estimate: { summary: '', items: [], updated: '' }
+      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null,
+      estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }]
     };
   };
 
@@ -555,7 +565,9 @@
 
     var seeds = (bank.seeds || []).filter(function (id) { return idx.entity[id] && !excluded.has(id); });
     var keep = {};
-    if (seeds.length) {
+    if (Array.isArray(bank.files)) {
+      bank.files.forEach(function (id) { if (entOk(id)) keep[id] = true; });
+    } else if (seeds.length) {
       var dist = {}, queue = [];
       seeds.forEach(function (s) { dist[s] = 0; queue.push(s); });
       var hops = bank.hops == null ? 1 : bank.hops;
@@ -698,7 +710,43 @@
 
   /* ---------- estimate and handover ---------- */
   CI.ESTIMATE_KINDS = [{ id: 'ESTABLISHED', label: 'Established' }, { id: 'HYPOTHESIS', label: 'Hypothesis' }];
-  CI.addEstimateItem = function (d, bank, o) {
+  CI.currentEstimate = function (bank) {
+    if (!bank.estimates || !bank.estimates.length) bank.estimates = [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }];
+    return bank.estimates[bank.estimates.length - 1];
+  };
+  CI.estimateOf = function (bank, id) { return (bank.estimates || []).filter(function (x) { return x.id === id; })[0] || CI.currentEstimate(bank); };
+  /* A new estimate for the same special bank: blank, or a copy of the latest so it can be corrected or redone. */
+  CI.newEstimate = function (bank, copy) {
+    var prev = CI.currentEstimate(bank), n = bank.estimates.length + 1, id = 'EST-' + n;
+    while (bank.estimates.some(function (x) { return x.id === id; })) id = 'EST-' + (++n);
+    var e = { id: id, label: 'Estimate ' + n, created: CI.today(), summary: copy ? prev.summary : '', items: copy ? clone(prev.items) : [], updated: CI.today() };
+    bank.estimates.push(e);
+    return e;
+  };
+  /* Names a special bank could take on next: connected to its files, heaviest first. */
+  CI.suggestFiles = function (d, bank, idx, n) {
+    idx = idx || CI.buildIndex(d);
+    var have = {}, base = (bank.files && bank.files.length ? bank.files : bank.seeds) || [], near = {};
+    (bank.files || []).forEach(function (id) { have[id] = true; });
+    var stats = CI.materialStats(d, idx), inBase = {};
+    base.forEach(function (id) { inBase[id] = true; });
+    d.links.forEach(function (l) {
+      [[l.from, l.to], [l.to, l.from]].forEach(function (p) {
+        if (inBase[p[0]] && !have[p[1]] && idx.entity[p[1]] && !CI.isItem(idx.entity[p[1]])) near[p[1]] = (near[p[1]] || 0) + 1;
+      });
+    });
+    return Object.keys(near).map(function (id) { return { id: id, linked: near[id], score: CI.statsFor(stats, id).score }; })
+      .sort(function (a, b) { return b.score - a.score || b.linked - a.linked || idx.entity[a.id].name.localeCompare(idx.entity[b.id].name); }).slice(0, n || 8);
+  };
+  /* Starting names plus the fattest names connected to them, for opening a special bank from a finding. */
+  CI.proposeFiles = function (d, seeds, n, idx) {
+    idx = idx || CI.buildIndex(d);
+    var tmp = { files: seeds.slice(), seeds: seeds };
+    var more = CI.suggestFiles(d, tmp, idx, 200).map(function (x) { return x.id; });
+    return seeds.concat(more).slice(0, Math.max(n || 12, seeds.length));
+  };
+  CI.addEstimateItem = function (d, bank, o, est) {
+    est = est || CI.currentEstimate(bank);
     if (!CI.ESTIMATE_KINDS.some(function (k) { return k.id === o.kind; })) return { error: 'Choose established or hypothesis.' };
     var text = String(o.text || '').trim();
     if (!text) return { error: 'Write the statement.' };
@@ -707,7 +755,7 @@
     if (bad.length) return { error: 'No such report: ' + bad.join(', ') + '.' };
     if (o.kind === 'ESTABLISHED' && !ids.length) return { error: 'An established statement must cite at least one report.' };
     var it = { id: CI.nextId(d, 'item'), kind: o.kind, text: text, reportIds: ids.filter(function (x, i, a) { return a.indexOf(x) === i; }) };
-    bank.estimate.items.push(it); bank.estimate.updated = CI.today();
+    est.items.push(it); est.updated = CI.today();
     return { item: it };
   };
   /* ---------- investigations and handling plans ---------- */
@@ -724,10 +772,10 @@
     return { objective: '', outcome: 'REFERRAL', actions: [], preparedBy: '', updated: '', legal: { status: 'NOT_SUBMITTED', reviewer: '', date: '', comments: '' }, execution: { status: 'NOT_STARTED', outcome: '' } };
   };
   CI.investigationFor = function (d, bankId) { return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
-  CI.handOver = function (d, bank) {
+  CI.handOver = function (d, bank, estId) {
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
     var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live) };
-    bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today();
+    bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today(); bank.handedOverEstimate = CI.estimateOf(bank, estId).id;
     var inv = CI.investigationFor(d, bank.id);
     if (!inv) {
       inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, status: 'HANDED_OVER', investigator: '', opened: CI.today(), closed: '', notes: '', plan: CI.newPlan() };

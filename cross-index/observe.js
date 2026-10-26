@@ -26,27 +26,9 @@
   };
   H['obs-days'] = function () { ob.days = Number(val('obs-days')) || 0; CI.views.observation(); };
 
-  /* Opening a bank asks why, so the estimate starts from the reason the situation was noticed. */
-  CI.views.openBank = function (ids, name, reason) {
-    var seeds = ids.filter(function (id) { return A.idx().entity[id]; });
-    if (!seeds.length) return;
-    var nm = name || (seeds.length === 1 ? 'Situation: ' + A.idx().entity[seeds[0]].name : 'Situation: ' + A.idx().entity[seeds[0]].name + ' and ' + (seeds.length - 1) + ' more');
-    CI.views._bankSeeds = seeds;
-    A.modal('<h2>Open a bank</h2><div class="form"><label>Name<input type="text" id="ob-name" value="' + esc(nm) + '"></label>' +
-      '<label>Why is this being looked into? <span class="hint">what you noticed, in a sentence or two</span><textarea id="ob-why" rows="3">' + esc(reason || '') + '</textarea></label>' +
-      '<p class="muted small">Starting names: ' + seeds.map(function (id) { return esc(A.idx().entity[id].name); }).join(', ') + '. The chart pulls in the names connected to them, heaviest first.</p></div>' +
-      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="ob-create">Open bank</button></div>');
-    var w = document.getElementById('ob-why'); if (w) w.focus();
-  };
   H['obs-open'] = function (el) {
     var ids = el.getAttribute('data-ids').split(','), res = CI.observe(D(), ob.days || D().settings.heatWindowDays, A.idx());
     var f = res.files.filter(function (x) { return x.id === ids[0]; })[0], why = ids.length === 1 && f ? f.why.join('; ') + '.' : (ids.length > 1 ? ids.length + ' names active together in the last ' + res.days + ' days.' : '');
     CI.views.openBank(ids, '', why);
-  };
-  H['ob-create'] = function () {
-    var d = D(), name = val('ob-name').trim(), why = val('ob-why').trim();
-    if (!name) { A.toast('Give the bank a name.', true); return; }
-    var b = CI.newBank(d, name, CI.views._bankSeeds, 2); b.topN = 12; b.opened = { date: CI.today(), reason: why };
-    d.banks.push(b); d.ui.bankId = b.id; A.persist(); A.closeModal(); A.go('#/chart/' + b.id);
   };
 })();

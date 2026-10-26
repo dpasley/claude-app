@@ -59,11 +59,11 @@ t('lead sheets and board produce real PDFs', async () => {});
   CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.leads.length, 4);
   console.log('ok - lead creation rules, results and delete'); n++;
   // estimate
-  const b = d.banks[0], cnt = b.estimate.items.length;
+  const b = d.banks[0], cnt = CI.currentEstimate(b).items.length;
   assert.equal(CI.addEstimateItem(d, b, { kind: 'ESTABLISHED', text: 'x', reportIds: '' }).error, 'An established statement must cite at least one report.');
   assert.ok(CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'x', reportIds: 'R-9999' }).error.includes('R-9999'));
   assert.ok(CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'x', reportIds: '' }).item);
-  assert.equal(b.estimate.items.length, cnt + 1);
+  assert.equal(CI.currentEstimate(b).items.length, cnt + 1);
   const sn = CI.handOver(d, b); assert.equal(b.handedOver, CI.today()); assert.equal(b.compareId, sn.id); assert.ok(sn.graph.nodes.length > 0);
   console.log('ok - estimate rules and handover snapshot'); n++;
   // material stats

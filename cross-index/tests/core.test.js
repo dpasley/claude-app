@@ -314,3 +314,26 @@ t('heating: subjects and areas with fresh reports, with fattest related names', 
   const idx = CI.buildIndex(d), st = CI.materialStats(d, idx);
   h.forEach(x => { for (let i = 1; i < x.related.length; i++) assert.ok(CI.statsFor(st, x.related[i - 1]).score >= CI.statsFor(st, x.related[i]).score); });
 });
+
+t('special banks: chosen files, several estimates, suggestions', () => {
+  const d = CI.sampleData(), b = d.banks[0];
+  assert.ok(Array.isArray(b.files) && b.files.length > 0, 'bank has a file list');
+  const g = CI.computeGraph(d, b);
+  assert.ok(g.nodes.every(n => b.files.includes(n.id)) && g.nodes.length === b.files.length);
+  const sug = CI.suggestFiles(d, b, null, 20);
+  assert.ok(sug.every(x => !b.files.includes(x.id)));
+  b.files = b.files.slice(0, 2);
+  assert.ok(CI.computeGraph(d, b).nodes.length <= 2, 'graph shows only the chosen files');
+  const first = CI.currentEstimate(b), n0 = b.estimates.length;
+  const e2 = CI.newEstimate(b, true);
+  assert.equal(b.estimates.length, n0 + 1);
+  assert.equal(e2.items.length, first.items.length);
+  assert.notEqual(e2.items, first.items);
+  CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'Redone.', reportIds: '' });
+  assert.equal(first.items.length + 1, CI.currentEstimate(b).items.length);
+  const prop = CI.proposeFiles(d, [d.entities[0].id], 5);
+  assert.equal(prop[0], d.entities[0].id);
+  const back = CI.importJson(CI.exportJson(d));
+  assert.equal(back.banks[0].estimates.length, n0 + 1);
+  assert.ok(!('estimate' in back.banks[0]));
+});

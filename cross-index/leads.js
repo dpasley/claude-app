@@ -122,42 +122,44 @@
     A.startReport({ leadId: l.id, sourceType: l.with === 'Investigations' ? 'Investigator report' : '' });
   };
 
-  /* ---------- estimate of the situation ---------- */
-  CI.views.estimate = function (bankId) {
+  /* ---------- estimate of the situation (one of the special bank's estimates) ---------- */
+  CI.views.estimate = function (bankId, estId) {
     var d = D(), b = d.banks.filter(function (x) { return x.id === bankId; })[0];
-    if (!b) { A.view.innerHTML = '<div class="card callout">No such bank. <a href="#/chart">Back to the chart</a></div>'; return; }
-    var est = b.estimate, ests = est.items.filter(function (i) { return i.kind === 'ESTABLISHED'; }), hyp = est.items.filter(function (i) { return i.kind === 'HYPOTHESIS'; });
+    if (!b) { A.view.innerHTML = '<div class="card callout">No such special bank. <a href="#/chart">Back to special banks</a></div>'; return; }
+    var est = CI.estimateOf(b, estId), ests = est.items.filter(function (i) { return i.kind === 'ESTABLISHED'; }), hyp = est.items.filter(function (i) { return i.kind === 'HYPOTHESIS'; });
     function list(items) {
       return items.length ? '<ul class="plain">' + items.map(function (it) {
         return '<li>' + esc(it.text) + (it.reportIds.length ? '<div class="muted small">Based on ' + it.reportIds.map(function (r) { return A.repLink(r); }).join(', ') + '</div>' : '') +
-          ' <button class="btn small" data-action="est-del" data-bank="' + esc(b.id) + '" data-id="' + esc(it.id) + '">Remove</button></li>';
+          ' <button class="btn small" data-action="est-del" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-id="' + esc(it.id) + '">Remove</button></li>';
       }).join('') + '</ul>' : '<p class="muted small">None yet.</p>';
     }
-    var leads = d.leads.filter(function (l) { return l.bankId === b.id; });
-    var h = '<div class="page-head"><h1>Estimate: ' + esc(b.name) + '</h1><div class="row wrap"><a class="btn" href="#/chart/' + esc(b.id) + '">Back to chart</a></div></div>' +
-      (b.opened && b.opened.reason ? '<div class="card"><h3>Why this bank was opened</h3><p>' + esc(b.opened.reason) + '</p><p class="muted small">' + esc(CI.fmtDate(b.opened.date)) + '</p></div>' : '') +
-      (b.handedOver ? '<div class="card callout">Handed to Investigations on ' + esc(CI.fmtDate(b.handedOver)) + '. The chart now highlights what has changed since. ' + (CI.investigationFor(d, b.id) ? '<a href="#/investigation/' + esc(CI.investigationFor(d, b.id).id) + '">Investigation ' + esc(CI.investigationFor(d, b.id).id) + '</a> · ' : '') + '<a href="#/leads">Leads</a></div>' : '') +
+    var handed = b.handedOver && b.handedOverEstimate === est.id;
+    var h = CI.views.bankHead(b, 'estimates') +
+      '<h2 class="sub-h">' + esc(est.label) + (handed ? ' <span class="tag">handed over</span>' : '') + ' <button class="btn small" data-action="est-rename" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Rename</button></h2>' +
       '<form class="card form" onsubmit="return false"><label>Summary <span class="hint">where things stand, in a few plain sentences</span><textarea id="est-sum" rows="5">' + esc(est.summary) + '</textarea></label>' +
-      '<div class="row"><button class="btn primary" data-action="est-save" data-bank="' + esc(b.id) + '">Save summary</button>' + (est.updated ? '<span class="muted small">Updated ' + esc(CI.fmtDate(est.updated)) + '</span>' : '') + '</div></form>' +
+      '<div class="row"><button class="btn primary" data-action="est-save" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Save summary</button>' + (est.updated ? '<span class="muted small">Updated ' + esc(CI.fmtDate(est.updated)) + '</span>' : '') + '</div></form>' +
       '<div class="card"><h3>What the files establish</h3>' + list(ests) + '<h3 class="sep">Working theories (not yet established)</h3>' + list(hyp) + '</div>' +
       '<form class="card form" onsubmit="return false"><h3>Add a statement</h3><div class="grid2"><label>Kind<select id="est-kind">' + A.options(CI.ESTIMATE_KINDS.map(function (k) { return { value: k.id, label: k.label }; }), 'ESTABLISHED') + '</select></label>' +
       '<label>Reports it rests on <span class="hint">e.g. R-0003, R-0007 (required if established)</span><input type="text" id="est-reps" placeholder="R-0001, R-0002"></label></div>' +
-      '<label>Statement<textarea id="est-text" rows="2"></textarea></label><div class="row"><button class="btn" data-action="est-add" data-bank="' + esc(b.id) + '">Add</button></div></form>' +
-      '<div class="card"><h3>Hand over to Investigations</h3><p class="muted small">Freezes the chart as it stands, so later findings show up as changes. ' + leads.length + ' lead' + (leads.length === 1 ? '' : 's') + ' so far on this bank.</p>' +
-      '<div class="row wrap"><button class="btn primary" data-action="est-handover" data-bank="' + esc(b.id) + '">Hand over now</button><button class="btn" data-action="lead-new-bank" data-bank="' + esc(b.id) + '">Raise a lead</button></div></div>';
+      '<label>Statement<textarea id="est-text" rows="2"></textarea></label><div class="row"><button class="btn" data-action="est-add" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Add</button></div></form>';
     A.view.className = ''; A.view.innerHTML = h;
   };
   function bankOf(el) { return D().banks.filter(function (x) { return x.id === el.getAttribute('data-bank'); })[0]; }
-  H['est-save'] = function (el) { var b = bankOf(el); b.estimate.summary = val('est-sum').trim(); b.estimate.updated = CI.today(); A.persist(); A.toast('Summary saved.'); CI.views.estimate(b.id); };
-  H['est-add'] = function (el) {
-    var b = bankOf(el), res = CI.addEstimateItem(D(), b, { kind: val('est-kind'), text: val('est-text'), reportIds: val('est-reps') });
-    if (res.error) { A.toast(res.error, true); return; }
-    A.persist(); CI.views.estimate(b.id);
+  function estOf(el) { var b = bankOf(el); return b ? CI.estimateOf(b, el.getAttribute('data-est')) : null; }
+  H['est-save'] = function (el) { var b = bankOf(el), e = estOf(el); e.summary = val('est-sum').trim(); e.updated = CI.today(); A.persist(); A.toast('Summary saved.'); CI.views.estimate(b.id, e.id); };
+  H['est-rename'] = function (el) {
+    var b = bankOf(el), e = estOf(el);
+    A.ask('Name for this estimate?', e.label, function (n) { e.label = n; A.persist(); CI.views.estimate(b.id, e.id); }, { title: 'Rename estimate', ok: 'Rename' });
   };
-  H['est-del'] = function (el) { var b = bankOf(el), id = el.getAttribute('data-id'); b.estimate.items = b.estimate.items.filter(function (i) { return i.id !== id; }); A.persist(); CI.views.estimate(b.id); };
+  H['est-add'] = function (el) {
+    var b = bankOf(el), e = estOf(el), res = CI.addEstimateItem(D(), b, { kind: val('est-kind'), text: val('est-text'), reportIds: val('est-reps') }, e);
+    if (res.error) { A.toast(res.error, true); return; }
+    A.persist(); CI.views.estimate(b.id, e.id);
+  };
+  H['est-del'] = function (el) { var b = bankOf(el), e = estOf(el), id = el.getAttribute('data-id'); e.items = e.items.filter(function (i) { return i.id !== id; }); A.persist(); CI.views.estimate(b.id, e.id); };
   H['est-handover'] = function (el) {
-    var b = bankOf(el);
-    A.confirm('Freeze “' + b.name + '” as it stands and hand it to Investigations? This opens an investigation for it.', function () { CI.handOver(D(), b); A.persist(); A.closeModal(); A.toast('Handed over. A snapshot was saved.'); CI.views.estimate(b.id); }, { title: 'Hand over', yes: 'Hand over' });
+    var b = bankOf(el), sel = document.getElementById('ho-est'), estId = sel ? sel.value : '';
+    A.confirm('Freeze “' + b.name + '” as it stands and hand it to Investigations with ' + CI.estimateOf(b, estId).label + '? This opens an investigation for it.', function () { CI.handOver(D(), b, estId); A.persist(); A.closeModal(); A.toast('Handed over. A snapshot was saved.'); A.go('#/bank/' + b.id + '/estimates'); }, { title: 'Hand over', yes: 'Hand over' });
   };
   H['lead-new-bank'] = function (el) { CI.views.openLead({ bankId: el.getAttribute('data-bank') }); };
 })();

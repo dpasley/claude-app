@@ -121,7 +121,7 @@
     var bank = CI.newBank(d, 'Invoice scheme bank', [ent.invoice.id], 2);
     d.banks.push(bank);
     d.ui.bankId = bank.id;
-    bank.estimate.summary = 'Payments for the Q3 vendor invoices appear to pass through Harborline Supply to Brightwater Holdings, which shares an address with both Harborline (formerly) and Keystone Courier. The Depot 4 outage is a separate thread that touches the same address through Keystone.';
+    CI.currentEstimate(bank).summary = 'Payments for the Q3 vendor invoices appear to pass through Harborline Supply to Brightwater Holdings, which shares an address with both Harborline (formerly) and Keystone Courier. The Depot 4 outage is a separate thread that touches the same address through Keystone.';
     CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Harborline forwarded Northwind\u2019s payment to Brightwater Holdings within a day.', reportIds: 'R-0005' });
     CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Brightwater and Harborline have both been registered at the Harbor Street business park.', reportIds: 'R-0002, R-0003' });
     CI.addEstimateItem(d, bank, { kind: 'HYPOTHESIS', text: 'Harborline is a pass-through for payments that end at Brightwater.', reportIds: '' });
@@ -137,13 +137,14 @@
     var b2 = CI.newBank(d, 'Depot 4 outage bank', [ent.outage.id], 2);
     b2.opened = { date: ago(3), reason: 'A public post predicted the outage, and then the cabling was found cut.' };
     d.banks.push(b2);
-    b2.estimate.summary = 'The GridWatch Now post named Depot 4 before the outage. A Keystone Courier contractor was on site the night before.';
+    CI.currentEstimate(b2).summary = 'The GridWatch Now post named Depot 4 before the outage. A Keystone Courier contractor was on site the night before.';
     CI.addEstimateItem(d, b2, { kind: 'ESTABLISHED', text: 'GridWatch Now announced the outage before it happened.', reportIds: 'R-0006' });
     CI.handOver(d, b2);
     var inv = CI.investigationFor(d, b2.id);
     inv.status = 'PLAN_WITH_LEGAL'; inv.investigator = 'Sample investigator';
     CI.savePlan(d, inv, { objective: 'Establish who cut the cabling and refer the matter.', outcome: 'REFERRAL', preparedBy: 'Sample investigator', actions: [{ text: 'Interview the Depot 4 night supervisor', owner: 'Investigator' }, { text: 'Prepare the badge and maintenance records for law enforcement', owner: 'Collection' }, { text: 'Brief the police liaison once legal clears the plan', owner: 'Security manager' }], legalStatus: 'WITH_LEGAL', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' });
     CI.seedSampleCaseChart(d);
+    d.banks.forEach(function (b) { if (!Array.isArray(b.files)) b.files = CI.computeGraph(d, b).nodes.map(function (n) { return n.id; }); });
     return d;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

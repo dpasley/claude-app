@@ -12,8 +12,8 @@
   CI.views.investigations = function () {
     var d = D(), rows = d.investigations.slice().sort(function (a, b) { return b.opened.localeCompare(a.opened) || b.id.localeCompare(a.id); }).filter(function (v) { return iv.show === 'all' || v.status !== 'CLOSED'; });
     var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><select data-on-change="inv-filter" id="inv-show">' + A.options([{ value: 'open', label: 'Open investigations' }, { value: 'all', label: 'All investigations' }], iv.show) + '</select></div></div>' +
-      '<p class="muted">An investigation begins when a bank and its estimate are handed over. This is where executives see what is being worked and how far it has got.</p>';
-    if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Hand over a bank from its <a href="#/chart">estimate</a> to start one.</div>';
+      '<p class="muted">An investigation begins when a special bank and its estimate are handed over. This is where executives see what is being worked and how far it has got.</p>';
+    if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Hand over a special bank from its <a href="#/chart">Estimates tab</a> to start one.</div>';
     else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Bank</th><th>Status</th><th>Investigator</th><th>Handed over</th><th class="num">Open leads</th><th>Legal on plan</th><th>Case chart</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (v) {
         var b = bank(v.bankId), open = d.leads.filter(function (l) { return l.bankId === v.bankId && !CI.isClosed(l); }).length;
@@ -34,7 +34,7 @@
     var d = D(), v = d.investigations.filter(function (x) { return x.id === id; })[0];
     if (!v) { A.view.innerHTML = '<div class="card callout">No such investigation. <a href="#/investigations">Back to investigations</a></div>'; return; }
     var b = bank(v.bankId), p = v.plan, cc = CI.caseChartOf(v), leads = d.leads.filter(function (l) { return l.bankId === v.bankId; });
-    var h = '<div class="page-head"><h1>Investigation ' + esc(v.id) + ' ' + invTag(v) + '</h1><div class="row wrap"><a class="btn primary" href="#/casechart/' + esc(v.id) + '">Case chart</a><a class="btn" href="#/chart/' + esc(v.bankId) + '">Working chart</a><a class="btn" href="#/estimate/' + esc(v.bankId) + '">Estimate</a><a class="btn" href="#/investigations">All investigations</a></div></div>' +
+    var h = '<div class="page-head"><h1>Investigation ' + esc(v.id) + ' ' + invTag(v) + '</h1><div class="row wrap"><a class="btn primary" href="#/casechart/' + esc(v.id) + '">Case chart</a><a class="btn" href="#/chart/' + esc(v.bankId) + '">Working chart</a><a class="btn" href="#/bank/' + esc(v.bankId) + '/estimates">Estimates</a><a class="btn" href="#/investigations">All investigations</a></div></div>' +
       '<p class="muted">Bank: <b>' + esc(b ? b.name : '(bank removed)') + '</b>' + (b && b.opened.reason ? ' · opened because: ' + esc(b.opened.reason) : '') + '</p>' +
       '<form class="card form" onsubmit="return false"><div class="grid2"><label>Status<select id="iv-status">' + A.options(CI.INV_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), v.status) + '</select></label>' +
       '<label>Investigator<input type="text" id="iv-who" value="' + esc(v.investigator) + '"></label></div>' +
