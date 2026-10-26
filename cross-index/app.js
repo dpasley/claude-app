@@ -275,8 +275,7 @@
       '<div class="rf-grid">' +
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
-      '<label class="rf-source">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
-      '<label class="rf-date">Date of the event or posting <span class="hint">if different</span>' + dateInput('f-event', r.eventDate) + '</label>' +
+      '<label class="rf-wide">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
       '<label class="rf-wide">Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '<label class="rf-wide">Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
       '</div>' +
@@ -286,15 +285,14 @@
   }
   handlers['save-report'] = function (el) {
     var id = el.getAttribute('data-id'), ex = id ? idx().report[id] : null;
-    var rec = readDate('f-received'), ev = readDate('f-event');
+    var rec = readDate('f-received');
     var r = {
-      received: rec || '', subject: val('f-subject').trim(), eventDate: ev || '', sourceRef: val('f-ref').trim(),
+      received: rec || '', subject: val('f-subject').trim(), sourceRef: val('f-ref').trim(),
       archiveLoc: val('f-arch').trim(), summary: val('f-summary').trim()
     };
     var leadEl = document.getElementById('f-lead'); if (leadEl) r.leadId = leadEl.value;
     var problems = CI.validateReport(r), box = document.getElementById('form-errors');
     if (rec === null) problems = [DATE_HELP.replace('Not a date', 'Date of report is not a date')].concat(problems.filter(function (x) { return !/^Date of report/.test(x); }));
-    if (ev === null) problems.push('Date of the event is not a date I can read. Try 25 Oct. 2026.');
     if (problems.length) {
       box.innerHTML = problems.map(function (p) { return '<div>' + esc(p) + '</div>'; }).join('');
       logEvent('blocked', 'Save blocked: ' + problems.join(' '), id || '(new report)');
@@ -324,54 +322,55 @@
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
     var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="raise-lead-report" data-id="' + esc(id) + '">Raise a lead</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
-    h += '<div class="card"><dl class="kv"><dt>Date of report</dt><dd>' + esc(CI.fmtDate(r.received)) + (r.eventDate ? ' <span class="muted">(event ' + esc(CI.fmtDate(r.eventDate)) + ')</span>' : '') + '</dd>' +
-      '<dt>Subject</dt><dd>' + esc(r.subject || '–') + '</dd>' +
-      '<dt>Source</dt><dd>' + esc(r.sourceRef) + (r.sourceType ? ' <span class="muted">(' + esc(r.sourceType) + ')</span>' : '') + '</dd>' +
-      (r.basis ? '<dt>Intake basis</dt><dd>' + esc(r.basis) + '</dd>' : '') +
-      (r.archiveLoc ? '<dt>Preserved copy</dt><dd>' + esc(r.archiveLoc) + '</dd>' : '') +
-      (r.hash ? '<dt>Fingerprint</dt><dd class="mono small">' + esc(r.hash) + '<br><span class="muted">captured ' + esc(CI.fmtDateTime(r.hashAt)) + '</span></dd>' : '') +
-      (dupInfo ? '<dt>Repost</dt><dd>' + dupInfo + '</dd>' : '') +
-      (r.leadId ? '<dt>Answers lead</dt><dd><a href="#/lead/' + esc(r.leadId) + '">' + esc(r.leadId) + '</a></dd>' : '') +
-      (reposts.length ? '<dt>Reposts</dt><dd>' + reposts.map(function (x) { return repLink(x.id); }).join(', ') + '</dd>' : '') +
-      (r.summary ? '<dt>Notes</dt><dd>' + esc(r.summary) + '</dd>' : '') + '</dl></div>';
+    var mine = d.links.filter(function (l) { return l.reportId === id; });
+    h += '<div class="card rep-strip"><div class="facts">' +
+      '<div><span class="fl">Date of report</span><span class="fv">' + esc(CI.fmtDate(r.received)) + '</span></div>' +
+      '<div class="grow"><span class="fl">Source</span><span class="fv">' + esc(r.sourceRef || '–') + '</span></div>' +
+      (r.archiveLoc ? '<div class="grow"><span class="fl">Preserved copy</span><span class="fv">' + esc(r.archiveLoc) + '</span></div>' : '') + '</div>' +
+      (r.summary ? '<p class="rs-notes">' + esc(r.summary) + '</p>' : '') +
+      ((dupInfo || r.leadId || reposts.length || r.basis) ? '<p class="rs-extra muted small">' + (r.basis ? 'Intake basis: ' + esc(r.basis) + ' ' : '') + (dupInfo ? dupInfo + ' ' : '') + (r.leadId ? 'Answers lead <a href="#/lead/' + esc(r.leadId) + '">' + esc(r.leadId) + '</a> ' : '') + (reposts.length ? 'Reposts: ' + reposts.map(function (x) { return repLink(x.id); }).join(', ') : '') + '</p>' : '') + '</div>';
+    h += '<div class="steps"><a href="#" class="step on" data-action="jump" data-to="sec-names"><span class="num">1</span>Names mentioned <span class="pill">' + r.entities.length + '</span></a><span class="arrow">›</span>' +
+      '<a href="#" class="step' + (r.entities.length >= 2 ? ' on' : ' off') + '" data-action="jump" data-to="sec-links"><span class="num">2</span>Connections <span class="pill">' + mine.length + '</span></a><span class="arrow">›</span>' +
+      '<a href="#" class="step" data-action="jump" data-to="sec-done"><span class="num">3</span>Finish</a></div>';
 
-    h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
+    h += '<div class="card sec" id="sec-names"><div class="sec-head"><span class="num">1</span><div><h2>Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one, and create a new one only when it is not. Press Enter to add.</p></div></div>';
+    h += '<div class="addbox primary-box"><label class="big-lbl">Add a name<input type="text" id="ae-q" class="big-in" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
+      '<label class="chk"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label>' +
+      '<div id="ae-results"></div>' +
+      '<div class="newrow"><span class="nr-lbl">Not found? Create it:</span><select id="ae-type" data-on-change="ae-type-change">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Type…') + '</select>' +
+      '<input type="text" id="ae-details" class="wide-in" placeholder="Identifying details (optional): date of birth or age, address, nickname, description" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + '>' +
+      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button></div>' +
+      '<p class="muted small nr-hint">Area: a city, region or campus. Phones, plates, accounts and addresses are not indexed; if one matters, put it in the identifying details or a connection note.</p><div id="ae-msg" class="errors"></div></div>';
     if (r.entities.length) {
-      h += '<table class="fixed"><colgroup><col style="width:44%"><col style="width:22%"><col style="width:22%"><col style="width:12%"></colgroup><thead><tr><th>Name</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
+      h += '<table class="fixed list"><colgroup><col style="width:44%"><col style="width:16%"><col style="width:28%"><col style="width:12%"></colgroup><thead><tr><th>Names so far</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
         return '<tr><td>' + entLink(x.entityId) + (e && e.details ? ' <span class="muted small">' + esc(e.details) + '</span>' : '') + (e && e.aliases.length ? ' <span class="muted small">also: ' + esc(e.aliases.join(', ')) + '</span>' : '') + '</td><td>' + kindTag(e) + '</td>' +
           '<td><label class="chk"><input type="checkbox" data-on-change="flag-toggle" data-eid="' + esc(x.entityId) + '"' + (x.flag ? ' checked' : '') + '> flag</label>' +
           (x.flag ? '<input type="text" placeholder="what is unclear?" value="' + esc(x.flagNote) + '" data-on-change="flag-note" data-eid="' + esc(x.entityId) + '">' : '') + '</td>' +
-          '<td><button class="btn small" data-action="remove-entity" data-eid="' + esc(x.entityId) + '">Remove</button></td></tr>';
+          '<td class="right"><button class="btn small" data-action="remove-entity" data-eid="' + esc(x.entityId) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="callout-inline">No names yet. This report is not indexed until at least one is added.</p>';
-    h += '<div class="addbox"><h3>Add a name</h3><div class="grid3"><label>Name<input type="text" id="ae-q" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
-      '<label class="chk lower"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label></div>' +
-      '<div id="ae-results"></div>' +
-      '<div class="row create wrap"><select id="ae-type" data-on-change="ae-type-change">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Type if new…') + '</select>' +
-      '<input type="text" id="ae-details" class="wide-in" placeholder="Anything that tells this one apart: date of birth or age, address, nickname, description (optional)" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + '>' +
-      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button><span class="muted small">Area: a city, region or campus. Phones, plates, accounts and addresses are not indexed; if one matters, put it in the identifying details or a connection note.</span></div><div id="ae-msg" class="errors"></div></div></div>';
+    h += '</div>';
 
-    h += '<div class="card"><h2>2. Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
-    var mine = d.links.filter(function (l) { return l.reportId === id; });
+    h += '<div class="card sec' + (r.entities.length >= 2 ? '' : ' dim') + '" id="sec-links"><div class="sec-head"><span class="num">2</span><div><h2>Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p></div></div>';
+    if (r.entities.length >= 2) {
+      var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
+      h += '<div class="addbox primary-box"><div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
+        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? '' : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
+        '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label></div>' +
+        '<label class="big-lbl">What is the connection? <span class="hint">required: brother, treasurer, owner of the plate…</span><input type="text" id="lk-note" class="big-in"></label>' +
+        '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
+        '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button><button class="btn primary" data-action="add-link">Add connection</button></span></div><div id="lk-msg" class="errors"></div></div>';
+    } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     if (mine.length) {
-      h += '<table class="fixed"><colgroup><col style="width:26%"><col style="width:17%"><col style="width:26%"><col style="width:22%"><col style="width:9%"></colgroup>' +
-        '<thead><tr><th>From</th><th>Connection</th><th>To</th><th>What it is</th><th></th></tr></thead><tbody>' + mine.map(function (l) {
+      h += '<table class="fixed list"><colgroup><col style="width:26%"><col style="width:17%"><col style="width:26%"><col style="width:22%"><col style="width:9%"></colgroup>' +
+        '<thead><tr><th>Connections so far: from</th><th>Connection</th><th>To</th><th>What it is</th><th></th></tr></thead><tbody>' + mine.map(function (l) {
         var t = lt(l.type);
         return '<tr><td>' + entLink(l.from) + '</td><td title="' + esc(t.label) + '">' + (t.directed ? '→ ' : '↔ ') + esc(t.label) + '</td><td>' + entLink(l.to) + '</td><td title="' + esc(l.note) + '">' + esc(l.note) + '</td><td class="right"><button class="btn small" data-action="del-link" data-id="' + esc(l.id) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
-    } else h += '<p class="muted">No connections recorded for this report yet.</p>';
-    if (r.entities.length >= 2) {
-      var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
-      h += '<div class="addbox"><h3>Add a connection</h3><div class="grid4"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
-        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? '' : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
-        '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
-        '<label>What is the connection? <span class="hint">required: brother, treasurer, owner of the plate…</span><input type="text" id="lk-note"></label></div>' +
-        '<label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
-        '<div class="row"><button class="btn primary" data-action="add-link">Add connection</button><button class="btn" data-action="lk-swap">Swap direction</button><span id="lk-preview" class="muted"></span></div><div id="lk-msg" class="errors"></div></div>';
-    } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
+    } else if (r.entities.length >= 2) h += '<p class="muted">No connections recorded for this report yet.</p>';
     h += '</div>';
-    h += '<div class="card row spread"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
+    h += '<div class="card row spread" id="sec-done"><span class="muted"><b>3.</b> Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
   }
@@ -416,6 +415,7 @@
     }).join('') : '<div class="muted small pad">Nothing found.</div>';
   };
   handlers['ae-input'] = function (el) { ae.q = el.value; aeSel = -1; renderAeResults(); document.getElementById('ae-msg').textContent = ''; };
+  handlers['jump'] = function (el) { var t = document.getElementById(el.getAttribute('data-to')); if (t && t.scrollIntoView) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   handlers['ae-type-change'] = function (el) {
     ae.type = el.value;
   };
