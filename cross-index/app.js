@@ -326,7 +326,6 @@
         '<div class="row"><button class="btn primary" data-action="add-link">Add connection</button><button class="btn" data-action="lk-swap">Swap direction</button><span id="lk-preview" class="muted"></span></div><div id="lk-msg" class="errors"></div></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     h += '</div>';
-    if (r.entities.length) h += '<div class="card row spread"><span class="muted">See how this report’s names connect to the rest of the index.</span><button class="btn" data-action="chart-report" data-id="' + esc(id) + '">Chart this report’s names</button></div>';
     h += '<div class="card row spread"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/reports">Back to reports</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
@@ -485,10 +484,6 @@
     }, { title: 'Delete report', yes: 'Delete', danger: true });
   };
   handlers['raise-lead-report'] = function (el) { CI.views.openLead({ raisedBy: el.getAttribute('data-id') }); };
-  handlers['chart-report'] = function (el) {
-    var r = idx().report[el.getAttribute('data-id')];
-    CI.views.quickBank(r.entities.map(function (x) { return x.entityId; }), 1, 'Report ' + r.id);
-  };
 
   /* ---------- ENTITIES LIST ---------- */
   var entScope = 'files';
