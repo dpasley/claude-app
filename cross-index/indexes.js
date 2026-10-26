@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var A = CI.app, H = A.handlers, esc = A.esc;
-  var ix = { days: 7, kind: '', shown: 0, cf: 'group', itemKind: '', lq: '' };
+  var ix = { days: 7, kind: '', shown: 0, cf: 'individual', itemKind: '', lq: '' };
   function D() { return A.data(); }
   function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
   function link(id) { return A.entLink(id); }
@@ -104,13 +104,8 @@
     return h;
   }
 
-  function findCard() {
-    return '<div class="card"><h2>Connection index of a file</h2><p class="muted small">Pick a file or item to see everything it is connected to.</p>' +
-      '<input type="search" id="ix-q" placeholder="Name, plate, number or handle…" autocomplete="off" data-on-input="ix-find"><div id="ix-res"></div></div>';
-  }
-
   /* ----- tabs ----- */
-  var TABS = [{ id: '', label: 'Worth a look' }, { id: 'crossfiling', label: 'Cross-filing' }, { id: 'items', label: 'Items' }, { id: 'words', label: 'Words used' }];
+  var TABS = [{ id: '', label: 'Worth a look' }, { id: 'crossfiling', label: 'Cross-filing' }, { id: 'items', label: 'Items' }];
   function tabsBar(active, badge) {
     return '<div class="tabs" role="tablist">' + TABS.map(function (t) {
       return '<a role="tab" class="tab' + (t.id === active ? ' on' : '') + '" href="#/indexes' + (t.id ? '/' + t.id : '') + '">' + esc(t.label) +
@@ -127,15 +122,14 @@
   CI.views.indexes = function (arg, sub) {
     var d = D(), idx = A.idx();
     A.view.className = '';
-    if (arg === 'notes') arg = 'words';
-    if (arg && arg !== 'crossfiling' && arg !== 'items' && arg !== 'words' && idx.entity[arg]) return connPage(arg, idx);
+    if (arg === 'notes' || arg === 'words') { A.go('#/review'); return; }
+    if (arg && arg !== 'crossfiling' && arg !== 'items' && idx.entity[arg]) return connPage(arg, idx);
     if (ix.tab !== arg) ix.lq = '';
     ix.tab = arg;
     var badge = CI.discoveries(d, idx, CI.daysAgo(ix.days)).length;
     var h = '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Files that moved recently</a></div>' + tabsBar(arg === 'crossfiling' || arg === 'items' || arg === 'words' ? arg : '', badge);
     if (arg === 'crossfiling') { if (sub) ix.cf = decodeURIComponent(sub); h += crossFiling(idx); }
     else if (arg === 'items') { ix.itemKind = sub ? decodeURIComponent(sub) : ''; h += itemsTab(idx); }
-    else if (arg === 'words') h += wordsTab(idx);
     else h += lookPanel(idx);
     A.view.innerHTML = h;
   };
@@ -151,26 +145,23 @@
   }
 
   /* Cross-filing: who and what is connected to each group, area, subject or individual. */
-  var CF = [{ id: 'group', label: 'Groups' }, { id: 'area', label: 'Areas' }, { id: 'subject', label: 'Subjects' }, { id: 'individual', label: 'Individuals' }];
+  var CF = [{ id: 'individual', label: 'Individuals' }, { id: 'group', label: 'Groups' }, { id: 'area', label: 'Areas' }, { id: 'subject', label: 'Subjects' }];
   function cfEntries(idx) {
     var d = D(), q = CI.norm(ix.lq || '');
     return d.entities.filter(function (e) { return e.type === ix.cf && !CI.isItem(e) && (!q || CI.norm([e.name, e.details || ''].concat(e.aliases || []).join(' ')).indexOf(q) !== -1); })
       .sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (e) {
-        var groups = CI.connectionIndex(d, e.id, idx), n = 0; groups.forEach(function (g) { n += g.rows.length; });
-        return '<div class="cfentry"><div class="row spread"><div><a href="#/entity/' + esc(e.id) + '"><b>' + esc(e.name) + '</b></a>' + (e.details ? ' <span class="muted small">' + esc(e.details) + '</span>' : '') +
-          '</div><a class="small" href="#/indexes/' + esc(e.id) + '">' + n + ' connection' + (n === 1 ? '' : 's') + ' ›</a></div>' +
-          (groups.length ? groups.map(function (g) {
-            return '<div class="cfrow"><span class="k">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></span><span class="v">' + chips(g.rows) + '</span></div>';
-          }).join('') : '<div class="muted small">Nothing connected yet.</div>') + '</div>';
+        var others = {}; CI.connectionIndex(d, e.id, idx).forEach(function (g) { g.rows.forEach(function (r) { others[r.other.id] = 1; }); });
+        var n = Object.keys(others).length;
+        return '<a class="lrow pick" href="#/indexes/' + esc(e.id) + '"><span>' + A.avatar(e, 28) + '<b>' + esc(e.name) + '</b>' + (e.details ? ' <span class="muted small">' + esc(A.trunc(e.details, 60)) + '</span>' : '') + '</span>' +
+          '<span class="' + (n ? '' : 'muted ') + 'small">' + (n ? n + ' connected file' + (n === 1 ? '' : 's') : 'nothing connected yet') + ' ›</span></a>';
       }).join('') || '<p class="muted">Nothing here yet.</p>';
   }
   function crossFiling(idx) {
     var d = D(), counts = {};
     d.entities.forEach(function (e) { if (!CI.isItem(e)) counts[e.type] = (counts[e.type] || 0) + 1; });
-    if (!CF.some(function (c) { return c.id === ix.cf; })) ix.cf = 'group';
-    var h = findCard() + '<div class="card"><h2>Who and what is connected to each…</h2>' + subTabs('#/indexes/crossfiling', CF.map(function (c) { return { id: c.id, label: c.label, n: counts[c.id] || 0 }; }), ix.cf) +
-      '<input type="search" id="ix-lq" placeholder="Search this list…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq"><div id="ix-list">' + cfEntries(idx) + '</div></div>';
-    return h;
+    if (!CF.some(function (c) { return c.id === ix.cf; })) ix.cf = 'individual';
+    return '<div class="card"><h2>Connection index <span class="muted small">choose a file to see everything it is connected to</span></h2>' + subTabs('#/indexes/crossfiling', CF.map(function (c) { return { id: c.id, label: c.label, n: counts[c.id] || 0 }; }), ix.cf) +
+      '<input type="search" id="ix-lq" data-lookup="#ix-list" placeholder="Type a name, then arrow down and press Enter…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq" autocomplete="off"><div id="ix-list">' + cfEntries(idx) + '</div></div>';
   }
 
   /* Items: the index where plates, phones, emails and accounts live. */
@@ -182,7 +173,7 @@
       var rows = [];
       CI.connectionIndex(d, e.id, idx).forEach(function (g) { rows = rows.concat(g.rows); });
       var nrep = (idx.reportsByEntity[e.id] || []).length;
-      return '<div class="cfentry"><div class="row spread"><div><a href="#/entity/' + esc(e.id) + '"><b>' + esc(e.name) + '</b></a> <span class="tag">' + esc(e.itemType || 'item') + '</span></div>' +
+      return '<div class="cfentry pick"><div class="row spread"><div><a href="#/entity/' + esc(e.id) + '"><b>' + esc(e.name) + '</b></a> <span class="tag">' + esc(e.itemType || 'item') + '</span></div>' +
         '<span class="muted small">' + nrep + ' report' + (nrep === 1 ? '' : 's') + '</span></div>' +
         (rows.length ? '<div class="cfrow"><span class="k">Connected to</span><span class="v">' + chips(rows) + '</span></div>' : '<div class="muted small">Not connected to anything yet.</div>') + '</div>';
     }).join('') || '<p class="muted">No items here yet. Items are added from a report: type a plate, number or handle and choose Item.</p>';
@@ -192,11 +183,11 @@
     d.entities.forEach(function (e) { if (CI.isItem(e)) { var k = e.itemType || 'other'; counts[k] = (counts[k] || 0) + 1; total++; } });
     var tabs = [{ id: '', label: 'All items', n: total }].concat(Object.keys(counts).sort().map(function (k) { return { id: k, label: cap(k), n: counts[k] }; }));
     return '<div class="card"><h2>Items <span class="muted small">plates, phones, emails, accounts: indexed, not filed</span></h2>' + subTabs('#/indexes/items', tabs, ix.itemKind) +
-      '<input type="search" id="ix-lq" placeholder="Search items…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq"><div id="ix-list">' + itemEntries(idx) + '</div></div>';
+      '<input type="search" id="ix-lq" data-lookup="#ix-list" autocomplete="off" placeholder="Search items…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq"><div id="ix-list">' + itemEntries(idx) + '</div></div>';
   }
 
-  function wordsTab(idx) {
-    var ni = CI.noteIndex(D(), idx);
+  CI.views.wordsCard = function () {
+    var idx = A.idx(), ni = CI.noteIndex(D(), idx);
     var h = '<div class="card"><h2>Words staff use for connections</h2>';
     if (!ni.length) return h + '<p class="muted">No connections recorded yet.</p></div>';
     var max = ni[0].count;
@@ -206,12 +197,13 @@
           '<span class="ex muted small">' + Object.keys(e.types).map(function (t) { return esc(t); }).join(', ') + ' · ' + e.links.slice(0, 2).map(function (l) { return link(l.from) + ' – ' + link(l.to); }).join('; ') + '</span></div>';
       }).join('') + '</div>';
     return h;
-  }
+  };
 
   function connPage(id, idx) {
     var e = idx.entity[id], groups = CI.connectionIndex(D(), id, idx), n = 0;
     groups.forEach(function (g) { n += g.rows.length; });
-    var h = tabsBar('crossfiling', 0) + '<div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
+    var h = tabsBar('crossfiling', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/crossfiling/' + esc(e.type === 'item' ? 'individual' : e.type) + '">‹ All ' + esc(CI.isItem(e) ? 'individuals' : CI.TYPE_LABEL[e.type].toLowerCase() + 's') + '</a>' +
+      '<input type="search" id="ix-q" data-lookup="#ix-res" autocomplete="off" placeholder="Look up another file or item…" data-on-input="ix-find" style="flex:1;min-width:220px"><div id="ix-res" style="flex:0 0 100%"></div></div><div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">No connections recorded yet.</p></div>';
     groups.forEach(function (g) {
@@ -234,7 +226,7 @@
   H['ix-find'] = function (el) {
     var box = document.getElementById('ix-res'), c = CI.findCandidates(D(), el.value, 8);
     box.innerHTML = c.map(function (x) {
-      return '<div class="cand"><div><strong>' + esc(x.entity.name) + '</strong> ' + A.tag(CI.isItem(x.entity) ? 'item' : x.entity.type) + '</div><a class="btn small" href="#/indexes/' + esc(x.entity.id) + '">Connection index</a></div>';
+      return '<div class="cand pick"><div><strong>' + esc(x.entity.name) + '</strong> ' + A.tag(CI.isItem(x.entity) ? 'item' : x.entity.type) + '</div><a class="btn small" href="#/indexes/' + esc(x.entity.id) + '">Connection index</a></div>';
     }).join('');
   };
 })();

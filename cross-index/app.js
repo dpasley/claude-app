@@ -370,7 +370,7 @@
     });
     gsHits = out.slice(0, 12);
     box.innerHTML = gsHits.length ? gsHits.map(function (o) {
-      return '<a href="' + esc(o.href) + '"><strong>' + esc(o.name) + '</strong> <span class="muted small">' + esc(o.kind) + (o.sub ? ' · ' + esc(trunc(o.sub, 50)) : '') + '</span></a>';
+      return '<a class="pick" href="' + esc(o.href) + '"><strong>' + esc(o.name) + '</strong> <span class="muted small">' + esc(o.kind) + (o.sub ? ' · ' + esc(trunc(o.sub, 50)) : '') + '</span></a>';
     }).join('') : '<div class="muted small pad">Nothing found.</div>';
   };
   handlers['ae-input'] = function (el) { ae.q = el.value; aeSel = -1; renderAeResults(); document.getElementById('ae-msg').textContent = ''; };
@@ -383,9 +383,22 @@
   handlers['ae-details'] = function (el) { ae.details = el.value; };
   /* Enter in the name box: use the exact match if there is one, otherwise create it as the chosen type. */
   document.addEventListener('keydown', function (ev) {
-    if (ev.target && ev.target.id === 'gs') {
-      if (ev.key === 'Enter' && gsHits.length) { ev.preventDefault(); ev.target.value = ''; go(gsHits[0].href); }
-      else if (ev.key === 'Escape') { ev.target.value = ''; document.getElementById('gs-results').innerHTML = ''; }
+    if (ev.target && ev.target.getAttribute && ev.target.getAttribute('data-lookup')) {
+      /* Every lookup box: arrow down and up move through the matches, Enter picks the highlighted one (or the first). */
+      var box = document.querySelector(ev.target.getAttribute('data-lookup')), rows = box ? Array.prototype.slice.call(box.querySelectorAll('.pick')) : [];
+      var at = -1; rows.forEach(function (r, i) { if (r.classList.contains('active')) at = i; });
+      if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        if (!rows.length) return;
+        ev.preventDefault();
+        var next = ev.key === 'ArrowDown' ? Math.min(at + 1, rows.length - 1) : at - 1;
+        rows.forEach(function (r, i) { r.classList.toggle('active', i === next); });
+        if (rows[next] && rows[next].scrollIntoView) rows[next].scrollIntoView({ block: 'nearest' });
+      } else if (ev.key === 'Enter' && rows.length) {
+        ev.preventDefault();
+        var pickRow = rows[at >= 0 ? at : 0], tgt = pickRow.matches('a,button') ? pickRow : pickRow.querySelector('a[href],button');
+        if (ev.target.id === 'gs') { ev.target.value = ''; box.innerHTML = ''; }
+        if (tgt) tgt.click();
+      } else if (ev.key === 'Escape' && ev.target.id === 'gs') { ev.target.value = ''; box.innerHTML = ''; }
       return;
     }
     if (!ev.target || ev.target.id !== 'ae-q') return;
@@ -671,6 +684,7 @@
     }).join('') + '</tbody></table><p class="muted small">Undo restores the affected reports and connections to how they were just before the merge; later edits to those specific items are lost.</p>' : '<p class="muted">No merges yet.</p>';
     h += '</div>';
     if (done.length) h += '<details class="card"><summary>Resolved (' + done.length + ')</summary><table class="tight"><tbody>' + done.map(logRow).join('') + '</tbody></table></details>';
+    if (CI.views.wordsCard) h += CI.views.wordsCard();
     view.innerHTML = h;
   }
   function logRow(x) {

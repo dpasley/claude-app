@@ -210,7 +210,7 @@ t('dates show as day, short month, year and are read back from what people type'
 });
 
 t('items are index entries beside the four file types', () => {
-  assert.deepEqual(CI.FILE_TYPES, ['individual', 'group', 'subject', 'area']);
+  assert.deepEqual(CI.FILE_TYPES, ['individual', 'group', 'area', 'subject']);
   assert.ok(CI.ENTITY_TYPES.indexOf('item') !== -1);
   const d = CI.emptyData();
   const it = CI.addEntity(d, { type: 'item', name: 'ABC-1234', itemType: ' vehicle plate ' });

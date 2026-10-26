@@ -377,3 +377,8 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .cfrow .v { flex: 1; }
 .barrow.wide { flex-wrap: wrap; }
 .barrow.wide .ex { flex: 0 0 100%; margin: -2px 0 6px; }
+
+.pick.active { background: var(--accent-bg, #eef4ff) !important; box-shadow: inset 3px 0 0 var(--accent, #2a5db0); }
+.lrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+.lrow:hover { background: var(--hover); text-decoration: none; }
+.lrow > span:first-child { display: flex; align-items: center; gap: 10px; }
