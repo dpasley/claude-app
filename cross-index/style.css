@@ -302,3 +302,20 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .cand.active { border-color: var(--accent, #2a5db0); box-shadow: 0 0 0 2px var(--accent, #2a5db0); background: #eef4ff; }
 
 .wide-in { flex: 1 1 320px; min-width: 220px; }
+
+.gs { position: relative; }
+.gs input { width: 230px; }
+#gs-results { position: absolute; z-index: 20; top: 100%; left: 0; min-width: 320px; max-height: 360px; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.18); }
+#gs-results:empty { display: none; }
+#gs-results a { display: block; padding: 7px 10px; color: var(--text); border-bottom: 1px solid var(--border); }
+#gs-results a:hover { background: var(--hover); text-decoration: none; }
+#gs-results .pad { padding: 8px 10px; }
+#nav a.aux { font-size: 0.85em; color: var(--muted, #667); margin-left: auto; }
+#nav a.aux + a.aux { margin-left: 0; }
+.ptr { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.ptr:last-child { border-bottom: 0; }
+.ptr .why { color: var(--muted, #667); font-size: 0.85em; margin-top: 2px; }
+.dirgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.dirgrid a { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
+.dirgrid a:hover { background: var(--hover); text-decoration: none; }
+.dirgrid .n { font-size: 1.4em; font-weight: 700; display: block; }

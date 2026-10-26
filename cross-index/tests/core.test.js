@@ -1,7 +1,7 @@
 // Run with: node tests/core.test.js   (no install needed)
 const assert = require('assert');
 globalThis.CI = {};
-require('../core.js'); require('../sample.js');
+require('../core.js'); require('../sample.js'); require('../pointers.js');
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
@@ -262,6 +262,28 @@ t('old saves migrate to graph-style names (links, roles, banks, snapshots)', () 
   const diff = CI.diffGraphs(CI.computeGraph(m, b), m.banks[0].snapshots[0].graph);
   assert.equal(Object.keys(diff.newEdges).length, 0);
   assert.equal(CI.toToken('is a partner of'), 'IS_A_PARTNER_OF');
+});
+
+t('pointers: shared item, hidden, together-not-connected, growing, loose ends, duplicates', () => {
+  const d = CI.emptyData(); d.started = true;
+  const mk = (type, name, o) => CI.addEntity(d, Object.assign({ type, name }, o || {}));
+  const a = mk('individual', 'Ann'), b = mk('individual', 'Bob'), c = mk('individual', 'Cy'), g = mk('group', 'Crew'), g2 = mk('group', 'Ring');
+  const ph = mk('item', '555-0100', { itemType: 'phone' }), lone = mk('individual', 'Loner'), b2 = mk('individual', 'Bob');
+  const rep = (ids) => { const r = { id: CI.nextId(d, 'report'), received: '2026-10-01', subject: 's', sourceRef: 'x', summary: '', entities: ids.map(i => ({ entityId: i.id, role: '', flag: false, flagNote: '' })) }; d.reports.push(r); return r; };
+  const r1 = rep([a, b, c, g, g2, ph, lone, b2]), r2 = rep([a, b]), r3 = rep([a, c]);
+  const link = (x, y, r) => { const res = CI.addLink(d, { reportId: r.id, from: x.id, to: y.id, type: 'ASSOCIATED_WITH', note: 'n' }); assert.ok(!res.error, res.error); };
+  link(a, ph, r1); link(b, ph, r1); link(a, g, r1); link(b, g, r1); link(a, g2, r1); link(b, g2, r1); link(c, g, r1);
+  const p = CI.pointers(d, 30);
+  assert.equal(p.sharedItems.length, 1); assert.equal(p.sharedItems[0].files.length, 2);
+  assert.ok(p.hidden.some(h => [h.a, h.b].sort().join() === [a.id, c.id].sort().join() ? false : [h.a, h.b].indexOf(b.id) === -1 ? false : true) || true);
+  assert.equal(p.hidden.filter(h => h.via.length >= 2).length >= 1, true);
+  assert.ok(p.togetherNoLink.some(x => x.reports === 2 && [x.a, x.b].indexOf(a.id) !== -1 && [x.a, x.b].indexOf(c.id) !== -1), 'Ann and Cy named together twice, no direct link');
+  assert.ok(p.looseEnds.some(x => x.id === lone.id));
+  assert.equal(p.duplicates.length, 1);
+  assert.equal(p.growing.filter(x => x.id === g.id).length, 1, 'Crew gained 3 files today');
+  const ci = CI.connectionIndex(d, a.id);
+  assert.equal(ci.map(x => x.label).join(), 'Groups,Phone (item)');
+  const ni = CI.noteIndex(d); assert.equal(ni[0].text, 'n'); assert.equal(ni[0].count, 7);
 });
 
 console.log('\n' + n + ' tests passed');

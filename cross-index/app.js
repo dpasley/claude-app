@@ -5,7 +5,7 @@
   var d = CI.load();
   var _idx = null;
   var view = document.getElementById('view');
-  var cur = 'reports', hist = [], pend = null, saveWarned = false;
+  var cur = 'report-new', hist = [], pend = null, saveWarned = false;
 
   /* ---------- helpers ---------- */
   function esc(s) {
@@ -24,7 +24,7 @@
     toast._t = setTimeout(function () { t.className = ''; }, bad ? 7000 : 2600);
   }
   function go(h) {
-    h = String(h).replace(/^#\/?/, '') || 'reports';
+    h = String(h).replace(/^#\/?/, '') || 'report-new';
     if (h === cur) { route(); return; }
     hist.push(cur); if (hist.length > 50) hist.shift();
     cur = h; route();
@@ -92,7 +92,8 @@
     }
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
-      a.className = h.indexOf('#/' + key) === 0 || (key === 'reports' && h.indexOf('#/report') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)) ? 'active' : '';
+      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && h.indexOf('#/estimate') === 0) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)));
+      if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/items') === 0 || h.indexOf('#/observation') === 0)) a.classList.add('active');
     });
     var rc = document.getElementById('review-count'), n = openCount();
     rc.textContent = n ? n : ''; rc.style.display = n ? 'inline-block' : 'none';
@@ -128,13 +129,15 @@
     window.scrollTo(0, 0);
     view.className = '';
     if (CI.chart) CI.chart.destroy();
-    var name = parts[0] || 'reports';
+    var name = parts[0] || 'report-new';
+    var gsr = document.getElementById('gs-results'); if (gsr) gsr.innerHTML = '';
     if (name === 'reports') viewReports();
     else if (name === 'report-new') viewReportForm(null);
     else if (name === 'report' && parts[2] === 'edit') viewReportForm(parts[1]);
     else if (name === 'report') viewReport(parts[1]);
-    else if (name === 'entities') viewEntities('files');
-    else if (name === 'items') viewEntities('items');
+    else if (name === 'entities') { entStates.files.type = parts[1] ? decodeURIComponent(parts[1]) : ''; viewEntities('files'); }
+    else if (name === 'items') { entStates.items.type = parts[1] ? decodeURIComponent(parts[1]) : ''; viewEntities('items'); }
+    else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '');
     else if (name === 'entity') viewEntity(parts[1]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
     else if (name === 'observation') CI.views.observation();
@@ -146,7 +149,7 @@
     else if (name === 'estimate') CI.views.estimate(parts[1]);
     else if (name === 'review') viewReview();
     else if (name === 'settings') viewSettings();
-    else viewReports();
+    else viewReportForm(null);
     updateNav();
   }
   document.addEventListener('click', function (ev) {
@@ -269,7 +272,7 @@
 
   /* ---------- REPORT PAGE (indexing) ---------- */
   var ae = { reportId: '', q: '' };
-  function notFound(what) { view.innerHTML = '<div class="card">' + esc(what) + ' not found. <a href="#/reports">Back to reports</a></div>'; }
+  function notFound(what) { view.innerHTML = '<div class="card">' + esc(what) + ' not found. <a href="#/entities">Back to files</a></div>'; }
   function viewReport(id) {
     var r = idx().report[id];
     if (!r) return notFound('Report');
@@ -326,7 +329,7 @@
         '<div class="row"><button class="btn primary" data-action="add-link">Add connection</button><button class="btn" data-action="lk-swap">Swap direction</button><span id="lk-preview" class="muted"></span></div><div id="lk-msg" class="errors"></div></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     h += '</div>';
-    h += '<div class="card row spread"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/reports">Back to reports</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
+    h += '<div class="card row spread"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
   }
@@ -352,6 +355,24 @@
         (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this file</button>') + '</div>';
     }).join('');
   }
+  /* Search box in the header: files, items and reports. */
+  var gsHits = [];
+  handlers['gs-input'] = function (el) {
+    var q = CI.norm(el.value), box = document.getElementById('gs-results'), out = [];
+    if (!q) { box.innerHTML = ''; gsHits = []; return; }
+    CI.findCandidates(d, el.value, 12).forEach(function (c) { out.push({ href: '#/entity/' + c.entity.id, name: c.entity.name, kind: c.entity.itemType ? c.entity.itemType : CI.TYPE_LABEL[c.entity.type], sub: c.entity.details || '' }); });
+    d.entities.forEach(function (e) {
+      if (out.some(function (o) { return o.href === '#/entity/' + e.id; })) return;
+      if (CI.norm([e.name, e.details || ''].concat(e.aliases || []).join(' ')).indexOf(q) !== -1) out.push({ href: '#/entity/' + e.id, name: e.name, kind: e.itemType ? e.itemType : CI.TYPE_LABEL[e.type], sub: e.details || '' });
+    });
+    d.reports.forEach(function (r) {
+      if (CI.norm([r.id, r.subject, r.sourceRef].join(' ')).indexOf(q) !== -1) out.push({ href: '#/report/' + r.id, name: r.id + ' ' + (r.subject || ''), kind: 'Report', sub: CI.fmtDate(r.received) });
+    });
+    gsHits = out.slice(0, 12);
+    box.innerHTML = gsHits.length ? gsHits.map(function (o) {
+      return '<a href="' + esc(o.href) + '"><strong>' + esc(o.name) + '</strong> <span class="muted small">' + esc(o.kind) + (o.sub ? ' · ' + esc(trunc(o.sub, 50)) : '') + '</span></a>';
+    }).join('') : '<div class="muted small pad">Nothing found.</div>';
+  };
   handlers['ae-input'] = function (el) { ae.q = el.value; aeSel = -1; renderAeResults(); document.getElementById('ae-msg').textContent = ''; };
   handlers['ae-type-change'] = function (el) {
     ae.type = el.value;
@@ -362,6 +383,11 @@
   handlers['ae-details'] = function (el) { ae.details = el.value; };
   /* Enter in the name box: use the exact match if there is one, otherwise create it as the chosen type. */
   document.addEventListener('keydown', function (ev) {
+    if (ev.target && ev.target.id === 'gs') {
+      if (ev.key === 'Enter' && gsHits.length) { ev.preventDefault(); ev.target.value = ''; go(gsHits[0].href); }
+      else if (ev.key === 'Escape') { ev.target.value = ''; document.getElementById('gs-results').innerHTML = ''; }
+      return;
+    }
     if (!ev.target || ev.target.id !== 'ae-q') return;
     if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && aeCands.length) {
       ev.preventDefault();
@@ -480,7 +506,7 @@
   handlers['del-report'] = function (el) {
     var id = el.getAttribute('data-id'), n = d.links.filter(function (l) { return l.reportId === id; }).length;
     askConfirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. Main files stay.', function () {
-      CI.deleteReport(d, id); persist(); go('#/reports');
+      CI.deleteReport(d, id); persist(); go('#/entities');
     }, { title: 'Delete report', yes: 'Delete', danger: true });
   };
   handlers['raise-lead-report'] = function (el) { CI.views.openLead({ raisedBy: el.getAttribute('data-id') }); };
@@ -542,7 +568,7 @@
     var inc = graph.edges.filter(function (x) { return x.source === id || x.target === id; });
     var others = d.entities.filter(function (x) { return x.id !== id; }).sort(function (a, b) { return a.name.localeCompare(b.name); })
       .map(function (x) { return { value: x.id, label: x.name + ' (' + CI.TYPE_LABEL[x.type].toLowerCase() + ', ' + x.id + ')' }; });
-    var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1><div class="row"><button class="btn" data-action="chart-entity" data-id="' + esc(id) + '">Chart (1 hop)</button><button class="btn primary" data-action="bank-entity" data-id="' + esc(id) + '">Create bank from this</button></div></div>';
+    var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1><div class="row"><a class="btn" href="#/indexes/' + esc(id) + '">Connection index</a><button class="btn" data-action="chart-entity" data-id="' + esc(id) + '">Chart (1 hop)</button><button class="btn primary" data-action="bank-entity" data-id="' + esc(id) + '">Create bank from this</button></div></div>';
     var stt = CI.statsFor(CI.materialStats(d, idx()), id), spec = CI.PHOTO_TYPES[e.type];
     h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + stt.material + '</b> material \u00b7 ' + stt.sources + ' independent source' + (stt.sources === 1 ? '' : 's') + ' \u00b7 connected to ' + stt.neighbors + ' file' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +
       (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention this file in passing.</div>' : '') +
@@ -750,12 +776,12 @@
     if (!t) { toast('Paste the exported JSON first.', true); return; }
     doImport(t, 'the pasted data');
   };
-  function loadSample() { d = CI.sampleData(); ensureSuggested(); persist(); toast('Sample data loaded.'); go('#/reports'); }
+  function loadSample() { d = CI.sampleData(); ensureSuggested(); persist(); toast('Sample data loaded.'); go('#/report-new'); }
   handlers['load-sample'] = function () {
     if ((d.reports.length || d.entities.length) && !d.sampleLoaded) askConfirm('Replace the data in this browser with the fictional sample data? Export first if you need what is here.', loadSample, { title: 'Load sample data', yes: 'Replace', danger: true });
     else loadSample();
   };
-  function wipe() { d = CI.emptyData(); d.started = true; ensureSuggested(); persist(); toast('Index is empty.'); go('#/reports'); }
+  function wipe() { d = CI.emptyData(); d.started = true; ensureSuggested(); persist(); toast('Index is empty.'); go('#/report-new'); }
   handlers['clear-all'] = function () {
     askConfirm('Delete ALL reports, entities, connections and banks from this browser? This cannot be undone.', function () {
       askConfirm('Really delete everything? Export first if there is any chance you need it.', wipe, { title: 'Last check', yes: 'Delete everything', danger: true });
