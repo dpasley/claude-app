@@ -300,3 +300,5 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .date-in { max-width: 12em; }
 
 .cand.active { border-color: var(--accent, #2a5db0); box-shadow: 0 0 0 2px var(--accent, #2a5db0); background: #eef4ff; }
+
+.wide-in { flex: 1 1 320px; min-width: 220px; }

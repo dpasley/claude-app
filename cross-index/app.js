@@ -290,24 +290,23 @@
 
     h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, subject, area and item (plate, phone, email, account…) the report names. Start typing: pick the existing file or item when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
     if (r.entities.length) {
-      h += '<table class="tight"><thead><tr><th>Name</th><th>Type</th><th>Role in report <span class="hint">optional</span></th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
+      h += '<table class="tight"><thead><tr><th>Name</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
-        return '<tr><td>' + entLink(x.entityId) + (e && e.aliases.length ? '<div class="muted small">also: ' + esc(e.aliases.join(', ')) + '</div>' : '') + '</td><td>' + kindTag(e) + '</td>' +
-          '<td><input type="text" list="roles-dl" value="' + esc(x.role) + '" data-on-change="role-change" data-eid="' + esc(x.entityId) + '"></td>' +
+        return '<tr><td>' + entLink(x.entityId) + (e && e.aliases.length ? '<div class="muted small">also: ' + esc(e.aliases.join(', ')) + '</div>' : '') + (e && e.details ? '<div class="muted small">' + esc(e.details) + '</div>' : '') + '</td><td>' + kindTag(e) + '</td>' +
           '<td><label class="chk"><input type="checkbox" data-on-change="flag-toggle" data-eid="' + esc(x.entityId) + '"' + (x.flag ? ' checked' : '') + '> flag</label>' +
           (x.flag ? '<input type="text" placeholder="what is unclear?" value="' + esc(x.flagNote) + '" data-on-change="flag-note" data-eid="' + esc(x.entityId) + '">' : '') + '</td>' +
           '<td><button class="btn small" data-action="remove-entity" data-eid="' + esc(x.entityId) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="callout-inline">No names yet. This report is not indexed until at least one is added.</p>';
-    h += '<datalist id="roles-dl">' + d.settings.roles.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>';
     var kinds = ['vehicle plate', 'phone', 'email', 'online account', 'website', 'financial account'];
     d.entities.forEach(function (e) { if (e.itemType && kinds.indexOf(e.itemType) === -1) kinds.push(e.itemType); });
     h += '<datalist id="itemtypes-dl">' + kinds.map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>';
     h += '<div class="addbox"><h3>Add a name</h3><div class="grid3"><label>Name, plate, number, address or handle<input type="text" id="ae-q" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
-      '<label>Role in this report <span class="hint">optional</span><input type="text" id="ae-role" list="roles-dl"></label><label class="chk lower"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label></div>' +
+      '<label class="chk lower"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label></div>' +
       '<div id="ae-results"></div>' +
       '<div class="row create wrap"><select id="ae-type" data-on-change="ae-type-change">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Type if new…') + '</select>' +
       '<input type="text" id="ae-itemtype" list="itemtypes-dl" placeholder="What kind of item? plate, phone, email…" value="' + esc(ae.itemType) + '" data-on-input="ae-itemtype"' + (ae.type === 'item' ? '' : ' hidden') + '>' +
+      '<input type="text" id="ae-details" class="wide-in" placeholder="Anything that tells this one apart: date of birth or age, address, nickname, description (optional)" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + (ae.type === 'item' ? ' hidden' : '') + '>' +
       '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button><span class="muted small">Items (plates, phones, emails, accounts) have no folder; they are index entries.</span></div><div id="ae-msg" class="errors"></div></div></div>';
 
     h += '<div class="card"><h2>2. Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
@@ -349,7 +348,7 @@
     box.innerHTML = cands.map(function (c, i) {
       var inRep = r.entities.some(function (x) { return x.entityId === c.entity.id; });
       var nrep = (idx().reportsByEntity[c.entity.id] || []).length;
-      return '<div class="cand' + (i === aeSel ? ' active' : '') + '"><div><strong>' + esc(c.entity.name) + '</strong> ' + kindTag(c.entity) + '<div class="muted small">' + (c.score === 1 ? 'exact match' : 'possible match') +
+      return '<div class="cand' + (i === aeSel ? ' active' : '') + '"><div><strong>' + esc(c.entity.name) + '</strong> ' + kindTag(c.entity) + '<div class="small">' + (c.entity.details ? esc(c.entity.details) : '<span class="muted">no identifying details yet</span>') + '</div><div class="muted small">' + (c.score === 1 ? 'exact match' : 'possible match') +
         (c.via !== c.entity.name ? ' on “' + esc(c.via) + '”' : '') + ' · ' + esc(c.entity.id) + ' · ' + nrep + ' report' + (nrep === 1 ? '' : 's') + '</div></div>' +
         (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this file</button>') + '</div>';
     }).join('');
@@ -358,8 +357,10 @@
   handlers['ae-type-change'] = function (el) {
     ae.type = el.value;
     var it = document.getElementById('ae-itemtype'); if (it) { it.hidden = el.value !== 'item'; if (el.value === 'item') it.focus(); }
+    var dt = document.getElementById('ae-details'); if (dt) dt.hidden = el.value === 'item';
   };
   handlers['ae-itemtype'] = function (el) { ae.itemType = el.value; };
+  handlers['ae-details'] = function (el) { ae.details = el.value; };
   /* Enter in the name box: use the exact match if there is one, otherwise create it as the chosen type. */
   document.addEventListener('keydown', function (ev) {
     if (!ev.target || ev.target.id !== 'ae-q') return;
@@ -390,7 +391,7 @@
     aeSel = -1;
     var flag = document.getElementById('ae-flag').checked;
     var note = '';
-    var err = CI.addEntityToReport(d, ae.reportId, el.getAttribute('data-eid'), val('ae-role').trim(), flag, note);
+    var err = CI.addEntityToReport(d, ae.reportId, el.getAttribute('data-eid'), '', flag, note);
     if (err) { document.getElementById('ae-msg').textContent = err; return; }
     ae.q = ''; persist(); viewReport(ae.reportId);
     var q = document.getElementById('ae-q'); if (q) q.focus();
@@ -404,11 +405,12 @@
     }
     if (type === 'item' && !itemType) { msg.textContent = 'Say what kind of item this is (plate, phone, email, account…).'; return; }
     ae.type = type; ae.itemType = itemType;
-    var role = val('ae-role').trim(), flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
+    var role = '', flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
     function create() {
       if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar files exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', rid);
-      var e = CI.addEntity(d, { type: type, name: q, itemType: itemType });
+      var e = CI.addEntity(d, { type: type, name: q, itemType: itemType, details: type === 'item' ? '' : val('ae-details').trim() });
+      ae.details = '';
       CI.addEntityToReport(d, rid, e.id, role, flag, '');
       ae.q = ''; persist(); viewReport(rid);
       var qi = document.getElementById('ae-q'); if (qi) qi.focus();
@@ -553,6 +555,7 @@
       '</div></div>';
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
       (CI.isItem(e) ? '<label>Kind of item <span class="hint">plate, phone, email, account…</span><input type="text" id="en-itemtype" value="' + esc(e.itemType || '') + '"></label><p class="muted small">An item has no folder. This page is its index entry: the reports that mention it and its connections.</p>' : '') +
+      (CI.isItem(e) ? '' : '<label>Identifying details <span class="hint">date of birth or age, address, nickname, description: what tells this one apart</span><input type="text" id="en-details" value="' + esc(e.details || '') + '"></label>') +
       '<label>Aliases, handles and spellings <span class="hint">comma separated</span><input type="text" id="en-aliases" value="' + esc(e.aliases.join(', ')) + '"></label>' +
       '<label>Notes <span class="hint">analyst notes; facts belong in reports</span><textarea id="en-notes" rows="2">' + esc(e.notes) + '</textarea></label>' +
       '<div class="row"><button class="btn primary" data-action="save-entity" data-id="' + esc(id) + '">Save</button><span class="muted small">' + esc(id) + '</span></div></form>';
@@ -570,7 +573,7 @@
     if (repIds.length) {
       h += '<table class="tight"><tbody>' + repIds.map(function (rid) {
         var r = idx().report[rid], x = r.entities.filter(function (y) { return y.entityId === id; })[0];
-        return '<tr><td>' + repLink(rid) + '</td><td>' + esc(CI.fmtDate(r.received)) + '</td><td>' + esc(x ? x.role : '') + '</td><td>' + esc(trunc(r.summary, 110)) + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
+        return '<tr><td>' + repLink(rid) + '</td><td>' + esc(CI.fmtDate(r.received)) + '</td><td>' + esc(trunc(r.summary, 110)) + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="muted">Not in any report yet.</p>';
     h += '</div><div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this entity into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
@@ -591,6 +594,7 @@
     var e = idx().entity[el.getAttribute('data-id')], name = val('en-name').trim();
     if (!name) { toast('A name is required.', true); return; }
     e.name = name; e.type = val('en-type'); e.notes = val('en-notes');
+    var dtl = document.getElementById('en-details'); if (dtl) e.details = dtl.value.trim();
     if (e.type === 'item') { var it = document.getElementById('en-itemtype'); e.itemType = it ? it.value.trim() : (e.itemType || ''); } else delete e.itemType;
     e.aliases = val('en-aliases').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     persist(); toast('Saved.'); viewEntity(e.id);
@@ -678,7 +682,7 @@
     var h = '<div class="page-head"><h1>Settings</h1></div><form class="card form" onsubmit="return false"><h2>Lists</h2><div class="grid3">' +
       '<label>Intake basis (threat categories) <span class="hint">one per line</span><textarea id="s-basis" rows="7">' + esc(s.basisList.join('\n')) + '</textarea></label>' +
       '<label>Source types <span class="hint">one per line</span><textarea id="s-src" rows="7">' + esc(s.sourceTypes.join('\n')) + '</textarea></label>' +
-      '<label>Roles in a report <span class="hint">suggestions, one per line</span><textarea id="s-roles" rows="7">' + esc(s.roles.join('\n')) + '</textarea></label></div>' +
+      '</div>' +
       '<h2>Connection types</h2><p class="muted small">Staff see the plain label and read each connection as a sentence: A [label] B. Behind the scenes the label is stored in graph-database style (UPPER_SNAKE_CASE) so it can move to Neo4j unchanged. Direction is fixed per type so the person indexing never has to decide it; undirected types read the same either way round. Renaming a label does not change the stored name or existing connections.</p>' +
       '<table class="tight" id="lt-table"><thead><tr><th>Label</th><th>Directed</th><th>Stored as</th><th>Used by</th><th></th></tr></thead><tbody>' + s.linkTypes.map(function (t, i) { return ltRow(t, i); }).join('') + '</tbody></table>' +
       '<div class="row"><button class="btn small" data-action="lt-add">Add connection type</button><button class="btn small" data-action="lt-suggest">Restore the suggested list</button></div>' +
@@ -709,7 +713,7 @@
   };
   function lines(id) { return val(id).split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }
   handlers['save-settings'] = function () {
-    var s = d.settings, basis = lines('s-basis'), src = lines('s-src'), roles = lines('s-roles');
+    var s = d.settings, basis = lines('s-basis'), src = lines('s-src');
     if (!basis.length || !src.length) { toast('Intake basis and source types cannot be empty.', true); return; }
     var types = [];
     document.querySelectorAll('#lt-table tbody tr').forEach(function (tr) {
@@ -719,7 +723,7 @@
     });
     var removed = s.linkTypes.filter(function (t) { return !types.some(function (n) { return n.id === t.id; }) && d.links.some(function (l) { return l.type === t.id; }); });
     if (removed.length || !types.length) { toast('A connection type that links still use cannot be removed.', true); return; }
-    s.basisList = basis; s.sourceTypes = src; s.roles = roles; s.linkTypes = types;
+    s.basisList = basis; s.sourceTypes = src; s.linkTypes = types;
     s.heatWindowDays = Math.max(1, Number(val('s-hw')) || 14); s.heatThreshold = Math.max(1, Number(val('s-ht')) || 5); s.hubDegree = Math.max(3, Number(val('s-hub')) || 8);
     persist(); toast('Settings saved.'); viewSettings();
   };

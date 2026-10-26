@@ -322,6 +322,7 @@
       name: String(o.name || '').trim(),
       aliases: (o.aliases || []).map(function (s) { return String(s).trim(); }).filter(Boolean),
       notes: o.notes || '',
+      details: String(o.details || '').trim(),
       created: CI.today()
     };
     if (o.type === 'item') e.itemType = String(o.itemType || '').trim();
