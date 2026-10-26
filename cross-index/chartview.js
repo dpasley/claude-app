@@ -95,7 +95,7 @@
       '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
       '<button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
-      '<div id="cy"></div></section><aside class="panel" id="detail"></aside></div>';
+      '<div id="cmpnote" class="cmpnote" hidden></div><div id="cy"></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
     A.view.className = 'wide';
     draw();
@@ -121,9 +121,10 @@
         return '<span class="chip">' + esc(e ? e.name : id) + '<button data-action="cv-unhide" data-id="' + esc(id) + '" aria-label="Show again">↺</button></span>';
       }).join('') + '</div>';
     }
-    h += '<h3>Snapshots</h3>';
-    if (bank.snapshots.length) {
-      var live = bank.viewMode !== 'frozen' || !snapOf(bank, bank.frozenId);
+    var nsn = bank.snapshots.length, live2 = bank.viewMode !== 'frozen' || !snapOf(bank, bank.frozenId);
+    h += '<details class="snap" id="snap-panel"' + ((st.snapOpen || !live2) ? ' open' : '') + '><summary>Snapshots' + (nsn ? ' <span class="muted">' + nsn + '</span>' : '') + '</summary>';
+    if (nsn) {
+      var live = live2;
       h += '<label class="chk"><input type="radio" name="vm" data-on-change="cv-view" value="live"' + (live ? ' checked' : '') + '> Live</label>' +
         '<label class="chk"><input type="radio" name="vm" data-on-change="cv-view" value="frozen"' + (!live ? ' checked' : '') + '> Frozen:</label>' +
         '<select data-on-change="cv-snap-pick">' + bank.snapshots.map(function (sn) { return '<option value="' + esc(sn.id) + '"' + (sn.id === bank.frozenId ? ' selected' : '') + '>' + esc(sn.label) + '</option>'; }).join('') + '</select>';
@@ -131,12 +132,15 @@
       h += '<div class="row wrap tight-row"><button class="btn small danger" data-action="cv-snap-del">Delete selected snapshot</button></div>';
     } else h += '<p class="muted small">Freeze the chart when it is handed over; later findings then show as changes.</p>';
     if (!frozen) h += '<div class="row"><button class="btn small" data-action="cv-freeze">Freeze a snapshot now</button></div>';
+    h += '</details>';
     return h;
   }
 
   function legendHtml() {
     return '<div class="legend"><span>photo or logo tile = individual / group</span><span>arrow = direction</span><span>thicker line = more independent reports</span><span>dashed = mentioned together</span><span>orange = new or traced</span><span>black ring = starting entity</span><span>grey ring = high-connection</span><span>drag tiles to arrange; the arrangement is kept</span></div>';
   }
+
+  document.addEventListener('toggle', function (ev) { if (ev.target && ev.target.id === 'snap-panel') st.snapOpen = ev.target.open; }, true);
 
   /* ---------- drawing ---------- */
   function draw() {
@@ -160,15 +164,27 @@
         });
       });
     }
+    var posMap;
+    if (cur.frozen) { if (!cur.frozen.positions) { cur.frozen.positions = CI.clone(bank.positions || {}); A.persist(); } posMap = cur.frozen.positions; } else posMap = bank.positions;
+    var force = !!st.forceLayout, forceFit = !!st.forceFit; st.forceLayout = false; st.forceFit = false;
     CI.chart.render(document.getElementById('cy'), graph, {
-      layout: bank.layout, positions: cur.frozen ? null : bank.positions, photoOf: function (id) { var e = A.idx().entity[id]; return e && e.photo ? e.photo : ''; },
-      onMoved: function (id, p) { if (cur.frozen) return; bank.positions[id] = p; A.persist(); },
+      layout: bank.layout, positions: posMap, forceLayout: force, forceFit: forceFit, viewKey: bank.id + '|' + (cur.frozen ? cur.frozen.id : 'live'),
+      onLaidOut: function (all) { Object.keys(all).forEach(function (k) { posMap[k] = all[k]; }); A.persist(); }, photoOf: function (id) { var e = A.idx().entity[id]; return e && e.photo ? e.photo : ''; },
+      onMoved: function (id, p) { posMap[id] = p; A.persist(); },
       edgeLabels: bank.edgeLabels !== false, diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
       onNode: function (id) { st.sel = { kind: 'node', id: id }; renderDetail(); },
       onEdge: function (id) { st.sel = { kind: 'edge', id: id }; renderDetail(); },
       onBackground: function () { st.sel = null; renderDetail(); }
     });
     st.fitPath = false;
+    var cn = document.getElementById('cmpnote');
+    if (cn) {
+      if (diff) {
+        var cnt = Object.keys(diff.newNodes).length + Object.keys(diff.newEdges).length + Object.keys(diff.grownEdges).length, lbl = esc(snapOf(bank, bank.compareId).label);
+        cn.innerHTML = cnt ? '<span class="sw"></span> Orange = new or stronger since “' + lbl + '”. The list on the right shows each change.' : 'Nothing new since “' + lbl + '”.';
+        cn.hidden = false;
+      } else cn.hidden = true;
+    }
     var s = document.getElementById('summary');
     if (s) {
       var txt = graph.nodes.length + ' entities · ' + graph.edges.length + ' connections';
@@ -319,7 +335,7 @@
   H['cv-freeze'] = function () {
     A.ask('Label for this snapshot?', 'Handoff ' + CI.fmtDate(CI.today()), function (label) {
       var b = B(), live = CI.computeGraph(D(), b, A.idx());
-      var sn = { id: CI.nextId(D(), 'snapshot'), label: label, at: new Date().toISOString(), graph: CI.clone(live) };
+      var sn = { id: CI.nextId(D(), 'snapshot'), label: label, at: new Date().toISOString(), graph: CI.clone(live), positions: CI.clone(b.positions || {}) };
       b.snapshots.push(sn); b.compareId = sn.id; A.persist(); A.toast('Snapshot saved. The live view now highlights what is new since it.'); renderShell();
     }, { title: 'Freeze a snapshot', ok: 'Freeze' });
   };
@@ -341,7 +357,7 @@
 
   /* toolbar */
   H['cv-fit'] = function () { CI.chart.fit(); };
-  H['cv-relayout'] = function () { B().positions = {}; A.persist(); draw(); };
+  H['cv-relayout'] = function () { st.forceLayout = true; st.forceFit = true; draw(); };
   H['cv-png'] = function () {
     var uri = CI.chart.png(); if (!uri) return;
     A.modal('<h2>Chart image</h2><p class="muted small">Right-click (or press and hold) the image to save or copy it.</p><img alt="Connections chart" src="' + uri + '"><div class="row end"><button class="btn" data-action="modal-close">Close</button></div>', true);

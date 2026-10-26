@@ -130,11 +130,30 @@
       cy.elements().not(keep).addClass('dim');
       this.focusId = id;
     },
+    /* Places nodes that have no saved position next to a connected node that has one, so a saved arrangement never shifts. */
+    placeNew: function (cy, pos) {
+      var has = function (id) { var p = pos[id]; return !!p && isFinite(p.x) && isFinite(p.y); };
+      var xs = [], ys = [];
+      cy.nodes().forEach(function (n) { if (has(n.id())) { xs.push(pos[n.id()].x); ys.push(pos[n.id()].y); } });
+      var maxX = xs.length ? Math.max.apply(null, xs) : 0, minY = ys.length ? Math.min.apply(null, ys) : 0, loose = 0, around = {};
+      cy.nodes().forEach(function (n) {
+        if (has(n.id())) return;
+        var nb = n.neighborhood('node').filter(function (x) { return has(x.id()); });
+        if (nb.length) {
+          var a = nb[0], k = around[a.id()] = (around[a.id()] || 0) + 1, ang = k * 2.4, r = 150 + 12 * k;
+          var ax = 0, ay = 0; nb.forEach(function (m) { ax += pos[m.id()].x; ay += pos[m.id()].y; }); ax /= nb.length; ay /= nb.length;
+          pos[n.id()] = { x: Math.round(ax + r * Math.cos(ang)), y: Math.round(ay + r * Math.sin(ang)) };
+        } else {
+          pos[n.id()] = { x: Math.round(maxX + 180), y: Math.round(minY + 110 * loose++) };
+        }
+      });
+    },
     render: function (container, graph, o) {
       var self = this, keepSel = null, keepFocus = self.focusId;
       if (self.cy) {
         var s = self.cy.$(':selected');
         if (s.length) keepSel = s[0].id();
+        self.lastView = { key: self.viewKey, zoom: self.cy.zoom(), pan: self.cy.pan() };
         self.cy.destroy(); self.cy = null;
       }
       if (typeof root.cytoscape !== 'function') { container.innerHTML = '<p class="empty">The chart library did not load (vendor/cytoscape.min.js).</p>'; return; }
@@ -142,11 +161,20 @@
       var cy = self.cy = root.cytoscape({
         container: container, elements: els, style: CI.cyStyle(CI.PAPER), minZoom: 0.1, maxZoom: 3, wheelSensitivity: 0.25, layout: { name: 'null' }
       });
-      var pos = o.positions || {};
-      var layout = cy.layout(CI.layoutOptions(o.layout || 'cose', graph));
+      self.viewKey = o.viewKey || '';
+      var pos = o.positions || {}, valid = function (id) { var p = pos[id]; return !!p && isFinite(p.x) && isFinite(p.y); };
+      var nodeIds = cy.nodes().map(function (n) { return n.id(); }), saved = nodeIds.filter(valid).length;
+      var fresh = o.forceLayout || !nodeIds.length || saved === 0;
+      var layout;
+      if (fresh) layout = cy.layout(CI.layoutOptions(o.layout || 'cose', graph));
+      else { self.placeNew(cy, pos); layout = cy.layout({ name: 'preset', positions: function (n) { return pos[n.id()]; }, fit: false }); }
       layout.one('layoutstop', function () {
-        cy.nodes().forEach(function (n) { var p = pos[n.id()]; if (p && isFinite(p.x) && isFinite(p.y)) n.position({ x: p.x, y: p.y }); });
-        cy.fit(null, 40);
+        var out = {}, moved = false;
+        cy.nodes().forEach(function (n) { var p = n.position(); out[n.id()] = { x: Math.round(p.x), y: Math.round(p.y) }; if (!valid(n.id()) || fresh) moved = true; });
+        if (moved && o.onLaidOut) o.onLaidOut(out);
+        var lv = self.lastView;
+        if (!fresh && !o.forceFit && lv && lv.key === self.viewKey) { cy.zoom(lv.zoom); cy.pan(lv.pan); }
+        else cy.fit(null, 40);
         if (o.highlightFit && o.hl) { var h = cy.elements('.hl'); if (h.length) cy.fit(h, 80); }
       });
       layout.run();

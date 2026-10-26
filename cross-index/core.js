@@ -774,7 +774,7 @@
   CI.investigationFor = function (d, bankId) { return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
   CI.handOver = function (d, bank, estId) {
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
-    var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live) };
+    var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live), positions: clone(bank.positions || {}) };
     bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today(); bank.handedOverEstimate = CI.estimateOf(bank, estId).id;
     var inv = CI.investigationFor(d, bank.id);
     if (!inv) {

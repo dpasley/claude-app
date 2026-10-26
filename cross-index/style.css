@@ -490,3 +490,7 @@ table.list.spaced { margin-top: 20px; }
 .sub-h { font-size: 17px; margin: 16px 2px 8px; display: flex; align-items: center; gap: 10px; }
 .filepick { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
 .filepick .pickfile { display: block; margin: 5px 0; font-weight: 400; }
+.cmpnote { padding: 6px 12px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--border); background: #fffaf3; }
+.cmpnote .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #d9480f; margin-right: 4px; vertical-align: baseline; }
+details.snap { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 8px; }
+details.snap > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
