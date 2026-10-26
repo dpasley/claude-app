@@ -298,3 +298,5 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .row.create.wrap input[type=text] { min-width: 240px; }
 .date-in.bad { border-color: var(--bad); background: var(--bad-bg); }
 .date-in { max-width: 12em; }
+
+.cand.active { border-color: var(--accent, #2a5db0); box-shadow: 0 0 0 2px var(--accent, #2a5db0); background: #eef4ff; }

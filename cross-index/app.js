@@ -45,11 +45,12 @@
     CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true;
   }
   /* Connection types as a grouped drop-down. Every label reads as "A [label] B". */
-  function linkTypeOptions(sel, blank) {
+  function linkTypeOptions(sel, blank, all) {
     var groups = [], by = {};
-    d.settings.linkTypes.forEach(function (t) { var g = t.group || 'Other'; if (!by[g]) { by[g] = []; groups.push(g); } by[g].push(t); });
+    d.settings.linkTypes.forEach(function (t) {
+      if (all === false && t.id !== 'CONNECTED_TO' && t.group !== 'Added by staff') return; var g = t.group || 'Other'; if (!by[g]) { by[g] = []; groups.push(g); } by[g].push(t); });
     groups.sort(function (a, b) { return (a === 'Older names') - (b === 'Older names') || (a === 'Other') - (b === 'Other'); });
-    return '<option value="">' + esc(blank || 'Choose…') + '</option>' + groups.map(function (g) {
+    return (all === false ? '' : '<option value="">' + esc(blank || 'Choose…') + '</option>') + groups.map(function (g) {
       return '<optgroup label="' + esc(g) + '">' + by[g].map(function (t) {
         return '<option value="' + esc(t.id) + '"' + (t.id === sel ? ' selected' : '') + '>' + esc(t.label + (t.directed ? '  →' : '  ↔')) + '</option>';
       }).join('') + '</optgroup>';
@@ -319,9 +320,10 @@
     if (r.entities.length >= 2) {
       var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
       h += '<div class="addbox"><h3>Add a connection</h3><div class="grid4"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
-        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions('', 'Choose…') + '</select></label>' +
+        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? '' : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
         '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
-        '<label>Note <span class="hint">what is the relationship? e.g. brother, treasurer, owner of the plate</span><input type="text" id="lk-note"></label></div>' +
+        '<label>What is the connection? <span class="hint">required: brother, treasurer, owner of the plate…</span><input type="text" id="lk-note"></label></div>' +
+        '<label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
         '<div class="row"><button class="btn primary" data-action="add-link">Add connection</button><button class="btn" data-action="lk-swap">Swap direction</button><span id="lk-preview" class="muted"></span></div><div id="lk-msg" class="errors"></div></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     h += '</div>';
@@ -331,6 +333,7 @@
     renderAeResults();
   }
 
+  var aeSel = -1, aeCands = [];
   function renderAeResults() {
     var box = document.getElementById('ae-results');
     if (!box) return;
@@ -340,16 +343,18 @@
     if (btn) btn.textContent = q ? 'Create “' + trunc(q, 30) + '” as new entity' : 'Create as new entity';
     if (!q) { box.innerHTML = ''; return; }
     var cands = CI.findCandidates(d, q);
+    aeCands = cands;
+    if (aeSel >= cands.length) aeSel = cands.length - 1;
     if (!cands.length) { box.innerHTML = '<p class="muted small">Nothing existing looks like this. Choose a type below to create it.</p>'; return; }
-    box.innerHTML = cands.map(function (c) {
+    box.innerHTML = cands.map(function (c, i) {
       var inRep = r.entities.some(function (x) { return x.entityId === c.entity.id; });
       var nrep = (idx().reportsByEntity[c.entity.id] || []).length;
-      return '<div class="cand"><div><strong>' + esc(c.entity.name) + '</strong> ' + kindTag(c.entity) + '<div class="muted small">' + (c.score === 1 ? 'exact match' : 'possible match') +
+      return '<div class="cand' + (i === aeSel ? ' active' : '') + '"><div><strong>' + esc(c.entity.name) + '</strong> ' + kindTag(c.entity) + '<div class="muted small">' + (c.score === 1 ? 'exact match' : 'possible match') +
         (c.via !== c.entity.name ? ' on “' + esc(c.via) + '”' : '') + ' · ' + esc(c.entity.id) + ' · ' + nrep + ' report' + (nrep === 1 ? '' : 's') + '</div></div>' +
         (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this file</button>') + '</div>';
     }).join('');
   }
-  handlers['ae-input'] = function (el) { ae.q = el.value; renderAeResults(); document.getElementById('ae-msg').textContent = ''; };
+  handlers['ae-input'] = function (el) { ae.q = el.value; aeSel = -1; renderAeResults(); document.getElementById('ae-msg').textContent = ''; };
   handlers['ae-type-change'] = function (el) {
     ae.type = el.value;
     var it = document.getElementById('ae-itemtype'); if (it) { it.hidden = el.value !== 'item'; if (el.value === 'item') it.focus(); }
@@ -357,16 +362,32 @@
   handlers['ae-itemtype'] = function (el) { ae.itemType = el.value; };
   /* Enter in the name box: use the exact match if there is one, otherwise create it as the chosen type. */
   document.addEventListener('keydown', function (ev) {
-    if (ev.key !== 'Enter' || !ev.target || ev.target.id !== 'ae-q') return;
+    if (!ev.target || ev.target.id !== 'ae-q') return;
+    if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && aeCands.length) {
+      ev.preventDefault();
+      aeSel = ev.key === 'ArrowDown' ? Math.min(aeSel + 1, aeCands.length - 1) : Math.max(aeSel - 1, -1);
+      renderAeResults();
+      var on = document.querySelector('#ae-results .cand.active'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (ev.key !== 'Enter') return;
     ev.preventDefault();
     var q = ae.q.trim(), r = idx().report[ae.reportId];
     if (!q || !r) return;
+    if (aeSel >= 0 && aeCands[aeSel]) {
+      var pick = aeCands[aeSel].entity;
+      if (r.entities.some(function (x) { return x.entityId === pick.id; })) { document.getElementById('ae-msg').textContent = 'Already in this report.'; return; }
+      aeSel = -1;
+      handlers['ae-use']({ getAttribute: function () { return pick.id; } });
+      return;
+    }
     var exact = CI.findCandidates(d, q).filter(function (c) { return c.score === 1; })[0];
     if (exact && r.entities.some(function (x) { return x.entityId === exact.entity.id; })) { document.getElementById('ae-msg').textContent = 'Already in this report.'; return; }
     if (exact) handlers['ae-use']({ getAttribute: function () { return exact.entity.id; } });
     else handlers['ae-create']();
   });
   handlers['ae-use'] = function (el) {
+    aeSel = -1;
     var flag = document.getElementById('ae-flag').checked;
     var note = '';
     var err = CI.addEntityToReport(d, ae.reportId, el.getAttribute('data-eid'), val('ae-role').trim(), flag, note);
@@ -445,7 +466,9 @@
   handlers['lk-swap'] = function () {
     var a = document.getElementById('lk-from'), b = document.getElementById('lk-to'), v = a.value; a.value = b.value; b.value = v; handlers['lk-preview']();
   };
+  handlers['lk-all'] = function (el) { ae.allTypes = el.checked; viewReport(ae.reportId); };
   handlers['add-link'] = function () {
+    if (val('lk-type') === 'CONNECTED_TO' && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = 'Say what the connection is in the box on the right, for example “brother” or “owner of the plate”.'; return; }
     var res = CI.addLink(d, { reportId: ae.reportId, from: val('lk-from'), to: val('lk-to'), type: val('lk-type'), note: val('lk-note').trim() });
     if (res.error) { document.getElementById('lk-msg').textContent = res.error; return; }
     persist(); viewReport(ae.reportId);
