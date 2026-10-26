@@ -208,13 +208,7 @@
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">No connections recorded yet.</p></div>';
     if (n) {
-      h += '<div class="card flush"><table class="fixed"><colgroup><col style="width:30%"><col style="width:16%"><col style="width:30%"><col style="width:24%"></colgroup>' +
-        '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Source report</th></tr></thead><tbody>' +
-        groups.map(function (g) {
-          return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
-            return '<tr><td>' + link(r.other.id) + '</td><td title="' + esc(r.phrase) + '">' + esc(r.phrase) + '</td><td title="' + esc(r.note) + '">' + esc(r.note) + '</td><td>' + A.repLink(r.reportId) + ' <span class="muted small">' + esc(CI.fmtDate(r.date)) + '</span></td></tr>';
-          }).join('');
-        }).join('') + '</tbody></table></div>';
+      h += '<div class="card flush">' + A.connTable(groups) + '</div>';
     }
     A.view.innerHTML = h;
   }

@@ -73,6 +73,16 @@
     }).join('');
   }
   function lt(id) { return CI.linkType(d, id); }
+  /* Connections as one table with aligned columns, grouped by what is at the other end (used on name pages and the connection index). */
+  function connTable(groups) {
+    return '<table class="fixed"><colgroup><col style="width:27%"><col style="width:21%"><col style="width:28%"><col style="width:24%"></colgroup>' +
+      '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Source report</th></tr></thead><tbody>' +
+      groups.map(function (g) {
+        return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
+          return '<tr><td>' + entLink(r.other.id) + '</td><td title="' + esc(r.phrase) + '">' + esc(r.phrase) + '</td><td title="' + esc(r.note) + '">' + esc(r.note) + '</td><td>' + repLink(r.reportId) + ' <span class="muted small">' + esc(CI.fmtDate(r.date)) + '</span></td></tr>';
+        }).join('');
+      }).join('') + '</tbody></table>';
+  }
   function linkPhrase(l) {
     var t = lt(l.type);
     return entLink(l.from) + ' <span class="rel">' + (t.directed ? '— ' : '↔ ') + esc(t.label) + (t.directed ? ' →' : ' ↔') + '</span> ' + entLink(l.to);
@@ -293,9 +303,9 @@
 
     h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, subject, area and item (plate, phone, email, account…) the report names. Start typing: pick the existing name or item when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
     if (r.entities.length) {
-      h += '<table class="tight"><thead><tr><th>Name</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
+      h += '<table class="fixed"><colgroup><col style="width:44%"><col style="width:22%"><col style="width:22%"><col style="width:12%"></colgroup><thead><tr><th>Name</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
-        return '<tr><td>' + entLink(x.entityId) + (e && e.aliases.length ? '<div class="muted small">also: ' + esc(e.aliases.join(', ')) + '</div>' : '') + (e && e.details ? '<div class="muted small">' + esc(e.details) + '</div>' : '') + '</td><td>' + kindTag(e) + '</td>' +
+        return '<tr><td>' + entLink(x.entityId) + (e && e.details ? ' <span class="muted small">' + esc(e.details) + '</span>' : '') + (e && e.aliases.length ? ' <span class="muted small">also: ' + esc(e.aliases.join(', ')) + '</span>' : '') + '</td><td>' + kindTag(e) + '</td>' +
           '<td><label class="chk"><input type="checkbox" data-on-change="flag-toggle" data-eid="' + esc(x.entityId) + '"' + (x.flag ? ' checked' : '') + '> flag</label>' +
           (x.flag ? '<input type="text" placeholder="what is unclear?" value="' + esc(x.flagNote) + '" data-on-change="flag-note" data-eid="' + esc(x.entityId) + '">' : '') + '</td>' +
           '<td><button class="btn small" data-action="remove-entity" data-eid="' + esc(x.entityId) + '">Remove</button></td></tr>';
@@ -315,8 +325,10 @@
     h += '<div class="card"><h2>2. Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
     var mine = d.links.filter(function (l) { return l.reportId === id; });
     if (mine.length) {
-      h += '<table class="tight"><tbody>' + mine.map(function (l) {
-        return '<tr><td>' + linkPhrase(l) + (l.note ? '<div class="muted small">' + esc(l.note) + '</div>' : '') + '</td><td class="right"><button class="btn small" data-action="del-link" data-id="' + esc(l.id) + '">Remove</button></td></tr>';
+      h += '<table class="fixed"><colgroup><col style="width:26%"><col style="width:17%"><col style="width:26%"><col style="width:22%"><col style="width:9%"></colgroup>' +
+        '<thead><tr><th>From</th><th>Connection</th><th>To</th><th>What it is</th><th></th></tr></thead><tbody>' + mine.map(function (l) {
+        var t = lt(l.type);
+        return '<tr><td>' + entLink(l.from) + '</td><td title="' + esc(t.label) + '">' + (t.directed ? '→ ' : '↔ ') + esc(t.label) + '</td><td>' + entLink(l.to) + '</td><td title="' + esc(l.note) + '">' + esc(l.note) + '</td><td class="right"><button class="btn small" data-action="del-link" data-id="' + esc(l.id) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="muted">No connections recorded for this report yet.</p>';
     if (r.entities.length >= 2) {
@@ -341,7 +353,7 @@
     var r = idx().report[ae.reportId];
     var btn = document.getElementById('ae-create-btn');
     var q = ae.q.trim();
-    if (btn) btn.textContent = q ? 'Create “' + trunc(q, 30) + '” as new entity' : 'Create as new entity';
+    if (btn) btn.textContent = q ? 'Create “' + trunc(q, 30) + '” as new' : 'Create as new';
     if (!q) { box.innerHTML = ''; return; }
     var cands = CI.findCandidates(d, q);
     aeCands = cands;
@@ -585,7 +597,8 @@
       .map(function (x) { return { value: x.id, label: x.name + ' (' + CI.TYPE_LABEL[x.type].toLowerCase() + ', ' + x.id + ')' }; });
     var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1><div class="row"><a class="btn" href="#/indexes/' + esc(id) + '">Connection index</a><button class="btn" data-action="chart-entity" data-id="' + esc(id) + '">Chart (1 hop)</button><button class="btn primary" data-action="bank-entity" data-id="' + esc(id) + '">Create bank from this</button></div></div>';
     var stt = CI.statsFor(CI.materialStats(d, idx()), id), spec = CI.PHOTO_TYPES[e.type];
-    h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + stt.material + '</b> material \u00b7 ' + stt.sources + ' independent source' + (stt.sources === 1 ? '' : 's') + ' \u00b7 connected to ' + stt.neighbors + ' file' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +
+    var nConn = (idx().linksByEntity[id] || []).length;
+    h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + nConn + '</b> connection' + (nConn === 1 ? '' : 's') + ' to <b>' + stt.neighbors + '</b> name' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +
       (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention it in passing.</div>' : '') +
       (spec ? '<div class="row wrap" style="margin-top:8px"><label class="btn small">' + (e.photo ? 'Replace ' : 'Add ') + spec.label.toLowerCase() + '<input type="file" accept="image/*" data-on-change="photo-file" data-id="' + esc(id) + '" hidden></label>' + (e.photo ? '<button class="btn small" data-action="photo-remove" data-id="' + esc(id) + '">Remove</button>' : '') + '<span class="muted small">Shown on the chart. Stored in this browser, shrunk to a small image.</span></div>' : '<div class="muted small" style="margin-top:6px">Pictures can be added to individuals (a photo) and groups (a logo).</div>') +
       '</div></div>';
@@ -595,26 +608,20 @@
       '<label>Aliases, handles and spellings <span class="hint">comma separated</span><input type="text" id="en-aliases" value="' + esc(e.aliases.join(', ')) + '"></label>' +
       '<label>Notes <span class="hint">analyst notes; facts belong in reports</span><textarea id="en-notes" rows="2">' + esc(e.notes) + '</textarea></label>' +
       '<div class="row"><button class="btn primary" data-action="save-entity" data-id="' + esc(id) + '">Save</button><span class="muted small">' + esc(id) + '</span></div></form>';
-    h += '<div class="card"><h2>Connections</h2>';
-    if (inc.length) {
-      h += '<table class="tight"><thead><tr><th>Connection</th><th class="num">Reports</th><th>Supporting reports</th></tr></thead><tbody>' + inc.sort(function (a, b) { return b.weight - a.weight; }).map(function (x) {
-        var t = x.kind === 'mention' ? null : lt(x.type);
-        var phrase = t ? entLink(x.source) + ' <span class="rel">' + (t.directed ? '— ' + esc(t.label) + ' →' : '↔ ' + esc(t.label) + ' ↔') + '</span> ' + entLink(x.target) : '';
-        var notes = (x.linkIds || []).map(function (lid) { return d.links.filter(function (l) { return l.id === lid; })[0]; }).filter(function (l) { return l && l.note; })
-          .map(function (l) { return repLink(l.reportId) + ': ' + esc(l.note); });
-        return '<tr><td>' + phrase + (notes.length ? '<div class="muted small">' + notes.join(' · ') + '</div>' : '') + '</td><td class="num">' + x.weight + '</td><td>' + x.reportIds.map(repLink).join(', ') + '</td></tr>';
-      }).join('') + '</tbody></table>';
-    } else h += '<p class="muted">No connections recorded for this entity yet.</p>';
-    h += '</div><div class="card"><h2>Reports (' + repIds.length + ')</h2>';
+    var cgroups = CI.connectionIndex(d, id, idx());
+    h += '<div class="card flush"><h2 style="padding:14px 16px 6px">Connections</h2>';
+    if (cgroups.length) h += connTable(cgroups);
+    else h += '<p class="muted" style="padding:0 16px 14px">No connections recorded for this name yet.</p>';
+    h += '</div><div class="card flush"><h2 style="padding:14px 16px 6px">Reports (' + repIds.length + ')</h2>';
     if (repIds.length) {
-      h += '<table class="tight"><tbody>' + repIds.map(function (rid) {
-        var r = idx().report[rid], x = r.entities.filter(function (y) { return y.entityId === id; })[0];
-        return '<tr><td>' + repLink(rid) + '</td><td>' + esc(CI.fmtDate(r.received)) + '</td><td>' + esc(trunc(r.summary, 110)) + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
+      h += '<table class="fixed"><colgroup><col style="width:10%"><col style="width:14%"><col style="width:76%"></colgroup><thead><tr><th>Report</th><th>Date</th><th>Subject</th></tr></thead><tbody>' + repIds.map(function (rid) {
+        var r = idx().report[rid];
+        return '<tr><td>' + repLink(rid) + '</td><td>' + esc(CI.fmtDate(r.received)) + '</td><td title="' + esc(r.subject || r.summary) + '">' + esc(r.subject || r.summary || '') + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
-    } else h += '<p class="muted">Not in any report yet.</p>';
-    h += '</div><div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this entity into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
+    } else h += '<p class="muted" style="padding:0 16px 14px">Not in any report yet.</p>';
+    h += '</div><div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this name into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
       '<span class="muted small">Use when two entries turned out to be the same one. Merges are logged and can be undone from Review.</span></div>' +
-      '<div class="row" style="margin-top:10px"><button class="btn danger" data-action="del-entity" data-id="' + esc(id) + '">Delete this entity</button><span class="muted small">Only possible while no report or connection uses it.</span></div></div>';
+      '<div class="row" style="margin-top:10px"><button class="btn danger" data-action="del-entity" data-id="' + esc(id) + '">Delete this name</button><span class="muted small">Only possible while no report or connection uses it.</span></div></div>';
     view.innerHTML = h;
   }
   handlers['photo-file'] = function (el) {
@@ -811,7 +818,7 @@
   CI.views = CI.views || {};
   CI.app = {
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
-    dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
+    dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, connTable: connTable, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
   };
   CI.views.quickBank = function (seeds, hops, name) {
     var b = d.banks.filter(function (x) { return x.quick; })[0];
