@@ -167,16 +167,17 @@
   /* Items: the index where plates, phones, emails and accounts live. */
   function itemEntries(idx) {
     var d = D(), q = CI.norm(ix.lq || '');
-    return d.entities.filter(function (e) {
+    var rows = d.entities.filter(function (e) {
       return CI.isItem(e) && (!ix.itemKind || (e.itemType || 'other') === ix.itemKind) && (!q || CI.norm([e.name, e.details || ''].concat(e.aliases || []).join(' ')).indexOf(q) !== -1);
     }).sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (e) {
-      var rows = [];
-      CI.connectionIndex(d, e.id, idx).forEach(function (g) { rows = rows.concat(g.rows); });
+      var all = [];
+      CI.connectionIndex(d, e.id, idx).forEach(function (g) { all = all.concat(g.rows); });
       var nrep = (idx.reportsByEntity[e.id] || []).length;
-      return '<div class="cfentry pick"><div class="row spread"><div><a href="#/entity/' + esc(e.id) + '"><b>' + esc(e.name) + '</b></a> <span class="tag">' + esc(e.itemType || 'item') + '</span></div>' +
-        '<span class="muted small">' + nrep + ' report' + (nrep === 1 ? '' : 's') + '</span></div>' +
-        (rows.length ? '<div class="cfrow"><span class="k">Connected to</span><span class="v">' + chips(rows) + '</span></div>' : '<div class="muted small">Not connected to anything yet.</div>') + '</div>';
-    }).join('') || '<p class="muted">No items here yet. Items are added from a report: type a plate, number or handle and choose Item.</p>';
+      return '<tr class="pick"><td><a href="#/entity/' + esc(e.id) + '"><b>' + esc(e.name) + '</b></a></td><td>' + esc(e.itemType || 'item') + '</td><td class="num">' + nrep + '</td><td>' +
+        (all.length ? chips(all) : '<span class="muted">not connected to anything yet</span>') + '</td></tr>';
+    });
+    if (!rows.length) return '<p class="muted">No items here yet. Items are added from a report: type a plate, number or handle and choose Item.</p>';
+    return '<table class="fixed"><colgroup><col style="width:26%"><col style="width:14%"><col style="width:9%"><col style="width:51%"></colgroup><thead><tr><th>Item</th><th>Kind</th><th class="num">Reports</th><th>Connected to</th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
   }
   function itemsTab(idx) {
     var d = D(), counts = {}, total = 0;
@@ -206,12 +207,15 @@
       '<input type="search" id="ix-q" data-lookup="#ix-res" autocomplete="off" placeholder="Look up another file or item…" data-on-input="ix-find" style="flex:1;min-width:220px"><div id="ix-res" style="flex:0 0 100%"></div></div><div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">No connections recorded yet.</p></div>';
-    groups.forEach(function (g) {
-      h += '<div class="card"><h2>' + esc(g.label) + ' <span class="muted">(' + g.rows.length + ')</span></h2><table class="tight"><thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Source report</th></tr></thead><tbody>' +
-        g.rows.map(function (r) {
-          return '<tr><td>' + link(r.other.id) + '</td><td>' + esc(r.phrase) + '</td><td>' + esc(r.note) + '</td><td>' + A.repLink(r.reportId) + ' <span class="muted small">' + esc(CI.fmtDate(r.date)) + '</span></td></tr>';
+    if (n) {
+      h += '<div class="card flush"><table class="fixed"><colgroup><col style="width:30%"><col style="width:16%"><col style="width:30%"><col style="width:24%"></colgroup>' +
+        '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Source report</th></tr></thead><tbody>' +
+        groups.map(function (g) {
+          return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
+            return '<tr><td>' + link(r.other.id) + '</td><td title="' + esc(r.phrase) + '">' + esc(r.phrase) + '</td><td title="' + esc(r.note) + '">' + esc(r.note) + '</td><td>' + A.repLink(r.reportId) + ' <span class="muted small">' + esc(CI.fmtDate(r.date)) + '</span></td></tr>';
+          }).join('');
         }).join('') + '</tbody></table></div>';
-    });
+    }
     A.view.innerHTML = h;
   }
 

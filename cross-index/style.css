@@ -382,3 +382,14 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .lrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
 .lrow:hover { background: var(--hover); text-decoration: none; }
 .lrow > span:first-child { display: flex; align-items: center; gap: 10px; }
+
+table.fixed { table-layout: fixed; }
+table.fixed td, table.fixed th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+table.fixed td.nm { display: table-cell; }
+table.fixed td.nm .ell { display: inline-block; max-width: calc(100% - 44px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+table.fixed td.nm img.avatar { vertical-align: middle; margin-right: 10px; }
+table.fixed tr.sec td { background: var(--hover); font-weight: 600; font-size: 0.85em; padding-block: 5px; }
+table.fixed td.num, table.fixed th.num { text-align: right; }
+.lrow { white-space: nowrap; overflow: hidden; }
+.lrow > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+table.fixed td.nm { border-bottom: 1px solid var(--border); }
