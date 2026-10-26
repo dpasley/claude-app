@@ -135,7 +135,7 @@
     else if (name === 'report-new') viewReportForm(null);
     else if (name === 'report' && parts[2] === 'edit') viewReportForm(parts[1]);
     else if (name === 'report') viewReport(parts[1]);
-    else if (name === 'entities') { entStates.files.type = parts[1] ? decodeURIComponent(parts[1]) : ''; viewEntities('files'); }
+    else if (name === 'entities') { if (parts[1]) entStates.files.type = decodeURIComponent(parts[1]); viewEntities('files'); }
     else if (name === 'items') { entStates.items.type = parts[1] ? decodeURIComponent(parts[1]) : ''; viewEntities('items'); }
     else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '');
     else if (name === 'entity') viewEntity(parts[1]);
@@ -511,51 +511,54 @@
   };
   handlers['raise-lead-report'] = function (el) { CI.views.openLead({ raisedBy: el.getAttribute('data-id') }); };
 
-  /* ---------- ENTITIES LIST ---------- */
+  /* ---------- FILES LIST (drawers by type; items by kind) ---------- */
   var entScope = 'files';
-  var entStates = { files: { q: '', type: '', sort: 'name', hot: false }, items: { q: '', type: '', sort: 'name', hot: false } };
+  var entStates = { files: { q: '', type: 'individual', sort: 'name' }, items: { q: '', type: '', sort: 'name' } };
   function entS() { return entStates[entScope]; }
+  function entKindOf(e) { return entScope === 'items' ? e.itemType : e.type; }
   function entRows() {
-    var entState = entS();
-    var heat = CI.heat(d, d.settings.heatWindowDays, idx()), q = CI.norm(entState.q), stats = CI.materialStats(d, idx());
+    var st = entS(), q = CI.norm(st.q), stats = CI.materialStats(d, idx()), items = entScope === 'items';
     var rows = d.entities.filter(function (e) {
-      if (entScope === 'items' ? !CI.isItem(e) : CI.isItem(e)) return false;
-      if (entState.type && (entScope === 'items' ? e.itemType !== entState.type : e.type !== entState.type)) return false;
-      return !q || CI.norm([e.name].concat(e.aliases).join(' ')).indexOf(q) !== -1;
+      if (items ? !CI.isItem(e) : CI.isItem(e)) return false;
+      if (st.type && entKindOf(e) !== st.type) return false;
+      return !q || CI.norm([e.name, e.details || ''].concat(e.aliases).join(' ')).indexOf(q) !== -1;
     }).map(function (e) {
-      var st = CI.statsFor(stats, e.id);
-      return { e: e, reports: st.reports, material: st.material, hub: st.hub, links: (idx().linksByEntity[e.id] || []).length, heat: heat[e.id] || 0 };
-    }).filter(function (x) { return !entState.hot || x.heat >= d.settings.heatThreshold; });
+      var s = CI.statsFor(stats, e.id);
+      return { e: e, reports: s.reports, last: s.last, links: (idx().linksByEntity[e.id] || []).length };
+    });
     rows.sort(function (a, b) {
-      if (entState.sort === 'heat') return b.heat - a.heat || a.e.name.localeCompare(b.e.name);
-      if (entState.sort === 'reports') return b.reports - a.reports || a.e.name.localeCompare(b.e.name);
-      if (entState.sort === 'material') return b.material - a.material || b.reports - a.reports || a.e.name.localeCompare(b.e.name);
+      if (st.sort === 'recent') return (b.last || '').localeCompare(a.last || '') || a.e.name.localeCompare(b.e.name);
       return a.e.name.localeCompare(b.e.name);
     });
-    if (!rows.length) return '<tr><td colspan="7" class="empty">' + (entScope === 'items' ? 'No items yet. Items are added from a report: type a plate, number or handle and choose Item.' : 'No main files match.') + '</td></tr>';
+    if (!rows.length) return '<tr><td colspan="5" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No files match.' : 'No files in this drawer yet.')) + '</td></tr>';
     return rows.map(function (x) {
-      var hot = x.heat >= d.settings.heatThreshold;
-      return '<tr><td class="nm">' + avatar(x.e, 30) + '<span><a href="#/entity/' + esc(x.e.id) + '">' + esc(x.e.name) + '</a>' + (x.hub ? ' <span class="tag warn" title="Connected to many files, so it counts for less">high-connection</span>' : '') + '</span>' + '</td><td>' + kindTag(x.e) + '</td>' +
-        '<td class="num">' + x.reports + '</td><td class="num"><b>' + x.material + '</b></td><td class="num">' + x.links + '</td><td class="num">' + x.heat + (hot ? ' <span class="tag hot">hot</span>' : '') + '</td><td class="muted small">' + esc(x.e.id) + '</td></tr>';
+      return '<tr><td class="nm">' + avatar(x.e, 30) + '<span><a href="#/entity/' + esc(x.e.id) + '">' + esc(x.e.name) + '</a>' +
+        (x.e.aliases.length ? ' <span class="muted small">also: ' + esc(x.e.aliases.join(', ')) + '</span>' : '') +
+        (x.e.details ? '<div class="muted small">' + esc(x.e.details) + '</div>' : '') + '</span></td>' +
+        '<td class="num">' + x.reports + '</td><td>' + (x.last ? esc(CI.fmtDate(x.last)) : '') + '</td><td class="num">' + x.links + '</td><td class="muted small">' + esc(x.e.id) + '</td></tr>';
     }).join('');
   }
   function viewEntities(scope) {
     entScope = scope === 'items' ? 'items' : 'files';
     var st = entS(), items = entScope === 'items';
-    var typeOpts = items
-      ? d.entities.filter(CI.isItem).map(function (e) { return e.itemType; }).filter(function (x, i, a) { return x && a.indexOf(x) === i; }).sort().map(function (k) { return { value: k, label: k }; })
-      : CI.FILE_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] + 's' }; });
-    view.innerHTML = '<div class="page-head"><h1>' + (items ? 'Items <span class="muted">plates, phones, emails, accounts and other things that are indexed, not filed</span>' : 'Main files <span class="muted">individuals, groups, subjects and areas</span>') + '</h1></div>' +
-      '<div class="card row wrap"><input type="search" id="ent-q" placeholder="' + (items ? 'Search plates, numbers, addresses and handles…' : 'Search names and aliases…') + '" value="' + esc(st.q) + '" data-on-input="ent-filter">' +
-      '<select id="ent-type" data-on-change="ent-filter">' + options(typeOpts, st.type, items ? 'All kinds' : 'All types') + '</select>' +
-      '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'Sort by ' + (items ? 'identifier' : 'name') }, { value: 'material', label: 'Sort by material reports' }, { value: 'heat', label: 'Sort by heat' }, { value: 'reports', label: 'Sort by all reports' }], st.sort) + '</select>' +
-      '<label class="chk"><input type="checkbox" id="ent-hot" data-on-change="ent-filter"' + (st.hot ? ' checked' : '') + '> Hot only</label>' +
-      '<span class="muted small">' + (items ? 'An item has no folder: its entry here lists the reports that mention it and its connections. ' : '') + 'Material = independent reports where it is part of a recorded connection; the rest are passing mentions. Heat = independent reports in the last ' + d.settings.heatWindowDays + ' days; “hot” at ' + d.settings.heatThreshold + '+. Reposts are not counted separately.</span></div>' +
-      '<div class="card flush"><table><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th>' + (items ? 'Kind' : 'Type') + '</th><th class="num">Reports</th><th class="num">Material</th><th class="num">Links</th><th class="num">Heat</th><th>ID</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
+    if (!items && CI.FILE_TYPES.indexOf(st.type) === -1) st.type = 'individual';
+    var counts = {}, total = 0;
+    d.entities.forEach(function (e) { if (items ? CI.isItem(e) : !CI.isItem(e)) { var k = entKindOf(e) || 'other'; counts[k] = (counts[k] || 0) + 1; total++; } });
+    var tabs = items
+      ? [{ id: '', label: 'All items', n: total }].concat(Object.keys(counts).sort().map(function (k) { return { id: k, label: k.charAt(0).toUpperCase() + k.slice(1), n: counts[k] }; }))
+      : CI.FILE_TYPES.map(function (t) { return { id: t, label: CI.TYPE_LABEL[t] + 's', n: counts[t] || 0 }; });
+    var base = items ? '#/items/' : '#/entities/';
+    view.innerHTML = '<div class="page-head"><h1>' + (items ? 'Items <span class="muted">plates, phones, emails, accounts: indexed, not filed</span>' : 'Files <span class="muted">filed by type</span>') + '</h1></div>' +
+      '<div class="tabs" role="tablist">' + tabs.map(function (t) {
+        return '<a role="tab" class="tab' + (t.id === st.type ? ' on' : '') + '" href="' + base + encodeURIComponent(t.id) + '">' + esc(t.label) + ' <span class="n">' + t.n + '</span></a>';
+      }).join('') + '</div>' +
+      '<div class="card row wrap"><input type="search" id="ent-q" placeholder="' + (items ? 'Search plates, numbers, addresses and handles…' : 'Search this drawer by name, alias or details…') + '" value="' + esc(st.q) + '" data-on-input="ent-filter">' +
+      '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'A to Z' }, { value: 'recent', label: 'Most recent report first' }], st.sort) + '</select></div>' +
+      '<div class="card flush"><table><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th><th>ID</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
   }
   handlers['ent-filter'] = function () {
-    var entState = entS();
-    entState.q = val('ent-q'); entState.type = val('ent-type'); entState.sort = val('ent-sort'); entState.hot = !!(document.getElementById('ent-hot') || {}).checked;
+    var st = entS();
+    st.q = val('ent-q'); st.sort = val('ent-sort');
     document.getElementById('ent-rows').innerHTML = entRows();
   };
 

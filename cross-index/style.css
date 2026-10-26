@@ -319,3 +319,9 @@ details.more > summary { cursor: pointer; font-weight: 600; margin: 6px 0 10px; 
 .dirgrid a { display: block; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); color: var(--text); }
 .dirgrid a:hover { background: var(--hover); text-decoration: none; }
 .dirgrid .n { font-size: 1.4em; font-weight: 700; display: block; }
+
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 10px; border-bottom: 2px solid var(--border); }
+.tabs .tab { padding: 8px 14px; color: var(--text); border-radius: 6px 6px 0 0; margin-bottom: -2px; border-bottom: 2px solid transparent; font-weight: 600; }
+.tabs .tab:hover { background: var(--hover); text-decoration: none; }
+.tabs .tab.on { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-bg); }
+.tabs .tab .n { color: var(--muted, #667); font-weight: 400; margin-left: 4px; }
