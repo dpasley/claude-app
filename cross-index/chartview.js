@@ -76,7 +76,7 @@
       }).join('') +
       '<div class="grid2 tight-grid"><label>From<input type="text" class="date-in" placeholder="25 Oct. 2026" value="' + esc(CI.fmtDate(bank.dateFrom)) + '" data-on-change="cv-date" data-k="dateFrom"></label><label>To<input type="text" class="date-in" placeholder="25 Oct. 2026" value="' + esc(CI.fmtDate(bank.dateTo)) + '" data-on-change="cv-date" data-k="dateTo"></label></div>' +
       '<p class="muted small">Dates use the event date, or the received date when none was given.</p>' +
-      '<label>Show only the heaviest files <span class="hint">0 shows everything; starting entities are always kept</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"></label>' +
+      '<label>Show only the heaviest names <span class="hint">0 shows everything; starting entities are always kept</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"></label>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
       chk('h', bank.hubStop, 'Do not expand past high-connection nodes', 'data-on-change="cv-hubstop"') + '</fieldset>';
     if (bank.excluded.length) {
@@ -138,7 +138,7 @@
     var s = document.getElementById('summary');
     if (s) {
       var txt = graph.nodes.length + ' entities · ' + graph.edges.length + ' connections';
-      if (graph.trimmed) txt += ' · ' + graph.trimmed + ' lighter file' + (graph.trimmed === 1 ? '' : 's') + ' not shown';
+      if (graph.trimmed) txt += ' · ' + graph.trimmed + ' lighter name' + (graph.trimmed === 1 ? '' : 's') + ' not shown';
       if (graph.hiddenWeak && !cur.frozen) txt += ' · ' + graph.hiddenWeak + ' hidden below the minimum of ' + bank.minWeight;
       if (diff) txt += ' · since “' + esc(snapOf(bank, bank.compareId).label) + '”: ' + Object.keys(diff.newNodes).length + ' new entities, ' + Object.keys(diff.newEdges).length + ' new connections, ' + Object.keys(diff.grownEdges).length + ' strengthened';
       s.innerHTML = txt;

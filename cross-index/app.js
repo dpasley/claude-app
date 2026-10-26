@@ -291,7 +291,7 @@
       (reposts.length ? '<dt>Reposts</dt><dd>' + reposts.map(function (x) { return repLink(x.id); }).join(', ') + '</dd>' : '') +
       (r.summary ? '<dt>Notes</dt><dd>' + esc(r.summary) + '</dd>' : '') + '</dl></div>';
 
-    h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, subject, area and item (plate, phone, email, account…) the report names. Start typing: pick the existing file or item when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
+    h += '<div class="card"><h2>1. Names mentioned in this report</h2><p class="muted small">Every individual, group, subject, area and item (plate, phone, email, account…) the report names. Start typing: pick the existing name or item when it is the same one, and create a new one only when it is not. Press Enter to add.</p>';
     if (r.entities.length) {
       h += '<table class="tight"><thead><tr><th>Name</th><th>Type</th><th>Unsure of match</th><th></th></tr></thead><tbody>' + r.entities.map(function (x) {
         var e = idx().entity[x.entityId];
@@ -301,7 +301,7 @@
           '<td><button class="btn small" data-action="remove-entity" data-eid="' + esc(x.entityId) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="callout-inline">No names yet. This report is not indexed until at least one is added.</p>';
-    var kinds = ['vehicle plate', 'phone', 'email', 'online account', 'website', 'financial account'];
+    var kinds = ['vehicle plate', 'phone', 'email', 'address', 'online account', 'website', 'financial account'];
     d.entities.forEach(function (e) { if (e.itemType && kinds.indexOf(e.itemType) === -1) kinds.push(e.itemType); });
     h += '<datalist id="itemtypes-dl">' + kinds.map(function (k) { return '<option value="' + esc(k) + '">'; }).join('') + '</datalist>';
     h += '<div class="addbox"><h3>Add a name</h3><div class="grid3"><label>Name, plate, number, address or handle<input type="text" id="ae-q" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
@@ -310,7 +310,7 @@
       '<div class="row create wrap"><select id="ae-type" data-on-change="ae-type-change">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), ae.type, 'Type if new…') + '</select>' +
       '<input type="text" id="ae-itemtype" list="itemtypes-dl" placeholder="What kind of item? plate, phone, email…" value="' + esc(ae.itemType) + '" data-on-input="ae-itemtype"' + (ae.type === 'item' ? '' : ' hidden') + '>' +
       '<input type="text" id="ae-details" class="wide-in" placeholder="Anything that tells this one apart: date of birth or age, address, nickname, description (optional)" value="' + esc(ae.details || '') + '" data-on-input="ae-details"' + (ae.type === 'item' ? ' hidden' : '') + '>' +
-      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button><span class="muted small">Items (plates, phones, emails, accounts) have no folder; they are index entries.</span></div><div id="ae-msg" class="errors"></div></div></div>';
+      '<button class="btn" data-action="ae-create" id="ae-create-btn">Create as new</button><span class="muted small">Area: a city, region or campus. Item: a plate, phone, email, account or address (an address is an item, not an area); it has no folder, only an index entry.</span></div><div id="ae-msg" class="errors"></div></div></div>';
 
     h += '<div class="card"><h2>2. Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
     var mine = d.links.filter(function (l) { return l.reportId === id; });
@@ -352,7 +352,7 @@
       var nrep = (idx().reportsByEntity[c.entity.id] || []).length;
       return '<div class="cand' + (i === aeSel ? ' active' : '') + '"><div><strong>' + esc(c.entity.name) + '</strong> ' + kindTag(c.entity) + '<div class="small">' + (c.entity.details ? esc(c.entity.details) : '<span class="muted">no identifying details yet</span>') + '</div><div class="muted small">' + (c.score === 1 ? 'exact match' : 'possible match') +
         (c.via !== c.entity.name ? ' on “' + esc(c.via) + '”' : '') + ' · ' + esc(c.entity.id) + ' · ' + nrep + ' report' + (nrep === 1 ? '' : 's') + '</div></div>' +
-        (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this file</button>') + '</div>';
+        (inRep ? '<span class="muted small">already in this report</span>' : '<button class="btn small" data-action="ae-use" data-eid="' + esc(c.entity.id) + '">Use this one</button>') + '</div>';
     }).join('');
   }
   /* Search box in the header: files, items and reports. */
@@ -446,14 +446,14 @@
     var role = '', flag = document.getElementById('ae-flag').checked, rid = ae.reportId;
     var cands = CI.findCandidates(d, q), exact = cands.filter(function (c) { return c.score === 1; })[0];
     function create() {
-      if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar files exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', rid);
+      if (cands.length) logEvent('similar-created', 'Created “' + q + '” as new although similar names exist: ' + cands.map(function (c) { return c.entity.name + ' (' + c.entity.id + ')'; }).join(', ') + '.', rid);
       var e = CI.addEntity(d, { type: type, name: q, itemType: itemType, details: type === 'item' ? '' : val('ae-details').trim() });
       ae.details = '';
       CI.addEntityToReport(d, rid, e.id, role, flag, '');
       ae.q = ''; persist(); viewReport(rid);
       var qi = document.getElementById('ae-q'); if (qi) qi.focus();
     }
-    if (exact) askConfirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate file anyway?', create, { title: 'Possible duplicate', yes: 'Create anyway' });
+    if (exact) askConfirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate ' + CI.TYPE_LABEL[exact.entity.type].toLowerCase() + ' anyway?', create, { title: 'Possible duplicate', yes: 'Create anyway' });
     else create();
   };
   function repEntity(el) {
@@ -518,7 +518,7 @@
   };
   handlers['del-report'] = function (el) {
     var id = el.getAttribute('data-id'), n = d.links.filter(function (l) { return l.reportId === id; }).length;
-    askConfirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. Main files stay.', function () {
+    askConfirm('Delete ' + id + '? Its ' + n + ' connection(s) will be deleted too. The names stay.', function () {
       CI.deleteReport(d, id); persist(); go('#/entities');
     }, { title: 'Delete report', yes: 'Delete', danger: true });
   };
@@ -543,7 +543,7 @@
       if (st.sort === 'recent') return (b.last || '').localeCompare(a.last || '') || a.e.name.localeCompare(b.e.name);
       return a.e.name.localeCompare(b.e.name);
     });
-    if (!rows.length) return '<tr><td colspan="5" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No files match.' : 'No files in this drawer yet.')) + '</td></tr>';
+    if (!rows.length) return '<tr><td colspan="5" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No names match.' : 'Nothing in this drawer yet.')) + '</td></tr>';
     return rows.map(function (x) {
       return '<tr><td class="nm">' + avatar(x.e, 30) + '<span class="ell"><a href="#/entity/' + esc(x.e.id) + '">' + esc(x.e.name) + '</a>' +
         (x.e.details ? ' <span class="muted small">' + esc(x.e.details) + '</span>' : '') + (x.e.aliases.length ? ' <span class="muted small">also: ' + esc(x.e.aliases.join(', ')) + '</span>' : '') + '</span></td>' +
@@ -586,7 +586,7 @@
     var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1><div class="row"><a class="btn" href="#/indexes/' + esc(id) + '">Connection index</a><button class="btn" data-action="chart-entity" data-id="' + esc(id) + '">Chart (1 hop)</button><button class="btn primary" data-action="bank-entity" data-id="' + esc(id) + '">Create bank from this</button></div></div>';
     var stt = CI.statsFor(CI.materialStats(d, idx()), id), spec = CI.PHOTO_TYPES[e.type];
     h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + stt.material + '</b> material \u00b7 ' + stt.sources + ' independent source' + (stt.sources === 1 ? '' : 's') + ' \u00b7 connected to ' + stt.neighbors + ' file' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +
-      (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention this file in passing.</div>' : '') +
+      (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention it in passing.</div>' : '') +
       (spec ? '<div class="row wrap" style="margin-top:8px"><label class="btn small">' + (e.photo ? 'Replace ' : 'Add ') + spec.label.toLowerCase() + '<input type="file" accept="image/*" data-on-change="photo-file" data-id="' + esc(id) + '" hidden></label>' + (e.photo ? '<button class="btn small" data-action="photo-remove" data-id="' + esc(id) + '">Remove</button>' : '') + '<span class="muted small">Shown on the chart. Stored in this browser, shrunk to a small image.</span></div>' : '<div class="muted small" style="margin-top:6px">Pictures can be added to individuals (a photo) and groups (a logo).</div>') +
       '</div></div>';
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
@@ -613,7 +613,7 @@
       }).join('') + '</tbody></table>';
     } else h += '<p class="muted">Not in any report yet.</p>';
     h += '</div><div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this entity into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
-      '<span class="muted small">Use when two files turned out to be the same entity. Merges are logged and can be undone from Review.</span></div>' +
+      '<span class="muted small">Use when two entries turned out to be the same one. Merges are logged and can be undone from Review.</span></div>' +
       '<div class="row" style="margin-top:10px"><button class="btn danger" data-action="del-entity" data-id="' + esc(id) + '">Delete this entity</button><span class="muted small">Only possible while no report or connection uses it.</span></div></div>';
     view.innerHTML = h;
   }
@@ -655,7 +655,7 @@
   handlers['del-entity'] = function (el) {
     var id = el.getAttribute('data-id');
     if (CI.entityInUse(d, id)) { toast('This entity is still used by reports or connections. Merge it or remove it from them first.', true); return; }
-    askConfirm('Delete this main file?', function () { CI.deleteEntity(d, id); persist(); go('#/entities'); }, { title: 'Delete entity', yes: 'Delete', danger: true });
+    askConfirm('Delete this name?', function () { CI.deleteEntity(d, id); persist(); go('#/entities'); }, { title: 'Delete entity', yes: 'Delete', danger: true });
   };
 
   /* ---------- REVIEW (hesitation log, flags, merges) ---------- */
@@ -667,7 +667,7 @@
     var open = d.log.filter(function (x) { return !x.resolved; }).slice().reverse();
     var done = d.log.filter(function (x) { return x.resolved; }).slice().reverse();
     var h = '<div class="page-head"><h1>Review</h1></div><p class="muted">Where the hand run hesitated. Each of these points at a decision the staff procedure or training has to make easy.</p>';
-    h += '<div class="card"><h2>Flagged entity matches (' + flags.length + ')</h2><p class="muted small">When you add an entity to a report you can tick a box to say “I am not sure this is the same person or thing as the file.” Those reports show here. Open the report, decide, then press <b>Resolved</b> to clear the flag. It changes nothing else.</p>';
+    h += '<div class="card"><h2>Flagged entity matches (' + flags.length + ')</h2><p class="muted small">When you add an entity to a report you can tick a box to say “I am not sure this is the same person or thing as the existing entry.” Those reports show here. Open the report, decide, then press <b>Resolved</b> to clear the flag. It changes nothing else.</p>';
     h += flags.length ? '<table class="tight"><tbody>' + flags.map(function (f) {
       return '<tr><td>' + repLink(f.r.id) + '</td><td>' + entLink(f.x.entityId) + '</td><td>' + esc(f.x.flagNote || '') + '</td><td class="right"><button class="btn small" data-action="clear-flag" data-rid="' + esc(f.r.id) + '" data-eid="' + esc(f.x.entityId) + '">Resolved</button></td></tr>';
     }).join('') + '</tbody></table>' : '<p class="muted">None.</p>';
@@ -675,7 +675,7 @@
     h += open.length ? '<table class="tight"><tbody>' + open.map(logRow).join('') + '</tbody></table>' : '<p class="muted">None open. Use “Log a snag” at the top whenever the procedure feels unclear.</p>';
     h += '</div>';
     var merges = d.merges.slice().reverse();
-    h += '<div class="card"><h2>Merges (' + merges.length + ')</h2><p class="muted small">A merge combines two files that turned out to be the same entity (for example “J. Smith” and “John Smith”). Reports and connections move to the file you keep, and the other name becomes an alias. You start one from the entity page. <b>Undo</b> brings the removed file back.</p>';
+    h += '<div class="card"><h2>Merges (' + merges.length + ')</h2><p class="muted small">A merge combines two entries that turned out to be the same one (for example “J. Smith” and “John Smith”). Reports and connections move to the entry you keep, and the other name becomes an alias. You start one from the entity page. <b>Undo</b> brings the removed file back.</p>';
     h += merges.length ? '<table class="tight"><tbody>' + merges.map(function (m) {
       var into = idx().entity[m.intoId];
       return '<tr><td>' + esc(m.t) + '</td><td>“' + esc(m.fromEntity.name) + '” → ' + (into ? entLink(m.intoId) : esc(m.intoId)) + '</td><td class="right">' +
@@ -699,7 +699,7 @@
   handlers['log-delete'] = function (el) { d.log = d.log.filter(function (x) { return x.id !== el.getAttribute('data-id'); }); persist(); viewReview(); };
   handlers['undo-merge'] = function (el) {
     var id = el.getAttribute('data-id');
-    askConfirm('Undo this merge? The merged-away main file comes back and the reports and connections it touched are restored to how they were just before the merge.', function () {
+    askConfirm('Undo this merge? The merged-away entry comes back and the reports and connections it touched are restored to how they were just before the merge.', function () {
       var res = CI.undoMerge(d, id);
       if (res.error) { toast(res.error, true); return; }
       persist(); toast('Merge undone.'); viewReview();

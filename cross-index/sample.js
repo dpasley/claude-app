@@ -41,7 +41,7 @@
     var ago = function (n) { return CI.daysAgo(n); };
 
     var ent = {};
-    function E(key, type, name, aliases, notes) { ent[key] = CI.addEntity(d, { type: type, name: name, aliases: aliases || [], notes: notes || '' }); }
+    function E(key, type, name, aliases, notes, itemType) { ent[key] = CI.addEntity(d, { type: type, name: name, aliases: aliases || [], notes: notes || '', itemType: itemType }); }
     E('vera', 'individual', 'Vera Linden', ['V. Linden']);
     E('orrin', 'individual', 'Orrin Platt', ['O. Platt']);
     E('tobias', 'individual', 'Tobias Crane', ['@tcrane_speaks']);
@@ -53,8 +53,8 @@
     E('keystone', 'group', 'Keystone Courier Partners', ['Keystone']);
     E('invoice', 'subject', 'Q3 vendor invoice scheme');
     E('outage', 'subject', 'Depot 4 equipment outage');
-    E('harborst', 'area', '410 Harbor Street, Unit 6', ['410 Harbor St #6']);
-    E('pobox', 'area', 'PO Box 2291, Dunmore');
+    E('harborst', 'item', '410 Harbor Street, Unit 6', ['410 Harbor St #6'], '', 'address');
+    E('pobox', 'item', 'PO Box 2291, Dunmore', [], '', 'address');
     E('depot4', 'area', 'Northwind Depot 4');
 
     function R(daysAgo, eventAgo, sourceType, sourceRef, basis, summary, people, links, dupOf) {

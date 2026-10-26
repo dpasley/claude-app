@@ -40,7 +40,7 @@
       '<button class="btn small" data-action="cc-fit">Fit</button><button class="btn small" data-action="cc-relayout">Auto-arrange</button><button class="btn small" data-action="cc-png">Image</button><button class="btn small" data-action="cc-print">Print for the wall…</button>' +
       '<a class="btn small" href="#/investigation/' + esc(v.id) + '">Investigation</a>' + (b ? '<a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a>' : '') +
       '<button class="btn small primary" data-action="cc-raise">Raise a lead</button></div>' +
-      '<div id="cy"></div><div class="legend"><span>photo or logo tile = individual / group</span><span>every connection cites the reports behind it</span><span>orange badge = an open lead is about this file</span><span>yellow = label</span><span>drag to arrange; the arrangement is kept and prints</span></div></section><aside class="panel" id="detail"></aside></div>';
+      '<div id="cy"></div><div class="legend"><span>photo or logo tile = individual / group</span><span>every connection cites the reports behind it</span><span>orange badge = an open lead is about this name</span><span>yellow = label</span><span>drag to arrange; the arrangement is kept and prints</span></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.className = 'wide'; A.view.innerHTML = h;
     ctl(); draw();
   }
@@ -48,7 +48,7 @@
   function ctl() {
     var v = inv(), box = document.getElementById('ctl'); if (!box) return;
     var cc = CI.caseChartOf(v), avail = CI.indexConnections(D(), v).length;
-    box.innerHTML = '<h3>Add a main file</h3><input type="text" list="cc-dl" id="cc-pin-input" placeholder="Search the main files…" data-on-change="cc-pin-add"><p class="muted small">Choose the major players for this investigation. You can also send them from the working chart.</p>' +
+    box.innerHTML = '<h3>Add a name</h3><input type="text" list="cc-dl" id="cc-pin-input" placeholder="Search the names…" data-on-change="cc-pin-add"><p class="muted small">Choose the major players for this investigation. You can also send them from the working chart.</p>' +
       '<h3>Connections</h3><div class="stack"><button class="btn small primary" data-action="cc-string-new"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Draw a connection</button>' +
       '<button class="btn small" data-action="cc-index-add"' + (avail ? '' : ' disabled') + '>Add the ' + avail + ' already in the main files</button></div>' +
       '<p class="muted small">A connection you draw must cite at least one report. Click one to see its reports.</p>' +
@@ -102,7 +102,7 @@
       decorate(g);
     }
     var s = document.getElementById('summary');
-    if (s) s.textContent = g.graph.nodes.length + ' main files · ' + g.graph.edges.length + ' connections' + (Object.keys(g.flags.nodes).length ? ' · ' + Object.keys(g.flags.nodes).length + ' flagged' : '');
+    if (s) s.textContent = g.graph.nodes.length + ' names · ' + g.graph.edges.length + ' connections' + (Object.keys(g.flags.nodes).length ? ' · ' + Object.keys(g.flags.nodes).length + ' flagged' : '');
     var t = document.getElementById('cc-title'); if (t) t.textContent = titleText();
     detail();
   }
@@ -120,26 +120,26 @@
     if (st.sel && st.sel.kind === 'node' && ent(st.sel.id)) {
       var e = ent(st.sel.id), mine = cc.strings.filter(function (t) { return t.a === e.id || t.b === e.id; });
       h += '<h3>' + esc(e.name) + '</h3><p>' + A.tag(e.type) + '</p><p class="muted small">' + (idx.reportsByEntity[e.id] || []).length + ' report' + ((idx.reportsByEntity[e.id] || []).length === 1 ? '' : 's') + ' in the main file.</p>';
-      if (g.flags.nodes[e.id]) h += '<div class="group-label">Next: open leads about this file</div>' + leadItems(g.flags.nodes[e.id]);
+      if (g.flags.nodes[e.id]) h += '<div class="group-label">Next: open leads about this name</div>' + leadItems(g.flags.nodes[e.id]);
       h += mine.length ? '<div class="group-label">Connections</div><ul class="plain">' + mine.map(function (t) {
         var other = t.a === e.id ? t.b : t.a;
         return '<li><a href="#" data-action="cc-pick-edge" data-id="' + esc(t.id) + '">' + esc(t.label || 'connected') + ' ' + esc(name(other)) + '</a> <span class="muted small">' + t.reportIds.length + ' report' + (t.reportIds.length === 1 ? '' : 's') + '</span></li>';
-      }).join('') + '</ul>' : '<p class="muted small">No connections from this file yet.</p>';
-      h += '<div class="stack"><a class="btn small" href="#/entity/' + esc(e.id) + '">Open main file</a><button class="btn small" data-action="cc-string-from" data-id="' + esc(e.id) + '"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Draw a connection from here</button>' +
+      }).join('') + '</ul>' : '<p class="muted small">No connections from this name yet.</p>';
+      h += '<div class="stack"><a class="btn small" href="#/entity/' + esc(e.id) + '">Open file</a><button class="btn small" data-action="cc-string-from" data-id="' + esc(e.id) + '"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Draw a connection from here</button>' +
         '<button class="btn small" data-action="cc-raise-node" data-id="' + esc(e.id) + '">Raise a lead about this</button><button class="btn small danger" data-action="cc-pin-del" data-id="' + esc(e.id) + '">Remove from the board</button></div>';
     } else if (st.sel && st.sel.kind === 'edge') {
       var t = cc.strings.filter(function (x) { return x.id === st.sel.id; })[0];
       if (t) {
         h += '<h3>Connection</h3><p>' + esc(name(t.a)) + ' <span class="rel">— ' + esc(t.label || 'connected') + ' —</span> ' + esc(name(t.b)) + '</p><div class="group-label">Reports behind it</div><ul class="plain">' +
           t.reportIds.map(function (rid) { var r = idx.report[rid] || {}; return '<li>' + A.repLink(rid) + (r.dupOf ? ' <span class="tag">repost of ' + esc(r.dupOf) + '</span>' : '') + ' <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span><div class="muted small">' + esc(A.trunc(r.summary || '', 120)) + '</div></li>'; }).join('') + '</ul>';
-        if (g.flags.edges[t.id]) h += '<div class="group-label">Next: open leads about both files</div>' + leadItems(g.flags.edges[t.id]);
+        if (g.flags.edges[t.id]) h += '<div class="group-label">Next: open leads about both names</div>' + leadItems(g.flags.edges[t.id]);
         h += '<div class="stack"><button class="btn small" data-action="cc-string-edit" data-id="' + esc(t.id) + '">Change label or reports</button><button class="btn small" data-action="cc-raise-edge" data-id="' + esc(t.id) + '">Raise a lead about this</button><button class="btn small danger" data-action="cc-string-del" data-id="' + esc(t.id) + '">Remove connection</button></div>';
       }
     } else if (st.sel && st.sel.kind === 'note') {
       var nt = cc.notes.filter(function (x) { return x.id === st.sel.id; })[0];
       if (nt) h += '<h3>Label</h3><p>' + esc(nt.text) + '</p><div class="stack"><button class="btn small" data-action="cc-note-edit" data-id="' + esc(nt.id) + '">Change the text</button><button class="btn small danger" data-action="cc-note-del" data-id="' + esc(nt.id) + '">Remove label</button></div>';
     }
-    if (!h) h = '<h3>Details</h3><p class="muted small">Click a main file, a connection or a label. Each connection lists the reports behind it. An orange badge marks a file an open lead is still chasing.</p>';
+    if (!h) h = '<h3>Details</h3><p class="muted small">Click a name, a connection or a label. Each connection lists the reports behind it. An orange badge marks a name an open lead is still chasing.</p>';
     var open = (g.openLeads || []);
     if (open.length) h += '<h3 class="sep">Open leads (' + open.length + ')</h3>' + leadItems(open.map(function (l) { return l.id; }));
     box.innerHTML = h;
@@ -147,14 +147,14 @@
 
   /* ---------- main files on the board ---------- */
   H['cc-pin-add'] = function (el) {
-    var id = parseEntity(el.value); if (!id) { A.toast('No main file matches that.', true); return; }
+    var id = parseEntity(el.value); if (!id) { A.toast('No name matches that.', true); return; }
     var res = CI.addPin(D(), inv(), id); if (res.error) { A.toast(res.error, true); return; }
     A.persist(); shell();
   };
   H['cc-pick-edge'] = function (el) { var id = el.getAttribute('data-id'); st.sel = { kind: 'edge', id: id }; if (CI.chart.cy) { CI.chart.cy.$(':selected').unselect(); CI.chart.cy.getElementById(id).select(); CI.chart.focus(id); } detail(); };
   H['cc-pin-del'] = function (el) {
     var id = el.getAttribute('data-id'), n = CI.caseChartOf(inv()).strings.filter(function (t) { return t.a === id || t.b === id; }).length;
-    A.confirm('Take ' + name(id) + ' off the board' + (n ? ' along with its ' + n + ' connection' + (n === 1 ? '' : 's') : '') + '? The main file is not changed.', function () {
+    A.confirm('Take ' + name(id) + ' off the board' + (n ? ' along with its ' + n + ' connection' + (n === 1 ? '' : 's') : '') + '? The name is not changed.', function () {
       CI.removePin(D(), inv(), id); A.persist(); st.sel = null; shell();
     }, { title: 'Remove from the board', yes: 'Remove', danger: true });
   };
@@ -175,10 +175,10 @@
       '<div class="grid2"><label>From<select id="cs-a" data-on-change="cs-pair"' + (f.edit ? ' disabled' : '') + '>' + opts(f.a) + '</select></label><label>To<select id="cs-b" data-on-change="cs-pair"' + (f.edit ? ' disabled' : '') + '>' + opts(f.b) + '</select></label></div>' +
       '<label>What connects them <span class="hint">a few words, such as “paid by” or “same address”</span><input type="text" id="cs-label" list="cs-types" value="' + esc(f.label) + '"></label>' +
       '<div class="group-label">Reports behind it <span class="hint">choose at least one</span></div>';
-    if (f.a === f.b) h += '<p class="muted small">Choose two different files.</p>';
-    else if (!rs.both.length && !rs.one.length) h += '<p class="muted small">No report names either file, so there is nothing to base a connection on.</p>';
+    if (f.a === f.b) h += '<p class="muted small">Choose two different names.</p>';
+    else if (!rs.both.length && !rs.one.length) h += '<p class="muted small">No report names either one, so there is nothing to base a connection on.</p>';
     else {
-      if (rs.both.length) h += '<div class="small muted">Name both files</div>' + rs.both.map(function (r) { return reportRow(r, !!f.ids[r]); }).join('');
+      if (rs.both.length) h += '<div class="small muted">Name both</div>' + rs.both.map(function (r) { return reportRow(r, !!f.ids[r]); }).join('');
       if (rs.one.length) h += '<div class="small muted" style="margin-top:6px">Name one of them</div>' + rs.one.map(function (r) { return reportRow(r, !!f.ids[r]); }).join('');
     }
     h += '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="cs-save">' + (f.edit ? 'Save' : 'Add connection') + '</button></div>';

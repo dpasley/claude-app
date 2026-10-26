@@ -10,13 +10,13 @@
   function nm(ids) { return ids.map(link).join(', '); }
   function more(list, n) { return list.length > n ? '<div class="muted small">and ' + (list.length - n) + ' more</div>' : ''; }
   var KINDS = [
-    { id: 'discoveries', label: 'New discoveries', help: 'A connection entered recently ties files together that no single report shows.' },
-    { id: 'shared', label: 'Shared items', help: 'One item (a phone, plate, email…) connects different files.' },
-    { id: 'hidden', label: 'Linked through others', help: 'Two files share two or more connections but have none between them.' },
+    { id: 'discoveries', label: 'New discoveries', help: 'A connection entered recently ties names together that no single report shows.' },
+    { id: 'shared', label: 'Shared items', help: 'One item (a phone, plate, email…) connects different names.' },
+    { id: 'hidden', label: 'Linked through others', help: 'Two names share two or more connections but have none between them.' },
     { id: 'together', label: 'Named together, not connected', help: 'In two or more reports together, with no connection recorded.' },
-    { id: 'growing', label: 'Growing', help: 'Groups, subjects or areas gaining connected files.' },
+    { id: 'growing', label: 'Growing', help: 'Groups, subjects or areas gaining connected names.' },
     { id: 'loose', label: 'Loose ends', help: 'In reports but connected to nothing yet.' },
-    { id: 'dups', label: 'Possible duplicates', help: 'The same name on more than one file.' }
+    { id: 'dups', label: 'Possible duplicates', help: 'The same name entered more than once.' }
   ];
   var PAGE = 6;
 
@@ -39,7 +39,7 @@
     discoveries: function (x, idx) {
       if (x.kind === 'join') {
         return card(box(x.a, 'hl') + edge(lbl(x.link), 'new') + box(x.b, 'hl'),
-          '<b>Two separate groups of files are now joined.</b> ' + A.repLink(x.link.reportId) + ' connected a group of ' + x.sizeA + ' files with a group of ' + x.sizeB + ' that had nothing to do with each other before.', [x.a, x.b]);
+          '<b>Two separate sets of names are now joined.</b> ' + A.repLink(x.link.reportId) + ' connected a set of ' + x.sizeA + ' names with a set of ' + x.sizeB + ' that had nothing to do with each other before.', [x.a, x.b]);
       }
       return card(box(x.a) + edge(lbl(x.oldLink)) + box(x.via, 'mid') + edge(lbl(x.link), 'new') + box(x.c, 'hl'),
         '<b>' + esc(idx.entity[x.a].name) + ' is now tied to ' + esc(idx.entity[x.c].name) + ' through ' + esc(idx.entity[x.via].name) + '.</b> ' + A.repLink(x.oldLink.reportId) + ' tied the first two; ' +
@@ -47,7 +47,7 @@
     },
     shared: function (x, idx) {
       return card('<div class="fan">' + x.files.slice(0, 6).map(function (f) { return '<div class="row">' + box(f) + edge('', '') + '</div>'; }).join('') + '</div>' + box(x.item, 'item'),
-        '<b>' + esc(idx.entity[x.item].name) + '</b> connects ' + x.files.length + ' files.' + (x.files.length > 6 ? ' Showing 6.' : ''), x.files.concat([x.item]));
+        '<b>' + esc(idx.entity[x.item].name) + '</b> connects ' + x.files.length + ' names.' + (x.files.length > 6 ? ' Showing 6.' : ''), x.files.concat([x.item]));
     },
     hidden: function (x, idx) {
       return card(box(x.a) + edge('no connection recorded', 'gap') + box(x.b),
@@ -58,12 +58,12 @@
     },
     growing: function (x) {
       return card(box(x.id, 'hl') + '<div class="chips">' + x.added.slice(0, 8).map(function (id) { return box(id, 'small'); }).join('') + '</div>',
-        '<b>+' + x.added.length + '</b> newly connected in ' + ix.days + ' days <span class="bar"><span style="width:' + Math.min(100, Math.round(100 * x.added.length / Math.max(x.total, 1))) + '%"></span></span> ' + x.total + ' connected in all.', [x.id].concat(x.added));
+        '<b>+' + x.added.length + '</b> newly connected names in ' + ix.days + ' days <span class="bar"><span style="width:' + Math.min(100, Math.round(100 * x.added.length / Math.max(x.total, 1))) + '%"></span></span> ' + x.total + ' connected in all.', [x.id].concat(x.added));
     },
     loose: function (x) { return null; },
     dups: function (x, idx) {
       return card(x.ids.map(function (id) { var e = idx.entity[id]; return '<span class="dup">' + box(id) + '<small>' + (e.details ? esc(A.trunc(e.details, 60)) : 'no identifying details yet') + '</small></span>'; }).join(''),
-        'Same name on ' + x.ids.length + ' files. Add identifying details, or merge them from a file’s page.', null);
+        'Same name entered ' + x.ids.length + ' times. Add identifying details, or merge them from either one’s page.', null);
     }
   };
 
@@ -127,7 +127,7 @@
     if (ix.tab !== arg) ix.lq = '';
     ix.tab = arg;
     var badge = CI.discoveries(d, idx, CI.daysAgo(ix.days)).length;
-    var h = '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Files that moved recently</a></div>' + tabsBar(arg === 'crossfiling' || arg === 'items' || arg === 'words' ? arg : '', badge);
+    var h = '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Names that moved recently</a></div>' + tabsBar(arg === 'crossfiling' || arg === 'items' || arg === 'words' ? arg : '', badge);
     if (arg === 'crossfiling') { if (sub) ix.cf = decodeURIComponent(sub); h += crossFiling(idx); }
     else if (arg === 'items') { ix.itemKind = sub ? decodeURIComponent(sub) : ''; h += itemsTab(idx); }
     else h += lookPanel(idx);
@@ -153,14 +153,14 @@
         var others = {}; CI.connectionIndex(d, e.id, idx).forEach(function (g) { g.rows.forEach(function (r) { others[r.other.id] = 1; }); });
         var n = Object.keys(others).length;
         return '<a class="lrow pick" href="#/indexes/' + esc(e.id) + '"><span>' + A.avatar(e, 28) + '<b>' + esc(e.name) + '</b>' + (e.details ? ' <span class="muted small">' + esc(A.trunc(e.details, 60)) + '</span>' : '') + '</span>' +
-          '<span class="' + (n ? '' : 'muted ') + 'small">' + (n ? n + ' connected file' + (n === 1 ? '' : 's') : 'nothing connected yet') + ' ›</span></a>';
+          '<span class="' + (n ? '' : 'muted ') + 'small">' + (n ? n + ' connected name' + (n === 1 ? '' : 's') : 'nothing connected yet') + ' ›</span></a>';
       }).join('') || '<p class="muted">Nothing here yet.</p>';
   }
   function crossFiling(idx) {
     var d = D(), counts = {};
     d.entities.forEach(function (e) { if (!CI.isItem(e)) counts[e.type] = (counts[e.type] || 0) + 1; });
     if (!CF.some(function (c) { return c.id === ix.cf; })) ix.cf = 'individual';
-    return '<div class="card"><h2>Connection index <span class="muted small">choose a file to see everything it is connected to</span></h2>' + subTabs('#/indexes/crossfiling', CF.map(function (c) { return { id: c.id, label: c.label, n: counts[c.id] || 0 }; }), ix.cf) +
+    return '<div class="card"><h2>Connection index <span class="muted small">choose a name to see everything it is connected to</span></h2>' + subTabs('#/indexes/crossfiling', CF.map(function (c) { return { id: c.id, label: c.label, n: counts[c.id] || 0 }; }), ix.cf) +
       '<input type="search" id="ix-lq" data-lookup="#ix-list" placeholder="Type a name, then arrow down and press Enter…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq" autocomplete="off"><div id="ix-list">' + cfEntries(idx) + '</div></div>';
   }
 
@@ -204,7 +204,7 @@
     var e = idx.entity[id], groups = CI.connectionIndex(D(), id, idx), n = 0;
     groups.forEach(function (g) { n += g.rows.length; });
     var h = tabsBar('crossfiling', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/crossfiling/' + esc(e.type === 'item' ? 'individual' : e.type) + '">‹ All ' + esc(CI.isItem(e) ? 'individuals' : CI.TYPE_LABEL[e.type].toLowerCase() + 's') + '</a>' +
-      '<input type="search" id="ix-q" data-lookup="#ix-res" autocomplete="off" placeholder="Look up another file or item…" data-on-input="ix-find" style="flex:1;min-width:220px"><div id="ix-res" style="flex:0 0 100%"></div></div><div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
+      '<input type="search" id="ix-q" data-lookup="#ix-res" autocomplete="off" placeholder="Look up another name or item…" data-on-input="ix-find" style="flex:1;min-width:220px"><div id="ix-res" style="flex:0 0 100%"></div></div><div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">No connections recorded yet.</p></div>';
     if (n) {
