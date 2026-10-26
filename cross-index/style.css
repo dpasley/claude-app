@@ -471,3 +471,17 @@ table.list.spaced { margin-top: 20px; }
 .card.sec .sentence { margin-top: 4px; }
 .card.sec .row.between { margin-bottom: 4px; }
 .card.sec.dim h2 { color: var(--muted); }
+
+/* Charts page, simplified */
+.chart-head { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
+.chart-head h1 { margin: 0; font-size: 20px; }
+.chart-head .back { font-size: 14px; white-space: nowrap; }
+.chart-head .spacer { flex: 1; }
+.chart-layout { grid-template-columns: 250px minmax(0, 1fr) 300px; height: calc(100vh - 150px); }
+.chart-layout.nodetail { grid-template-columns: 250px minmax(0, 1fr); }
+.chart-layout.nodetail #detail { display: none; }
+.panel h3 { margin: 16px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.panel .off { opacity: .5; pointer-events: none; }
+.panel .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; margin: 8px 0; }
+@media (max-width: 900px) { .chart-layout.nodetail { grid-template-columns: minmax(0, 1fr); } }
+.panel .tight-grid { grid-template-columns: 1fr; gap: 0; }

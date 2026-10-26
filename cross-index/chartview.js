@@ -17,11 +17,59 @@
 
   CI.views.chart = function (id) {
     var d = D();
-    if (!d.banks.length) { var nb = CI.newBank(d, 'All activity', [], 1); d.banks.push(nb); d.ui.bankId = nb.id; A.persist(); }
-    var bank = d.banks.filter(function (b) { return b.id === id; })[0] || d.banks.filter(function (b) { return b.id === d.ui.bankId; })[0] || d.banks[0];
+    var bank = id && d.banks.filter(function (b) { return b.id === id; })[0];
+    if (!bank) { renderList(); return; }
     if (d.ui.bankId !== bank.id) { d.ui.bankId = bank.id; A.persist(); }
     st.bankId = bank.id; st.sel = null; st.path = null; st.results = []; st.whole = null;
     renderShell();
+  };
+
+  /* ---------- the list of all charts ---------- */
+  var cl = { q: '' };
+  function listRows() {
+    var d = D(), q = CI.norm(cl.q), idx = A.idx();
+    var rows = d.banks.slice().reverse().filter(function (b) {
+      var seeds = b.seeds.map(function (id) { return idx.entity[id] ? idx.entity[id].name : ''; }).join(' ');
+      return !q || CI.norm([b.name, seeds, (b.opened && b.opened.reason) || ''].join(' ')).indexOf(q) !== -1;
+    });
+    if (!rows.length) return '<p class="muted pad">' + (d.banks.length ? 'No chart matches that.' : 'No charts yet. Start one with “New chart”, or from Indexes (Heating up) or a name’s page.') + '</p>';
+    return '<table class="fixed"><colgroup><col style="width:28%"><col style="width:34%"><col style="width:12%"><col style="width:8%"><col style="width:18%"></colgroup>' +
+      '<thead><tr><th>Chart</th><th>Starts from</th><th>Opened</th><th class="num">Leads</th><th></th></tr></thead><tbody>' + rows.map(function (b) {
+        var seeds = b.seeds.map(function (id) { return idx.entity[id] ? idx.entity[id].name : id; }).join(', ');
+        var nl = d.leads.filter(function (l) { return l.bankId === b.id; }).length;
+        var tag = b.handedOver ? ' <span class="tag">handed over</span>' : (b.quick ? ' <span class="tag">quick view</span>' : '');
+        return '<tr class="pick"><td class="ellip" title="' + esc(b.name) + '"><a href="#/chart/' + esc(b.id) + '"><b>' + esc(b.name) + '</b></a>' + tag + '</td>' +
+          '<td class="ellip muted" title="' + esc(seeds) + '">' + (esc(seeds) || 'every connected name') + '</td>' +
+          '<td>' + (b.opened && b.opened.date ? esc(CI.fmtDate(b.opened.date)) : '') + '</td><td class="num">' + nl + '</td>' +
+          '<td class="right"><button class="btn small" data-action="cl-rename" data-id="' + esc(b.id) + '">Rename</button> <button class="btn small" data-action="cl-dup" data-id="' + esc(b.id) + '">Copy</button> <button class="btn small danger" data-action="cl-del" data-id="' + esc(b.id) + '">Delete</button></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+  function renderList() {
+    A.view.className = '';
+    A.view.innerHTML = '<div class="page-head"><h1>Charts</h1><button class="btn primary" data-action="cv-bank-new">New chart</button></div>' +
+      '<div class="card"><input type="search" id="cl-q" data-lookup="#cl-list" autocomplete="off" placeholder="Find a chart by name, starting name or reason…" value="' + esc(cl.q) + '" data-on-input="cl-q">' +
+      '<p class="muted small" style="margin:8px 0 0">A chart is a saved view of the main files. It never copies data. Open one to change what it shows.</p></div>' +
+      '<div class="card flush" id="cl-list">' + listRows() + '</div>';
+  }
+  H['cl-q'] = function (el) { cl.q = el.value; var b = document.getElementById('cl-list'); if (b) b.innerHTML = listRows(); };
+  function bankOf(el) { return D().banks.filter(function (b) { return b.id === el.getAttribute('data-id'); })[0]; }
+  H['cl-rename'] = function (el) {
+    var b = bankOf(el); if (!b) return;
+    A.ask('New name?', b.name, function (n) { b.name = n; b.quick = false; A.persist(); renderList(); }, { title: 'Rename chart', ok: 'Rename' });
+  };
+  H['cl-dup'] = function (el) {
+    var b = bankOf(el); if (!b) return;
+    var c = CI.clone(b); c.id = CI.nextId(D(), 'bank'); c.name = b.name + ' (copy)'; c.snapshots = []; c.compareId = ''; c.viewMode = 'live'; c.quick = false; c.handedOver = '';
+    D().banks.push(c); A.persist(); renderList();
+  };
+  H['cl-del'] = function (el) {
+    var b = bankOf(el); if (!b) return;
+    var nl = D().leads.filter(function (l) { return l.bankId === b.id; }).length;
+    if (nl) { A.toast('This chart has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
+    if (CI.investigationFor(D(), b.id)) { A.toast('This chart has been handed over and has an investigation, so it cannot be deleted.', true); return; }
+    A.confirm('Delete the chart “' + b.name + '”? The reports and names are not affected.', function () {
+      D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); A.persist(); renderList();
+    }, { title: 'Delete chart', yes: 'Delete', danger: true });
   };
 
   function currentGraph(bank) {
@@ -38,12 +86,14 @@
     var ents = d.entities.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
     var frozen = bank.viewMode === 'frozen' && snapOf(bank, bank.frozenId);
     var h = '<datalist id="ent-dl">' + ents.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>';
-    h += '<div class="chart-layout"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
+    h += '<div class="chart-head"><a href="#/chart" class="back">‹ All charts</a><h1>' + esc(bank.name) + '</h1>' +
+      '<span class="spacer"></span><button class="btn small" data-action="cv-bank-rename">Rename</button><button class="btn small" data-action="cv-bank-dup">Copy</button><button class="btn small danger" data-action="cv-bank-del">Delete</button></div>';
+    h += '<div class="chart-layout nodetail" id="cl"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
       '<a class="btn small" href="#/estimate/' + esc(bank.id) + '">Estimate</a><button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
-      '<div id="cy"></div>' + legendHtml() + '</section><aside class="panel" id="detail"></aside></div>';
+      '<div id="cy"></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
     A.view.className = 'wide';
     draw();
@@ -54,40 +104,27 @@
   }
 
   function controlsHtml(bank, frozen) {
-    var d = D(), s = d.settings, banks = d.banks;
-    var h = '<h3>Bank</h3><select data-on-change="cv-bank-pick">' + banks.map(function (b) {
-      return '<option value="' + esc(b.id) + '"' + (b.id === bank.id ? ' selected' : '') + '>' + esc(b.name) + '</option>';
-    }).join('') + '</select><div class="row wrap tight-row"><button class="btn small" data-action="cv-bank-new">New</button><button class="btn small" data-action="cv-bank-rename">Rename</button>' +
-      '<button class="btn small" data-action="cv-bank-dup">Duplicate</button><button class="btn small danger" data-action="cv-bank-del">Delete</button></div>' +
-      '<p class="muted small">A bank is a saved view. It reads the main files and never copies data.</p>';
-    h += '<h3>Starting entities</h3><div class="chips">' + (bank.seeds.length ? bank.seeds.map(function (id) {
+    var h = '<h3>Starts from</h3><div class="chips">' + (bank.seeds.length ? bank.seeds.map(function (id) {
       var e = A.idx().entity[id];
       return '<span class="chip">' + esc(e ? e.name : id) + '<button data-action="cv-seed-del" data-id="' + esc(id) + '" aria-label="Remove">×</button></span>';
-    }).join('') : '<span class="muted small">None: shows every entity that has a connection.</span>') + '</div>' +
-      '<input type="text" list="ent-dl" placeholder="Add an entity…" data-on-change="cv-seed-add" id="cv-seed-input">';
-    h += '<fieldset' + (frozen ? ' disabled' : '') + '><legend>Filters</legend>' +
-      '<label>Hops from the starting entities<select data-on-change="cv-hops">' + [0, 1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (bank.hops === n ? ' selected' : '') + '>' + n + (n === 0 ? ' (only these)' : '') + '</option>'; }).join('') + '</select></label>' +
-      '<label>Minimum independent reports per connection<input type="number" min="1" value="' + (bank.minWeight || 1) + '" data-on-change="cv-minw"></label>' +
-      '<div class="group-label">Connection types</div>' + s.linkTypes.map(function (t) {
-        return chk('lt', !bank.linkTypes || bank.linkTypes.indexOf(t.id) !== -1, t.label + (t.directed ? ' →' : ' ↔'), 'data-on-change="cv-types" data-id="' + esc(t.id) + '"');
-      }).join('') +
-      '<div class="group-label">Entity types</div>' + CI.ENTITY_TYPES.map(function (t) {
-        return chk('et', !bank.entityTypes || bank.entityTypes.indexOf(t) !== -1, CI.TYPE_LABEL[t] + 's', 'data-on-change="cv-etypes" data-id="' + t + '"');
-      }).join('') +
+    }).join('') : '<span class="muted small">Every name that has a connection.</span>') + '</div>' +
+      '<input type="text" list="ent-dl" placeholder="Add a name…" data-on-change="cv-seed-add" id="cv-seed-input">';
+    h += '<div' + (frozen ? ' class="off"' : '') + '><h3>Show</h3>' +
+      '<label>How far out from those names<select data-on-change="cv-hops"' + (frozen ? ' disabled' : '') + '>' + [0, 1, 2, 3, 4].map(function (n) { return '<option value="' + n + '"' + (bank.hops === n ? ' selected' : '') + '>' + (n === 0 ? 'Only those names' : n + (n === 1 ? ' step' : ' steps')) + '</option>'; }).join('') + '</select></label>' +
+      '<label>Only the heaviest names <span class="hint">0 = all</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"' + (frozen ? ' disabled' : '') + '></label>' +
+      '<div class="checks">' + CI.ENTITY_TYPES.map(function (t) {
+        return chk('et', !bank.entityTypes || bank.entityTypes.indexOf(t) !== -1, CI.TYPE_LABEL[t] + 's', 'data-on-change="cv-etypes" data-id="' + t + '"' + (frozen ? ' disabled' : ''));
+      }).join('') + '</div>' +
       '<div class="grid2 tight-grid"><label>From ' + A.dateInput('cv-from', bank.dateFrom, 'cv-date', ' data-k="dateFrom"') + '</label><label>To ' + A.dateInput('cv-to', bank.dateTo, 'cv-date', ' data-k="dateTo"') + '</label></div>' +
-      '<p class="muted small">Dates use the event date, or the received date when none was given.</p>' +
-      '<label>Show only the heaviest names <span class="hint">0 shows everything; starting entities are always kept</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"></label>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
-      chk('h', bank.hubStop, 'Do not expand past high-connection nodes', 'data-on-change="cv-hubstop"') + '</fieldset>';
+      chk('l', bank.edgeLabels !== false, 'Label the connections', 'data-on-change="cv-labels"') + '</div>';
     if (bank.excluded.length) {
-      h += '<h3>Hidden in this bank</h3><div class="chips">' + bank.excluded.map(function (id) {
+      h += '<h3>Hidden</h3><div class="chips">' + bank.excluded.map(function (id) {
         var e = A.idx().entity[id];
         return '<span class="chip">' + esc(e ? e.name : id) + '<button data-action="cv-unhide" data-id="' + esc(id) + '" aria-label="Show again">↺</button></span>';
       }).join('') + '</div>';
     }
-    h += '<h3>Display</h3><label>Layout<select data-on-change="cv-layout">' + A.options([{ value: 'cose', label: 'Force-directed' }, { value: 'breadthfirst', label: 'Hierarchy (follows direction)' }, { value: 'concentric', label: 'Concentric by connections' }, { value: 'circle', label: 'Circle' }], bank.layout) + '</select></label>' +
-      chk('l', bank.edgeLabels !== false, 'Edge labels', 'data-on-change="cv-labels"');
-    h += '<h3>Snapshots</h3><p class="muted small">Freeze a bank when it is handed to investigators. Later findings then show up as changes.</p>';
+    h += '<h3>Snapshots</h3>';
     if (bank.snapshots.length) {
       var live = bank.viewMode !== 'frozen' || !snapOf(bank, bank.frozenId);
       h += '<label class="chk"><input type="radio" name="vm" data-on-change="cv-view" value="live"' + (live ? ' checked' : '') + '> Live</label>' +
@@ -95,7 +132,7 @@
         '<select data-on-change="cv-snap-pick">' + bank.snapshots.map(function (sn) { return '<option value="' + esc(sn.id) + '"' + (sn.id === bank.frozenId ? ' selected' : '') + '>' + esc(sn.label) + '</option>'; }).join('') + '</select>';
       if (live) h += '<label>Highlight what is new since<select data-on-change="cv-compare">' + A.options(bank.snapshots.map(function (sn) { return { value: sn.id, label: sn.label }; }), bank.compareId, 'Nothing') + '</select></label>';
       h += '<div class="row wrap tight-row"><button class="btn small danger" data-action="cv-snap-del">Delete selected snapshot</button></div>';
-    }
+    } else h += '<p class="muted small">Freeze the chart when it is handed over; later findings then show as changes.</p>';
     if (!frozen) h += '<div class="row"><button class="btn small" data-action="cv-freeze">Freeze a snapshot now</button></div>';
     return h;
   }
@@ -184,7 +221,7 @@
       if (!frozen) {
         h += '<button class="btn small" data-action="cv-node-seed" data-id="' + esc(id) + '">Add as starting entity</button><button class="btn small" data-action="cv-node-hide" data-id="' + esc(id) + '">Hide in this bank</button>';
       }
-      h += '<button class="btn small" data-action="cv-path-from" data-id="' + esc(id) + '">Find connections from here…</button><button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-pin-case" data-id="' + esc(id) + '">Pin to the case chart</button>' : '') + '</div>';
+      h += '<button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-pin-case" data-id="' + esc(id) + '">Pin to the case chart</button>' : '') + '</div>';
     } else if (st.sel && st.sel.kind === 'edge') {
       var e = edgeById(st.sel.id);
       if (e) {
@@ -204,14 +241,7 @@
         h += '<div class="stack"><button class="btn small" data-action="cv-raise-edge" data-id="' + esc(e.id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-string-case" data-id="' + esc(e.id) + '">Add to the case chart</button>' : '') + '</div>';
       }
     } else {
-      h += '<h3>Details</h3><p class="muted small">Click an entity or a connection. Every connection lists the reports behind it.</p>';
     }
-
-    h += '<h3 class="sep">How are two entities connected?</h3><label>From<input type="text" list="ent-dl" id="pf-a" value="' + esc(st.pa) + '" placeholder="Choose an entity…"></label>' +
-      '<label>To<input type="text" list="ent-dl" id="pf-b" value="' + esc(st.pb) + '" placeholder="Choose an entity…"></label>' +
-      '<label>Longest chain<select id="pf-max">' + [2, 3, 4, 5].map(function (n) { return '<option value="' + n + '"' + (st.maxHops === n ? ' selected' : '') + '>' + n + ' steps</option>'; }).join('') + '</select></label>' +
-      '<label class="chk"><input type="checkbox" id="pf-avoid"' + (st.avoid ? ' checked' : '') + '> Avoid high-connection nodes</label>' +
-      '<div class="row"><button class="btn small primary" data-action="cv-find">Find connections</button>' + (st.path ? '<button class="btn small" data-action="cv-path-clear">Clear</button>' : '') + '</div><div id="pf-out">' + pathResultsHtml() + '</div>';
 
     if (st.diff) {
       var nn = Object.keys(st.diff.newNodes), ne = Object.keys(st.diff.newEdges), ge = Object.keys(st.diff.grownEdges);
@@ -223,6 +253,7 @@
       }
     }
     box.innerHTML = h;
+    var lay = document.getElementById('cl'); if (lay) lay.classList.toggle('nodetail', !h);
   }
 
   function pathResultsHtml() {
