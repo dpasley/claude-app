@@ -42,7 +42,7 @@
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
       '<a class="btn small" href="#/estimate/' + esc(bank.id) + '">Estimate</a><button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
-      (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(frozen.at.slice(0, 16).replace('T', ' ')) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
+      (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
       '<div id="cy"></div>' + legendHtml() + '</section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
     A.view.className = 'wide';
@@ -74,7 +74,7 @@
       '<div class="group-label">Entity types</div>' + CI.ENTITY_TYPES.map(function (t) {
         return chk('et', !bank.entityTypes || bank.entityTypes.indexOf(t) !== -1, CI.TYPE_LABEL[t] + 's', 'data-on-change="cv-etypes" data-id="' + t + '"');
       }).join('') +
-      '<div class="grid2 tight-grid"><label>From<input type="date" value="' + esc(bank.dateFrom) + '" data-on-change="cv-date" data-k="dateFrom"></label><label>To<input type="date" value="' + esc(bank.dateTo) + '" data-on-change="cv-date" data-k="dateTo"></label></div>' +
+      '<div class="grid2 tight-grid"><label>From<input type="text" class="date-in" placeholder="25 Oct. 2026" value="' + esc(CI.fmtDate(bank.dateFrom)) + '" data-on-change="cv-date" data-k="dateFrom"></label><label>To<input type="text" class="date-in" placeholder="25 Oct. 2026" value="' + esc(CI.fmtDate(bank.dateTo)) + '" data-on-change="cv-date" data-k="dateTo"></label></div>' +
       '<p class="muted small">Dates use the event date, or the received date when none was given.</p>' +
       '<label>Show only the heaviest files <span class="hint">0 shows everything; starting entities are always kept</span><input type="number" min="0" value="' + (bank.topN || 0) + '" data-on-change="cv-topn"></label>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
@@ -196,7 +196,7 @@
           if (links.length) {
             h += '<ul class="plain">' + links.map(function (l) {
               var r = idx.report[l.reportId] || {};
-              return '<li>' + A.repLink(l.reportId) + (r.dupOf ? ' <span class="tag">repost of ' + esc(r.dupOf) + '</span>' : '') + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.reportDate(r)) + '</span>' +
+              return '<li>' + A.repLink(l.reportId) + (r.dupOf ? ' <span class="tag">repost of ' + esc(r.dupOf) + '</span>' : '') + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span>' +
                 (l.note ? '<div class="small">“' + esc(l.note) + '”</div>' : '') + '<div class="muted small">' + esc(A.trunc(r.summary || '', 120)) + '</div></li>';
             }).join('') + '</ul>';
           } else h += '<ul class="plain">' + e.reportIds.map(function (rid) { return '<li>' + A.repLink(rid) + '</li>'; }).join('') + '</ul>';
@@ -288,7 +288,11 @@
     var on = checkedIds('[data-on-change="cv-etypes"]');
     mutate(function (b) { b.entityTypes = (on.length === CI.ENTITY_TYPES.length || !on.length) ? null : on; }); recompute();
   };
-  H['cv-date'] = function (el) { mutate(function (b) { b[el.getAttribute('data-k')] = el.value; }); };
+  H['cv-date'] = function (el) {
+    var v = CI.parseDate(el.value);
+    if (v === null) { A.toast(A.dateHelp, true); return; }
+    mutate(function (b) { b[el.getAttribute('data-k')] = v; });
+  };
   H['cv-mentions'] = function (el) { mutate(function (b) { b.showMentions = el.checked; }); };
   H['cv-hubstop'] = function (el) { mutate(function (b) { b.hubStop = el.checked; }); };
   H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); };
@@ -305,7 +309,7 @@
 
   /* snapshots */
   H['cv-freeze'] = function () {
-    A.ask('Label for this snapshot?', 'Handoff ' + CI.today(), function (label) {
+    A.ask('Label for this snapshot?', 'Handoff ' + CI.fmtDate(CI.today()), function (label) {
       var b = B(), live = CI.computeGraph(D(), b, A.idx());
       var sn = { id: CI.nextId(D(), 'snapshot'), label: label, at: new Date().toISOString(), graph: CI.clone(live) };
       b.snapshots.push(sn); b.compareId = sn.id; A.persist(); A.toast('Snapshot saved. The live view now highlights what is new since it.'); renderShell();

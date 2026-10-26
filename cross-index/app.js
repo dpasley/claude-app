@@ -33,6 +33,12 @@
     d.log.push({ id: CI.nextId(d, 'snag'), t: new Date().toISOString(), kind: kind, text: text, reportId: reportId || '', resolved: false });
   }
   function tag(t) { return '<span class="tag t-' + esc(t) + '">' + esc(CI.TYPE_LABEL[t] || t) + '</span>'; }
+  /* Dates are typed and shown as day, short month, year (25 Oct. 2026) and kept as YYYY-MM-DD underneath. */
+  function dateInput(id, iso) {
+    return '<input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="25 Oct. 2026" autocomplete="off" data-on-change="date-fix">';
+  }
+  function readDate(id) { return CI.parseDate(val(id)); }
+  var DATE_HELP = 'Not a date I can read. Try 25 Oct. 2026.';
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
   function ensureSuggested() {
     if (d.settings.suggestedTypes) return;
@@ -155,6 +161,11 @@
     if (ev.key === 'Escape') closeModal();
     else if (ev.key === 'Enter' && ev.target && ev.target.id === 'modal-input') { ev.preventDefault(); handlers['modal-ok'](); }
   });
+  handlers['date-fix'] = function (el) {
+    var v = CI.parseDate(el.value);
+    if (v === null) { el.classList.add('bad'); el.title = DATE_HELP; }
+    else { el.classList.remove('bad'); el.title = ''; el.value = CI.fmtDate(v); }
+  };
   handlers['modal-close'] = function () { closeModal(); };
   handlers['modal-bg'] = function (el, ev) { if (ev.target === el) closeModal(); };
   handlers['modal-yes'] = function () { var f = pend && pend.yes; closeModal(); if (f) f(); };
@@ -183,7 +194,7 @@
     return rows.map(function (r) {
       var nl = d.links.filter(function (l) { return l.reportId === r.id; }).length;
       var status = r.dupOf ? '<span class="tag">repost of ' + esc(r.dupOf) + '</span>' : (r.entities.length ? '<span class="tag ok">indexed</span>' : '<span class="tag warn">not indexed</span>');
-      return '<tr><td><a href="#/report/' + esc(r.id) + '">' + esc(r.id) + '</a></td><td>' + esc(r.received) + '</td><td class="ellip" title="' + esc(repTitle(r)) + '">' + esc(trunc(repTitle(r), 60)) +
+      return '<tr><td><a href="#/report/' + esc(r.id) + '">' + esc(r.id) + '</a></td><td>' + esc(CI.fmtDate(r.received)) + '</td><td class="ellip" title="' + esc(repTitle(r)) + '">' + esc(trunc(repTitle(r), 60)) +
         '</td><td class="ellip" title="' + esc(r.sourceRef) + '">' + esc(trunc(r.sourceRef, 40)) + '</td><td class="num">' + r.entities.length +
         '</td><td class="num">' + nl + '</td><td>' + status + '</td></tr>';
     }).join('');
@@ -203,36 +214,36 @@
     if (id && !r) return notFound('Report');
     r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceType: '', sourceRef: '', archiveLoc: '', originalText: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
     repDefaults = null;
-    var leadChoices = d.leads.slice().sort(function (a, b) { return b.id.localeCompare(a.id); }).map(function (l) { return { value: l.id, label: l.id + ' \u2013 ' + trunc(l.question, 60) + (CI.isClosed(l) ? ' (closed)' : '') }; });
-    var st = d.settings.sourceTypes, dupChoices = d.reports.filter(function (x) { return !id || (x.id !== id && idx().rootOf(x.id) !== id); })
-      .sort(function (a, b) { return b.id.localeCompare(a.id); }).map(function (x) { return { value: x.id, label: x.id + ' – ' + trunc(x.summary, 60) }; });
-    var more = !!(r.eventDate || r.basis || r.archiveLoc || r.dupOf || r.leadId || r.summary || r.originalText);
+    var st = d.settings.sourceTypes;
+    var more = !!(r.eventDate || r.archiveLoc || r.summary || r.originalText);
     view.innerHTML = '<div class="page-head"><h1>' + (id ? 'Edit report – ' + esc(id) : 'New report') + '</h1></div>' +
       '<form class="card form" id="rep-form" onsubmit="return false">' +
-      '<div class="grid2"><label>Date of report<input type="date" id="f-received" value="' + esc(r.received) + '"></label>' +
+      '<div class="grid2"><label>Date of report ' + '<span class="hint">e.g. 25 Oct. 2026</span>' + dateInput('f-received', r.received) + '</label>' +
       '<label>Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label></div>' +
       '<div class="grid2"><label>Source of report <span class="hint">name, URL, handle or document title</span><input type="text" id="f-ref" value="' + esc(r.sourceRef) + '"></label>' +
       '<label>Kind of source <span class="hint">optional</span><select id="f-type">' + options(st, r.sourceType, 'Choose…') + '</select></label></div>' +
       '<p class="muted small">Next you add the names the report mentions and the connections it shows.</p>' +
       '<details class="more"' + (more ? ' open' : '') + '><summary>More detail (all optional)</summary>' +
-      '<div class="grid2"><label>Date of the event or posting <span class="hint">if different</span><input type="date" id="f-event" value="' + esc(r.eventDate) + '"></label>' +
-      '<label>Intake basis <span class="hint">threat category, if you use one</span><select id="f-basis">' + options(d.settings.basisList, r.basis, 'None chosen') + '</select></label></div>' +
+      '<div class="grid2"><label>Date of the event or posting <span class="hint">if different</span>' + dateInput('f-event', r.eventDate) + '</label><span></span></div>' +
       '<label>Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
-      '<div class="grid2"><label>Repost of, or based on <span class="hint">a reshare, or a report that only restates one already filed; counts once with it</span><select id="f-dup">' + options(dupChoices, r.dupOf, 'Neither') + '</select></label>' +
-      '<label>Answers a lead <span class="hint">for results that come back from a lead</span><select id="f-lead">' + options(leadChoices, r.leadId || '', 'None') + '</select></label></div>' +
+      (r.leadId ? '<input type="hidden" id="f-lead" value="' + esc(r.leadId) + '"><p class="muted small">This report was started from lead ' + esc(r.leadId) + ' and answers it.</p>' : '') +
       '<label>Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="3">' + esc(r.summary) + '</textarea></label>' +
       '<label>Original text <span class="hint">a SHA-256 fingerprint is stored with the capture time</span><textarea id="f-original" rows="4">' + esc(r.originalText) + '</textarea></label>' +
-      (r.hash ? '<p class="muted small">Fingerprint ' + esc(r.hash.slice(0, 16)) + '… captured ' + esc(r.hashAt) + '</p>' : '') + '</details>' +
+      (r.hash ? '<p class="muted small">Fingerprint ' + esc(r.hash.slice(0, 16)) + '… captured ' + esc(CI.fmtDateTime(r.hashAt)) + '</p>' : '') + '</details>' +
       '<div id="form-errors" class="errors" role="alert"></div>' +
       '<div class="row"><button class="btn primary" data-action="save-report" data-id="' + esc(id || '') + '">' + (id ? 'Save' : 'Save, then add names and connections') + '</button><a class="btn" href="' + (id ? '#/report/' + esc(id) : '#/reports') + '">Cancel</a></div></form>';
   }
   handlers['save-report'] = function (el) {
     var id = el.getAttribute('data-id'), ex = id ? idx().report[id] : null;
+    var rec = readDate('f-received'), ev = readDate('f-event');
     var r = {
-      received: val('f-received'), subject: val('f-subject').trim(), eventDate: val('f-event'), sourceType: val('f-type'), basis: val('f-basis'), sourceRef: val('f-ref').trim(),
-      archiveLoc: val('f-arch').trim(), dupOf: val('f-dup'), leadId: val('f-lead'), summary: val('f-summary').trim(), originalText: val('f-original')
+      received: rec || '', subject: val('f-subject').trim(), eventDate: ev || '', sourceType: val('f-type'), sourceRef: val('f-ref').trim(),
+      archiveLoc: val('f-arch').trim(), summary: val('f-summary').trim(), originalText: val('f-original')
     };
+    var leadEl = document.getElementById('f-lead'); if (leadEl) r.leadId = leadEl.value;
     var problems = CI.validateReport(r), box = document.getElementById('form-errors');
+    if (rec === null) problems = [DATE_HELP.replace('Not a date', 'Date of report is not a date')].concat(problems.filter(function (x) { return !/^Date of report/.test(x); }));
+    if (ev === null) problems.push('Date of the event is not a date I can read. Try 25 Oct. 2026.');
     if (problems.length) {
       box.innerHTML = problems.map(function (p) { return '<div>' + esc(p) + '</div>'; }).join('');
       logEvent('blocked', 'Save blocked: ' + problems.join(' '), id || '(new report)');
@@ -245,7 +256,7 @@
         if (hash !== undefined) { ex.hash = hash.hash; ex.hashAt = hash.at; }
         persist(); toast('Details saved.'); go('#/report/' + ex.id);
       } else {
-        var n = Object.assign({ id: CI.nextId(d, 'report'), hash: hash ? hash.hash : '', hashAt: hash ? hash.at : '', entities: [], created: CI.today(), updated: CI.today() }, r);
+        var n = Object.assign({ id: CI.nextId(d, 'report'), hash: hash ? hash.hash : '', hashAt: hash ? hash.at : '', basis: '', dupOf: '', leadId: '', entities: [], created: CI.today(), updated: CI.today() }, r);
         d.reports.push(n); persist(); go('#/report/' + n.id);
       }
     };
@@ -265,12 +276,12 @@
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
     var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="raise-lead-report" data-id="' + esc(id) + '">Raise a lead</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
-    h += '<div class="card"><dl class="kv"><dt>Date of report</dt><dd>' + esc(r.received) + (r.eventDate ? ' <span class="muted">(event ' + esc(r.eventDate) + ')</span>' : '') + '</dd>' +
+    h += '<div class="card"><dl class="kv"><dt>Date of report</dt><dd>' + esc(CI.fmtDate(r.received)) + (r.eventDate ? ' <span class="muted">(event ' + esc(CI.fmtDate(r.eventDate)) + ')</span>' : '') + '</dd>' +
       '<dt>Subject</dt><dd>' + esc(r.subject || '–') + '</dd>' +
       '<dt>Source</dt><dd>' + esc(r.sourceRef) + (r.sourceType ? ' <span class="muted">(' + esc(r.sourceType) + ')</span>' : '') + '</dd>' +
       (r.basis ? '<dt>Intake basis</dt><dd>' + esc(r.basis) + '</dd>' : '') +
       (r.archiveLoc ? '<dt>Preserved copy</dt><dd>' + esc(r.archiveLoc) + '</dd>' : '') +
-      (r.hash ? '<dt>Fingerprint</dt><dd class="mono small">' + esc(r.hash) + '<br><span class="muted">captured ' + esc(r.hashAt) + '</span></dd>' : '') +
+      (r.hash ? '<dt>Fingerprint</dt><dd class="mono small">' + esc(r.hash) + '<br><span class="muted">captured ' + esc(CI.fmtDateTime(r.hashAt)) + '</span></dd>' : '') +
       (dupInfo ? '<dt>Repost</dt><dd>' + dupInfo + '</dd>' : '') +
       (r.leadId ? '<dt>Answers lead</dt><dd><a href="#/lead/' + esc(r.leadId) + '">' + esc(r.leadId) + '</a></dd>' : '') +
       (reposts.length ? '<dt>Reposts</dt><dd>' + reposts.map(function (x) { return repLink(x.id); }).join(', ') + '</dd>' : '') +
@@ -536,7 +547,7 @@
     if (repIds.length) {
       h += '<table class="tight"><tbody>' + repIds.map(function (rid) {
         var r = idx().report[rid], x = r.entities.filter(function (y) { return y.entityId === id; })[0];
-        return '<tr><td>' + repLink(rid) + '</td><td>' + esc(r.received) + '</td><td>' + esc(x ? x.role : '') + '</td><td>' + esc(trunc(r.summary, 110)) + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
+        return '<tr><td>' + repLink(rid) + '</td><td>' + esc(CI.fmtDate(r.received)) + '</td><td>' + esc(x ? x.role : '') + '</td><td>' + esc(trunc(r.summary, 110)) + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="muted">Not in any report yet.</p>';
     h += '</div><div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this entity into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
@@ -612,7 +623,7 @@
     view.innerHTML = h;
   }
   function logRow(x) {
-    return '<tr><td class="nowrap muted small">' + esc(x.t.slice(0, 16).replace('T', ' ')) + '</td><td><span class="tag" title="' + esc(KIND_HELP[x.kind] || '') + '">' + esc(KIND[x.kind] || x.kind) + '</span></td><td>' + esc(x.text) + (KIND_HELP[x.kind] && x.kind !== 'snag' ? '<div class="muted small">' + esc(KIND_HELP[x.kind]) + '</div>' : '') +
+    return '<tr><td class="nowrap muted small">' + esc(CI.fmtDateTime(x.t)) + '</td><td><span class="tag" title="' + esc(KIND_HELP[x.kind] || '') + '">' + esc(KIND[x.kind] || x.kind) + '</span></td><td>' + esc(x.text) + (KIND_HELP[x.kind] && x.kind !== 'snag' ? '<div class="muted small">' + esc(KIND_HELP[x.kind]) + '</div>' : '') +
       (x.reportId && x.reportId.charAt(0) === 'R' && x.reportId.charAt(1) === '-' ? '<div class="small">Report: ' + repLink(x.reportId) + '</div>' : '') + '</td><td class="right nowrap">' +
       (x.resolved ? '' : '<button class="btn small" data-action="log-resolve" data-id="' + esc(x.id) + '">Resolve</button> ') + '<button class="btn small" data-action="log-delete" data-id="' + esc(x.id) + '">Delete</button></td></tr>';
   }
@@ -736,7 +747,7 @@
   CI.views = CI.views || {};
   CI.app = {
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
-    go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
+    dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
   };
   CI.views.quickBank = function (seeds, hops, name) {
     var b = d.banks.filter(function (x) { return x.quick; })[0];

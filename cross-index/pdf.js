@@ -31,10 +31,7 @@
     if (!lib) throw new Error('The PDF library did not load (vendor/jspdf.umd.min.js).');
     return lib;
   }
-  CI.fmtShort = function (iso) {
-    var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[2]) - 1] + ' ' + Number(m[3]) : (iso || '');
-  };
+  CI.fmtShort = function (iso) { return CI.fmtDate(iso); };
   CI.fileSafe = function (s) { return String(s || 'chart').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'chart'; };
 
   /* ---------- tiled chart ---------- */
@@ -195,7 +192,7 @@
       doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
       doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 255), X0, 132);
       doc.text(String(n('NOT_STARTED')), X0 + 270, 132); doc.text(String(n('IN_PROGRESS')), X0 + 355, 132); doc.text(String(n('DONE') + n('NO_RESULT')), X0 + 440, 132);
-      lab(doc, 'Lead', X0, 176); lab(doc, 'Question', X0 + 64, 176); lab(doc, 'With', X0 + 296, 176); lab(doc, 'Issued', X0 + 382, 176); lab(doc, 'Status', X0 + 428, 176);
+      lab(doc, 'Lead', X0, 176); lab(doc, 'Question', X0 + 64, 176); lab(doc, 'With', X0 + 270, 176); lab(doc, 'Issued', X0 + 346, 176); lab(doc, 'Status', X0 + 416, 176);
       doc.setDrawColor(17); doc.setLineWidth(1.6); doc.line(X0, 183, X1, 183);
       footer(doc);
       return 205;
@@ -204,12 +201,12 @@
     if (!open.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('No open leads.', X0, y + 10); }
     open.forEach(function (l) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-      var ql = lines(doc, l.question, 222, 4), h = Math.max(1, ql.length) * 14;
+      var ql = lines(doc, l.question, 196, 4), h = Math.max(1, ql.length) * 14;
       if (y + h > 728) { doc.addPage('letter', 'portrait'); y = top(); }
       doc.setFont('courier', 'bold'); doc.text(l.id, X0, y);
       doc.setFont('helvetica', 'normal'); ql.forEach(function (ln, i) { doc.text(ln, X0 + 64, y + i * 14); });
-      doc.text(oneLine(doc, l.with, 80), X0 + 296, y); doc.text(CI.fmtShort(l.issued), X0 + 382, y);
-      doc.setFont('helvetica', 'bold'); doc.text(oneLine(doc, CI.leadStatus(l.status).label, 66), X0 + 428, y);
+      doc.text(oneLine(doc, l.with, 70), X0 + 270, y); doc.setFontSize(10); doc.text(CI.fmtShort(l.issued), X0 + 346, y); doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold'); doc.text(oneLine(doc, CI.leadStatus(l.status).label, 70), X0 + 416, y);
       doc.setDrawColor(170); doc.setLineWidth(0.6); doc.line(X0, y + h + 6, X1, y + h + 6);
       y += h + 22;
     });

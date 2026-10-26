@@ -131,7 +131,7 @@
       var t = cc.strings.filter(function (x) { return x.id === st.sel.id; })[0];
       if (t) {
         h += '<h3>Connection</h3><p>' + esc(name(t.a)) + ' <span class="rel">— ' + esc(t.label || 'connected') + ' —</span> ' + esc(name(t.b)) + '</p><div class="group-label">Reports behind it</div><ul class="plain">' +
-          t.reportIds.map(function (rid) { var r = idx.report[rid] || {}; return '<li>' + A.repLink(rid) + (r.dupOf ? ' <span class="tag">repost of ' + esc(r.dupOf) + '</span>' : '') + ' <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.reportDate(r)) + '</span><div class="muted small">' + esc(A.trunc(r.summary || '', 120)) + '</div></li>'; }).join('') + '</ul>';
+          t.reportIds.map(function (rid) { var r = idx.report[rid] || {}; return '<li>' + A.repLink(rid) + (r.dupOf ? ' <span class="tag">repost of ' + esc(r.dupOf) + '</span>' : '') + ' <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span><div class="muted small">' + esc(A.trunc(r.summary || '', 120)) + '</div></li>'; }).join('') + '</ul>';
         if (g.flags.edges[t.id]) h += '<div class="group-label">Next: open leads about both files</div>' + leadItems(g.flags.edges[t.id]);
         h += '<div class="stack"><button class="btn small" data-action="cc-string-edit" data-id="' + esc(t.id) + '">Change label or reports</button><button class="btn small" data-action="cc-raise-edge" data-id="' + esc(t.id) + '">Raise a lead about this</button><button class="btn small danger" data-action="cc-string-del" data-id="' + esc(t.id) + '">Remove connection</button></div>';
       }
@@ -165,7 +165,7 @@
   /* ---------- connections ---------- */
   function reportRow(rid, on) {
     var r = A.idx().report[rid] || {};
-    return '<label class="chk"><input type="checkbox" data-id="' + esc(rid) + '" class="cs-r"' + (on ? ' checked' : '') + '> <b>' + esc(rid) + '</b> <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.reportDate(r)) + ' · ' + esc(A.trunc(r.summary || '', 90)) + '</span></label>';
+    return '<label class="chk"><input type="checkbox" data-id="' + esc(rid) + '" class="cs-r"' + (on ? ' checked' : '') + '> <b>' + esc(rid) + '</b> <span class="muted small">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + ' · ' + esc(A.trunc(r.summary || '', 90)) + '</span></label>';
   }
   function stringModal() {
     var f = st.form, cc = CI.caseChartOf(inv()), pins = cc.pins.filter(function (p) { return ent(p.entityId); });

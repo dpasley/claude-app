@@ -195,6 +195,20 @@ t('validation needs only date, subject and source', () => {
   assert.equal(CI.validateReport({}).length, 3);
 });
 
+t('dates show as day, short month, year and are read back from what people type', () => {
+  assert.equal(CI.fmtDate('2026-03-05'), '5 Mar. 2026');
+  assert.equal(CI.fmtDate('2026-05-31'), '31 May 2026');
+  assert.equal(CI.fmtDate('2026-09-01'), '1 Sep. 2026');
+  assert.equal(CI.fmtDate(''), '');
+  ['25 Oct. 2026', '25 Oct 2026', '25 october 2026', '25-Oct-2026', 'Oct 25, 2026', '25/10/2026', '25.10.26', '2026-10-25', ' 25th Oct 2026 '].forEach(s => assert.equal(CI.parseDate(s), '2026-10-25', s));
+  assert.equal(CI.parseDate('3/4/2026'), '2026-04-03');          // day first
+  assert.equal(CI.parseDate('Sept 9 2026'), '2026-09-09');
+  assert.equal(CI.parseDate(''), '');
+  ['31 Feb 2026', '32 Oct 2026', '25 Foo 2026', '25/13/2026', 'yesterday', '25 Oct'].forEach(s => assert.equal(CI.parseDate(s), null, s));
+  assert.equal(CI.parseDate(CI.fmtDate('2024-02-29')), '2024-02-29');  // round trip incl. leap day
+  assert.ok(/^\d{1,2} [A-Z][a-z]+\.? \d{4} \d{2}:\d{2}$/.test(CI.fmtDateTime('2026-10-25T18:05:00.000Z')));
+});
+
 t('items are index entries beside the four file types', () => {
   assert.deepEqual(CI.FILE_TYPES, ['individual', 'group', 'subject', 'area']);
   assert.ok(CI.ENTITY_TYPES.indexOf('item') !== -1);

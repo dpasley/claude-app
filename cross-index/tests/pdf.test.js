@@ -6,6 +6,11 @@ require('../core.js'); require('../sample.js'); require('../images.js'); require
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
+t('PDF short dates carry the year too: day, short month, year', () => {
+  assert.equal(CI.fmtShort('2026-12-25'), '25 Dec. 2026');
+  assert.equal(CI.fmtShort(''), '');
+});
+
 t('planTiles centres and fits the graph inside the poster, tiles cover it', () => {
   const p = CI.planTiles({ gw: 1200, gh: 700, cols: 2, rows: 2, pageW: 17, pageH: 11, margin: 0.35 });
   assert.ok(Math.abs(p.pw - 16.3) < 1e-9 && Math.abs(p.ph - 10.3) < 1e-9);

@@ -48,7 +48,7 @@
       '<div class="grid2"><label>Outcome sought<select id="pl-out">' + A.options(CI.PLAN_OUTCOMES.map(function (o) { return { value: o.id, label: o.label }; }), p.outcome) + '</select></label><label>Prepared by<input type="text" id="pl-by" value="' + esc(p.preparedBy) + '"></label></div>' +
       '<div class="group-label" style="margin-top:6px">Actions</div>' + actionRows(p) +
       '<h3 class="sep">Legal clearance (whole plan)</h3><div class="grid2"><label>Status<select id="pl-legal">' + A.options(CI.LEGAL_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), p.legal.status) + '</select></label><label>Reviewed by<input type="text" id="pl-rev" value="' + esc(p.legal.reviewer) + '"></label></div>' +
-      '<div class="grid2"><label>Date<input type="date" id="pl-ldate" value="' + esc(p.legal.date) + '"></label><span></span></div>' +
+      '<div class="grid2"><label>Date ' + A.dateInput('pl-ldate', p.legal.date) + '</label><span></span></div>' +
       '<label>Comments or conditions<textarea id="pl-lcom" rows="2">' + esc(p.legal.comments) + '</textarea></label>' +
       '<h3 class="sep">Carrying it out</h3><p class="muted small">Can start only once legal has cleared the plan.</p><div class="grid2"><label>Status<select id="pl-exec">' + A.options(CI.EXEC_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), p.execution.status) + '</select></label><span></span></div>' +
       '<label>Outcome <span class="hint">what happened. Anything that comes back goes through Intake as a report.</span><textarea id="pl-eout" rows="2">' + esc(p.execution.outcome) + '</textarea></label>' +
@@ -65,8 +65,10 @@
   H['inv-raise'] = function (el) { CI.views.openLead({ bankId: el.getAttribute('data-bank') }); };
   H['plan-save'] = function (el) {
     var v = invOf(el); if (!v) return;
+    var ldate = A.readDate('pl-ldate');
+    if (ldate === null) { A.toast('Legal review date: ' + A.dateHelp, true); return; }
     var acts = [], i = 0; while (document.getElementById('pl-a' + i)) { acts.push({ text: val('pl-a' + i), owner: val('pl-o' + i) }); i++; }
-    var res = CI.savePlan(D(), v, { objective: val('pl-obj'), outcome: val('pl-out'), preparedBy: val('pl-by'), actions: acts, legalStatus: val('pl-legal'), reviewer: val('pl-rev'), legalDate: val('pl-ldate'), comments: val('pl-lcom'), execStatus: val('pl-exec'), execOutcome: val('pl-eout') });
+    var res = CI.savePlan(D(), v, { objective: val('pl-obj'), outcome: val('pl-out'), preparedBy: val('pl-by'), actions: acts, legalStatus: val('pl-legal'), reviewer: val('pl-rev'), legalDate: ldate, comments: val('pl-lcom'), execStatus: val('pl-exec'), execOutcome: val('pl-eout') });
     if (res.error) { A.toast(res.error, true); return; }
     if (v.plan.legal.status === 'WITH_LEGAL' && v.status !== 'PLAN_WITH_LEGAL' && v.status !== 'CLOSED') v.status = 'PLAN_WITH_LEGAL';
     if (v.plan.execution.status === 'EXECUTING' && v.status !== 'CLOSED') v.status = 'EXECUTING';

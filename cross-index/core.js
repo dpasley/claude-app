@@ -725,7 +725,7 @@
   CI.investigationFor = function (d, bankId) { return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
   CI.handOver = function (d, bank) {
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
-    var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.today(), at: new Date().toISOString(), graph: clone(live) };
+    var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live) };
     bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today();
     var inv = CI.investigationFor(d, bank.id);
     if (!inv) {
@@ -934,10 +934,38 @@
     return { files: items, clusters: clusters, days: days };
   };
 
+  /* Dates are stored as YYYY-MM-DD and shown as day, short month, year: 25 Oct. 2026. */
+  CI.MONTH_ABBR = ['Jan.', 'Feb.', 'Mar.', 'Apr.', 'May', 'Jun.', 'Jul.', 'Aug.', 'Sep.', 'Oct.', 'Nov.', 'Dec.'];
+  var MONTH_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
   CI.fmtDate = function (iso) {
     var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (!m) return iso || '';
-    return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[2]) - 1] + ' ' + Number(m[3]) + ', ' + m[1];
+    return Number(m[3]) + ' ' + CI.MONTH_ABBR[Number(m[2]) - 1] + ' ' + m[1];
+  };
+  /* A full timestamp (from toISOString) as local date and time: 25 Oct. 2026 14:05. */
+  CI.fmtDateTime = function (iso) {
+    var dt = new Date(iso);
+    if (!iso || isNaN(dt.getTime())) return CI.fmtDate(iso);
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    return CI.fmtDate(dt.getFullYear() + '-' + p2(dt.getMonth() + 1) + '-' + p2(dt.getDate())) + ' ' + p2(dt.getHours()) + ':' + p2(dt.getMinutes());
+  };
+  /* Reads what a person types: '25 Oct. 2026', '25 october 2026', '25/10/2026' (day first), 'Oct 25, 2026', '2026-10-25'.
+   * Returns YYYY-MM-DD, '' for blank, or null when it is not a date. */
+  CI.parseDate = function (text) {
+    var s = String(text == null ? '' : text).trim();
+    if (!s) return '';
+    var y, m, d, mt;
+    var monthOf = function (w) { w = String(w).toLowerCase(); if (w.length < 3) return 0; for (var i = 0; i < 12; i++) if (MONTH_FULL[i].indexOf(w) === 0) return i + 1; return 0; };
+    var year = function (t) { return t.length === 2 ? 2000 + Number(t) : Number(t); };
+    if ((mt = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/))) { y = +mt[1]; m = +mt[2]; d = +mt[3]; }
+    else if ((mt = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/))) { d = +mt[1]; m = +mt[2]; y = year(mt[3]); }
+    else if ((mt = s.match(/^(\d{1,2})(?:st|nd|rd|th)?[ \-\/.,]*([A-Za-z]{3,9})\.?[ \-\/.,]*(\d{2}|\d{4})$/))) { d = +mt[1]; m = monthOf(mt[2]); y = year(mt[3]); }
+    else if ((mt = s.match(/^([A-Za-z]{3,9})\.?[ ]*(\d{1,2})(?:st|nd|rd|th)?,?[ ]*(\d{2}|\d{4})$/))) { m = monthOf(mt[1]); d = +mt[2]; y = year(mt[3]); }
+    else return null;
+    if (!m || m < 1 || m > 12 || d < 1 || y < 1900 || y > 2100) return null;
+    if (d > new Date(Date.UTC(y, m, 0)).getUTCDate()) return null;
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    return y + '-' + p2(m) + '-' + p2(d);
   };
 
   /* ---------- export / import ---------- */

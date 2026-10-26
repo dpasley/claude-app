@@ -61,7 +61,7 @@
       '<div class="grid2"><label>Bank<select id="nl-bank">' + A.options(d.banks.map(function (b) { return { value: b.id, label: b.name }; }), bankId) + '</select></label>' +
       '<label>Kind<select id="nl-kind" data-on-change="lead-kind">' + A.options(CI.LEAD_KINDS.map(function (k) { return { value: k.id, label: k.title }; }), kind) + '</select></label></div>' +
       '<div class="grid2"><label>With<select id="nl-with">' + A.options(CI.LEAD_WITH.map(function (w) { return { value: w, label: w }; }), pre.with || (kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations')) + '</select></label>' +
-      '<label>Issued<input type="date" id="nl-issued" value="' + esc(pre.issued || CI.today()) + '"></label></div>' +
+      '<label>Issued ' + A.dateInput('nl-issued', pre.issued || CI.today()) + '</label></div>' +
       '<label>Question <span class="hint">one clear question, or the thing to retrieve</span><textarea id="nl-q" rows="3">' + esc(pre.question || '') + '</textarea></label>' +
       '<label>Raised by report<select id="nl-rep">' + A.options(reps, pre.raisedBy || '', 'Choose a report') + '</select></label>' +
       '<p class="muted small" id="nl-note">' + (pre.about && pre.about.length ? 'About: ' + esc(pre.about.map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ')) : '') + '</p>' +
@@ -72,7 +72,9 @@
   H['lead-kind'] = function (el) { var w = document.getElementById('nl-with'); if (w) w.value = el.value === 'DATA_REQUEST' ? 'Collection' : 'Investigations'; };
   H['lead-new'] = function () { CI.views.openLead({ bankId: ls.bank || undefined }); };
   H['lead-create'] = function () {
-    var res = CI.addLead(D(), { bankId: val('nl-bank'), kind: val('nl-kind'), with: val('nl-with'), question: val('nl-q'), raisedBy: val('nl-rep'), issued: val('nl-issued'), about: CI.views._leadAbout });
+    var iss = A.readDate('nl-issued');
+    if (iss === null) { A.toast('Issued: ' + A.dateHelp, true); return; }
+    var res = CI.addLead(D(), { bankId: val('nl-bank'), kind: val('nl-kind'), with: val('nl-with'), question: val('nl-q'), raisedBy: val('nl-rep'), issued: iss || CI.today(), about: CI.views._leadAbout });
     if (res.error) { A.toast(res.error, true); return; }
     A.persist(); A.closeModal(); A.toast('Lead ' + res.lead.id + ' created.'); A.go('#/lead/' + res.lead.id);
   };
@@ -85,18 +87,18 @@
     var results = CI.leadResults(d, l.id), raised = A.idx().report[l.raisedBy];
     var h = '<div class="page-head"><h1>Lead ' + esc(l.id) + ' ' + statusTag(l) + '</h1><div class="row wrap"><button class="btn" data-action="lead-sheet-one" data-id="' + esc(l.id) + '">Lead sheet (PDF)</button><a class="btn" href="#/leads">All leads</a></div></div>' +
       '<form class="card form" onsubmit="return false"><div class="grid2"><label>Bank<select id="ld-f-bank">' + A.options(d.banks.map(function (b) { return { value: b.id, label: b.name }; }), l.bankId) + '</select></label>' +
-      '<label>Issued<input type="date" id="ld-f-issued" value="' + esc(l.issued) + '"></label></div>' +
+      '<label>Issued ' + A.dateInput('ld-f-issued', l.issued) + '</label></div>' +
       '<div class="grid2"><label>Kind<select id="ld-f-kind">' + A.options(CI.LEAD_KINDS.map(function (k) { return { value: k.id, label: k.title }; }), l.kind) + '</select></label>' +
       '<label>With<select id="ld-f-with">' + A.options(CI.LEAD_WITH.map(function (w) { return { value: w, label: w }; }), l.with) + '</select></label></div>' +
       '<label>Question<textarea id="ld-f-q" rows="3">' + esc(l.question) + '</textarea></label>' +
       '<label>Raised by report<select id="ld-f-rep">' + A.options(reps, l.raisedBy) + '</select></label>' +
-      (raised ? '<p class="muted small" style="margin-top:-6px">' + esc(raised.sourceType || '') + ' · ' + esc(CI.reportDate(raised)) + ' · ' + esc(A.trunc(raised.summary || '', 140)) + ' <a href="#/report/' + esc(raised.id) + '">Open report</a></p>' : '') +
+      (raised ? '<p class="muted small" style="margin-top:-6px">' + esc(raised.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(raised))) + ' · ' + esc(A.trunc(raised.summary || '', 140)) + ' <a href="#/report/' + esc(raised.id) + '">Open report</a></p>' : '') +
       (l.about && l.about.length ? '<p class="small">About: ' + l.about.map(function (e) { return A.entLink(e); }).join(', ') + '</p>' : '') +
       '<label>Status<select id="ld-f-status">' + A.options(CI.LEAD_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), l.status) + '</select></label>' +
       '<label>Response <span class="hint">what came back, in a few words</span><textarea id="ld-f-resp" rows="4">' + esc(l.response) + '</textarea></label>' +
-      '<div class="grid2"><label>Returned by<input type="text" id="ld-f-by" value="' + esc(l.returnedBy) + '"></label><label>Returned on<input type="date" id="ld-f-ret" value="' + esc(l.returnedDate) + '"></label></div>' +
+      '<div class="grid2"><label>Returned by<input type="text" id="ld-f-by" value="' + esc(l.returnedBy) + '"></label><label>Returned on ' + A.dateInput('ld-f-ret', l.returnedDate) + '</label></div>' +
       '<div class="row"><button class="btn primary" data-action="lead-save" data-id="' + esc(l.id) + '">Save</button></div></form>' +
-      '<div class="card"><h3>Results that came back</h3>' + (results.length ? '<ul class="plain">' + results.map(function (r) { return '<li>' + A.repLink(r.id) + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.reportDate(r)) + '</span><div class="small">' + esc(A.trunc(r.summary || '', 140)) + '</div></li>'; }).join('') + '</ul>' : '<p class="muted small">None yet. What comes back is filed through Intake like any other report.</p>') +
+      '<div class="card"><h3>Results that came back</h3>' + (results.length ? '<ul class="plain">' + results.map(function (r) { return '<li>' + A.repLink(r.id) + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span><div class="small">' + esc(A.trunc(r.summary || '', 140)) + '</div></li>'; }).join('') + '</ul>' : '<p class="muted small">None yet. What comes back is filed through Intake like any other report.</p>') +
       '<div class="row"><button class="btn" data-action="lead-result" data-id="' + esc(l.id) + '">File a result as a new report</button></div></div>' +
       '<div class="card"><h3>Housekeeping</h3><button class="btn danger" data-action="lead-del" data-id="' + esc(l.id) + '">Delete this lead</button></div>';
     A.view.className = ''; A.view.innerHTML = h;
@@ -104,8 +106,10 @@
   H['lead-save'] = function (el) {
     var d = D(), l = d.leads.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!l) return;
     var q = val('ld-f-q').trim(); if (!q) { A.toast('Write the question.', true); return; }
-    l.bankId = val('ld-f-bank'); l.issued = val('ld-f-issued') || l.issued; l.kind = val('ld-f-kind'); l.with = val('ld-f-with'); l.question = q;
-    l.raisedBy = val('ld-f-rep'); l.status = val('ld-f-status'); l.response = val('ld-f-resp').trim(); l.returnedBy = val('ld-f-by').trim(); l.returnedDate = val('ld-f-ret');
+    var iss = A.readDate('ld-f-issued'), ret = A.readDate('ld-f-ret');
+    if (iss === null || ret === null) { A.toast((iss === null ? 'Issued: ' : 'Returned on: ') + A.dateHelp, true); return; }
+    l.bankId = val('ld-f-bank'); l.issued = iss || l.issued; l.kind = val('ld-f-kind'); l.with = val('ld-f-with'); l.question = q;
+    l.raisedBy = val('ld-f-rep'); l.status = val('ld-f-status'); l.response = val('ld-f-resp').trim(); l.returnedBy = val('ld-f-by').trim(); l.returnedDate = ret;
     A.persist(); A.toast('Lead saved.'); CI.views.lead(l.id);
   };
   H['lead-del'] = function (el) {
