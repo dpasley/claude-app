@@ -71,3 +71,8 @@ Chart → *Print for the wall…* splits the chart across tabloid (11 × 17) or 
 ## Tests
 
 `node tests/core.test.js` (logic), `node tests/pdf.test.js` (leads, estimate, ranking, PDFs, tile maths) and `node tests/chart.test.js` (chart elements and styles against the bundled Cytoscape in headless mode). Plain Node, nothing to install.
+
+
+## Sample data
+
+*Settings → Load fictional sample data* loads a made-up world, sized to try every feature: 16 individuals (one a deliberate duplicate), 14 groups, 13 areas, 12 subjects, about 58 reports and 100 connections over the last two months, with profiles, file summaries and time lines. Three matters run through it (a vendor-invoice scheme through shell companies; an outage at Depot 4 announced online beforehand, and the protest campaign that follows; a schedule leak and the harassment of a dispatcher) plus quieter background. It includes five special banks (two handed over, one with new reports since last looked and two charts, one closed with no situation, one just opened), three investigations (one opened without a bank) with leads, requests and case charts. The portraits and logos are drawn by `portraits.js`; nobody and no brand in it is real. `tests/fixture-sample.js` keeps the small older sample the unit tests use.

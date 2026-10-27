@@ -1,7 +1,7 @@
 // Run with: node tests/core.test.js   (no install needed)
 const assert = require('assert');
 globalThis.CI = {};
-require('../core.js'); require('../sample.js'); require('../pointers.js');
+require('../core.js'); require('../sample.js'); require('./fixture-sample.js'); require('../pointers.js');
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 

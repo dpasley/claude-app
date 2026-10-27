@@ -2,7 +2,7 @@
 const assert = require('assert'), fs = require('fs'), path = require('path');
 globalThis.CI = {};
 globalThis.jspdf = require('../vendor/jspdf.umd.min.js');
-require('../core.js'); require('../sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js'); require('../pointers.js');
+require('../core.js'); require('../sample.js'); require('./fixture-sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js'); require('../pointers.js');
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
