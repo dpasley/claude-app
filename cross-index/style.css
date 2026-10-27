@@ -507,3 +507,22 @@ details.snap > summary { cursor: pointer; font-size: 11px; text-transform: upper
 .cite-in { width: 100%; box-sizing: border-box; }
 .cite-res { margin-top: 4px; }
 .stmt-act { display: flex; gap: 8px; margin-top: 10px; }
+
+/* ---- profile fields, summaries, time line ---- */
+.pf-h { margin: 18px 0 8px; font-size: 14px; }
+.pf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; margin-bottom: 12px; }
+.pf-f input, .pf-f select, .pf-f textarea { margin-top: 0; }
+.pf-grid .pf-f.wide { grid-column: 1 / -1; }
+.pf-f { display: flex; flex-direction: column; gap: 4px; }
+.sm-top { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-bottom: 10px; }
+.sm-scroll { max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; margin: 6px 0 12px; }
+.sm-reps td { padding: 3px 8px; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--hover); }
+.tl-add { display: grid; grid-template-columns: 170px 1fr 130px 150px auto; gap: 10px; align-items: start; }
+.tl-add .btn { align-self: end; }
+.tl-add input, .tl-add select { margin-top: 0; }
+.tl-add label { display: flex; flex-direction: column; gap: 4px; }
+tr.key td { font-weight: 600; }
+.pad { padding: 12px 16px; }
+@media (max-width: 760px) { .pf-grid, .sm-top { grid-template-columns: 1fr; } .tl-add { grid-template-columns: 1fr 1fr; } .tl-add .tl-what { grid-column: 1 / -1; } }

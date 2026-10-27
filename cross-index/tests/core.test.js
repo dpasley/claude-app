@@ -350,3 +350,40 @@ t('estimate statements can be edited, re-cited and promoted', () => {
   assert.ok(!CI.updateEstimateItem(d, est, th.id, { text: 'Edited.', kind: 'HYPOTHESIS', reportIds: [] }).error);
   assert.equal(th.text, 'Edited.');
 });
+
+t('summaries cover only what is new; time line is typed against the event date', () => {
+  const d = CI.sampleData(); let idx = CI.buildIndex(d);
+  const f = d.entities.find(e => (idx.reportsByEntity[e.id] || []).length >= 3);
+  const all = CI.reportsOf(idx, f.id);
+  assert.deepEqual(CI.unsummarized(d, idx, f.id), all);
+  assert.ok(CI.addSummary(d, { fileId: f.id, date: '2026-10-01', text: ' ', covers: [] }).error);
+  const first = all.slice(0, 2);
+  const s1 = CI.addSummary(d, { fileId: f.id, date: '2026-10-01', author: 'DP', text: 'First.', covers: first.concat(['R-9999']) }).summary;
+  assert.deepEqual(s1.covers, first);
+  assert.deepEqual(CI.unsummarized(d, idx, f.id), all.slice(2));
+  const s2 = CI.addSummary(d, { fileId: f.id, date: '2026-10-20', text: 'Second.', covers: CI.unsummarized(d, idx, f.id) }).summary;
+  assert.equal(CI.unsummarized(d, idx, f.id).length, 0);
+  assert.deepEqual(CI.summariesFor(d, f.id).map(x => x.id), [s1.id, s2.id]);
+  CI.deleteSummary(d, s1.id);
+  assert.deepEqual(CI.unsummarized(d, idx, f.id), first);
+  // time line
+  assert.ok(CI.addTimeline(d, { fileId: f.id, date: '', text: 'x' }).error);
+  assert.ok(CI.addTimeline(d, { fileId: f.id, date: '2026-09-02', text: 'x', reportIds: 'R-9999' }).error);
+  CI.addTimeline(d, { fileId: f.id, date: '2026-09-10', text: 'Later', level: 2, reportIds: all[0] + ', ' + all[0] });
+  CI.addTimeline(d, { fileId: f.id, date: '2026-09-02', text: 'Earlier', level: 1 });
+  CI.addTimeline(d, { fileId: f.id, date: '2026-09-05', text: 'Detail', level: 3 });
+  assert.deepEqual(CI.timelineFor(d, f.id).map(x => x.text), ['Earlier', 'Detail', 'Later']);
+  assert.deepEqual(CI.timelineFor(d, f.id, 2).map(x => x.text), ['Earlier', 'Later']);
+  assert.deepEqual(CI.timelineFor(d, f.id, 3, '2026-09-03', '2026-09-30').map(x => x.text), ['Detail', 'Later']);
+  assert.equal(CI.timelineFor(d, f.id).find(x => x.text === 'Later').reportIds.length, 1);
+  assert.ok(CI.entityInUse(d, f.id));
+  // deleting a report drops it from summaries and entries; merging moves them
+  CI.deleteReport(d, all[0]);
+  assert.ok(!d.summaries.some(x => x.covers.includes(all[0])) && !d.timeline.some(x => x.reportIds.includes(all[0])));
+  const other = d.entities.find(e => e.id !== f.id && e.type === f.type);
+  CI.mergeEntities(d, f.id, other.id);
+  assert.ok(d.summaries.every(x => x.fileId === other.id) && d.timeline.every(x => x.fileId === other.id));
+  // profile fields exist for each kind of file
+  ['individual', 'group', 'area', 'subject'].forEach(t => assert.ok(CI.profileFields(t).length >= 5));
+  assert.deepEqual(CI.normalize(JSON.parse(JSON.stringify(CI.emptyData()))).summaries, []);
+});

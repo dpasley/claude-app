@@ -188,7 +188,7 @@
     else if (name === 'entities') { if (parts[1]) entStates.files.type = decodeURIComponent(parts[1]); viewEntities('files'); }
     else if (name === 'items') CI.views.indexes('', '');
     else if (name === 'indexes') CI.views.indexes(parts[1] ? decodeURIComponent(parts[1]) : '', parts[2]);
-    else if (name === 'entity') viewEntity(parts[1]);
+    else if (name === 'entity') viewEntity(parts[1], parts[2]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
     else if (name === 'bank') CI.views.bank(parts[1] || '', parts[2] || '');
     else if (name === 'observation') CI.views.observation();
@@ -620,7 +620,7 @@
   };
 
   /* ---------- ENTITY PAGE ---------- */
-  function viewEntity(id) {
+  function viewEntity(id, tab) {
     var e = idx().entity[id];
     if (!e) return notFound('Entity');
     var repIds = (idx().reportsByEntity[id] || []).slice().sort().reverse();
@@ -635,27 +635,59 @@
       (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention it in passing.</div>' : '') +
       (spec ? '<div class="row wrap" style="margin-top:8px"><label class="btn small">' + (e.photo ? 'Replace ' : 'Add ') + spec.label.toLowerCase() + '<input type="file" accept="image/*" data-on-change="photo-file" data-id="' + esc(id) + '" hidden></label>' + (e.photo ? '<button class="btn small" data-action="photo-remove" data-id="' + esc(id) + '">Remove</button>' : '') + '<span class="muted small">Shown on the chart. Stored in this browser, shrunk to a small image.</span></div>' : '<div class="muted small" style="margin-top:6px">Pictures can be added to individuals (a photo) and groups (a logo).</div>') +
       '</div></div>';
+    var nsum = d.summaries.filter(function (x) { return x.fileId === id; }).length, ntl = d.timeline.filter(function (x) { return x.fileId === id; }).length, nnew = CI.unsummarized(d, idx(), id).length;
+    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl]];
+    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length]];
+    if (!TABS.some(function (t) { return t[0] === tab; })) tab = 'profile';
+    h += '<div class="tabs">' + TABS.map(function (t) {
+      return '<a class="tab' + (tab === t[0] ? ' on' : '') + '" href="#/entity/' + esc(id) + (t[0] === 'profile' ? '' : '/' + t[0]) + '">' + t[1] + (t[2] != null ? ' <span class="n">' + t[2] + '</span>' : '') +
+        (t[0] === 'summaries' && nnew && !CI.isItem(e) ? ' <span class="tag warn" title="Reports not yet covered by a summary">' + nnew + ' new</span>' : '') + '</a>';
+    }).join('') + '</div>';
+    if (tab === 'profile') {
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
       (CI.isItem(e) ? '<label>Kind of item <span class="hint">plate, phone, email, account…</span><input type="text" id="en-itemtype" value="' + esc(e.itemType || '') + '"></label><p class="muted small">An item has no folder. This page is its index entry: the reports that mention it and its connections.</p>' : '') +
       (CI.isItem(e) ? '' : '<label>Identifying details <span class="hint">date of birth or age, address, nickname, description: what tells this one apart</span><input type="text" id="en-details" value="' + esc(e.details || '') + '"></label>') +
+      profileFields(e) +
       '<label>Aliases, handles and spellings <span class="hint">comma separated</span><input type="text" id="en-aliases" value="' + esc(e.aliases.join(', ')) + '"></label>' +
       '<label>Notes <span class="hint">analyst notes; facts belong in reports</span><textarea id="en-notes" rows="2">' + esc(e.notes) + '</textarea></label>' +
       '<div class="row"><button class="btn primary" data-action="save-entity" data-id="' + esc(id) + '">Save</button><span class="muted small">' + esc(id) + '</span></div></form>';
+    }
+    if (tab === 'connections') {
     var cgroups = CI.connectionIndex(d, id, idx());
     h += '<div class="card flush"><h2 style="padding:14px 16px 6px">Connections</h2>';
     if (cgroups.length) h += connTable(cgroups);
     else h += '<p class="muted" style="padding:0 16px 14px">No connections recorded for this name yet.</p>';
-    h += '</div><div class="card flush"><h2 style="padding:14px 16px 6px">Reports (' + repIds.length + ')</h2>';
+      h += '</div>';
+    }
+    if (tab === 'reports') {
+    h += '<div class="card flush"><h2 style="padding:14px 16px 6px">Reports (' + repIds.length + ')</h2>';
     if (repIds.length) {
       h += '<table class="fixed"><colgroup><col style="width:10%"><col style="width:14%"><col style="width:76%"></colgroup><thead><tr><th>Report</th><th>Date</th><th>Subject</th></tr></thead><tbody>' + repIds.map(function (rid) {
         var r = idx().report[rid];
         return '<tr><td>' + repLink(rid) + '</td><td>' + esc(CI.fmtDate(r.received)) + '</td><td title="' + esc(r.subject || r.summary) + '">' + esc(r.subject || r.summary || '') + (r.dupOf ? ' <span class="tag">repost</span>' : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
     } else h += '<p class="muted" style="padding:0 16px 14px">Not in any report yet.</p>';
-    h += '</div><div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this name into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
+      h += '</div>';
+    }
+    if (tab === 'summaries') h += CI.views.fileSummaries(e);
+    if (tab === 'timeline') h += CI.views.fileTimeline(e);
+    if (tab === 'profile') {
+    h += '<div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this name into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
       '<span class="muted small">Use when two entries turned out to be the same one. Merges are logged and can be undone from Review.</span></div>' +
       '<div class="row" style="margin-top:10px"><button class="btn danger" data-action="del-entity" data-id="' + esc(id) + '">Delete this name</button><span class="muted small">Only possible while no report or connection uses it.</span></div></div>';
+    }
     view.innerHTML = h;
+  }
+  function profileFields(e) {
+    var fs = CI.isItem(e) ? [] : CI.profileFields(e.type); if (!fs.length) return '';
+    var p = e.profile || {};
+    return '<h3 class="pf-h">' + esc(CI.TYPE_LABEL[e.type]) + ' profile</h3><div class="pf-grid">' + fs.map(function (f) {
+      var v = p[f.id] || '', id = 'pf-' + f.id, hint = f.hint ? ' <span class="hint">' + esc(f.hint) + '</span>' : '';
+      if (f.kind === 'date') return '<label class="pf-f">' + esc(f.label) + hint + dateInput(id, v, 'date-fix') + '</label>';
+      if (f.kind === 'select') return '<label class="pf-f">' + esc(f.label) + hint + '<select id="' + id + '">' + options([{ value: '', label: '' }].concat(f.options.map(function (o) { return { value: o, label: o }; })), v) + '</select></label>';
+      if (f.kind === 'long') return '<label class="pf-f wide">' + esc(f.label) + hint + '<textarea id="' + id + '" rows="2">' + esc(v) + '</textarea></label>';
+      return '<label class="pf-f">' + esc(f.label) + hint + '<input type="text" id="' + id + '" value="' + esc(v) + '"></label>';
+    }).join('') + '</div>';
   }
   handlers['photo-file'] = function (el) {
     var e = idx().entity[el.getAttribute('data-id')], f = el.files && el.files[0];
@@ -672,6 +704,15 @@
     e.name = name; e.type = val('en-type'); e.notes = val('en-notes');
     var dtl = document.getElementById('en-details'); if (dtl) e.details = dtl.value.trim();
     if (e.type === 'item') { var it = document.getElementById('en-itemtype'); e.itemType = it ? it.value.trim() : (e.itemType || ''); } else delete e.itemType;
+    var prof = Object.assign({}, e.profile || {}), bad = '';
+    if (!CI.isItem(e)) CI.profileFields(e.type).forEach(function (f) {
+      var el = document.getElementById('pf-' + f.id); if (!el) return;
+      var v = f.kind === 'date' ? readDate('pf-' + f.id) : el.value.trim();
+      if (v === null) { bad = f.label; return; }
+      if (v) prof[f.id] = v; else delete prof[f.id];
+    });
+    if (bad) { toast(bad + ': ' + DATE_HELP, true); return; }
+    e.profile = prof;
     e.aliases = val('en-aliases').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
     persist(); toast('Saved.'); viewEntity(e.id);
   };
@@ -851,7 +892,7 @@
   CI.views = CI.views || {};
   CI.app = {
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
-    dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, connTable: connTable, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
+    viewEntity: function (id, tab) { viewEntity(id, tab); }, dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, connTable: connTable, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
   };
   CI.views.quickBank = function (seeds, hops, name) {
     var b = d.banks.filter(function (x) { return x.quick; })[0];

@@ -272,4 +272,99 @@
     footer(doc);
     return doc.output('blob');
   };
+
+  /* ---------- the common print style: every sheet from here on starts and ends the same way ----------
+   * Top: document type in capitals, the file or bank it belongs to, a heavy rule.
+   * Bottom of every page: what it is, the date printed and "Page n of m". */
+  CI.pdf.begin = function () { var JS = JsPDF(); return new JS({ unit: 'pt', format: 'letter', compress: true }); };
+  CI.pdf.top = function (doc, type, name) {
+    doc.setTextColor(17); doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text(type, X0, 76, { charSpace: 1.8 });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.text(oneLine(doc, name, 290), X1, 76, { align: 'right' });
+    doc.setDrawColor(17); doc.setLineWidth(2.5); doc.line(X0, 87, X1, 87);
+    return 112;
+  };
+  CI.pdf.stamp = function (doc, what) {
+    var n = doc.getNumberOfPages();
+    for (var i = 1; i <= n; i++) {
+      doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
+      doc.setDrawColor(190); doc.setLineWidth(0.6); doc.line(X0, 748, X1, 748);
+      doc.text(oneLine(doc, what, 300), X0, 762);
+      doc.text('Printed ' + CI.fmtDate(CI.today()) + '   ·   Page ' + i + ' of ' + n, X1, 762, { align: 'right' });
+    }
+    doc.setTextColor(17);
+  };
+  /* Writes wrapped text, adding pages as needed. Returns the y after the text. */
+  CI.pdf.flow = function (doc, text, o) {
+    var size = o.size || 11.5, lead = o.lead || size * 1.45, x = o.x == null ? X0 : o.x, w = o.w || W, y = o.y;
+    doc.setFont('helvetica', o.bold ? 'bold' : 'normal'); doc.setFontSize(size);
+    String(text || '').split(/\n/).forEach(function (para) {
+      var ls = para.trim() ? doc.splitTextToSize(para, w) : [''];
+      ls.forEach(function (ln) {
+        if (y > 728) { doc.addPage('letter', 'portrait'); y = o.again(); doc.setFont('helvetica', o.bold ? 'bold' : 'normal'); doc.setFontSize(size); }
+        doc.text(ln, x, y); y += lead;
+      });
+    });
+    return y;
+  };
+
+  /* One summary on its own sheet (or more, if it runs long). */
+  function summaryPage(doc, d, idx, s, first) {
+    var f = idx.entity[s.fileId] || { name: '(file removed)', type: 'individual' };
+    if (!first) doc.addPage('letter', 'portrait');
+    var again = function () { return CI.pdf.top(doc, 'FILE SUMMARY (continued)', f.name); };
+    var y = CI.pdf.top(doc, 'FILE SUMMARY', f.name);
+    var reps = (s.covers || []).map(function (r) { return idx.report[r]; }).filter(Boolean).sort(function (a, b) { return (a.received || '').localeCompare(b.received || ''); });
+    lab(doc, 'Date', X0, y); lab(doc, 'Written by', X0 + 130, y); lab(doc, 'Kind of file', X0 + 330, y);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(CI.fmtDate(s.date), X0, y + 20); doc.text(oneLine(doc, s.author || '', 185), X0 + 130, y + 20); doc.text(oneLine(doc, CI.TYPE_LABEL[f.type] || '', 150), X0 + 330, y + 20);
+    y += 34; doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y, X1, y); y += 26;
+    y = CI.pdf.flow(doc, s.text, { y: y, size: 12, lead: 17.5, again: again });
+    y += 14;
+    if (y > 700) { doc.addPage('letter', 'portrait'); y = again(); }
+    doc.setDrawColor(190); doc.setLineWidth(0.6); doc.line(X0, y, X1, y); y += 16;
+    lab(doc, 'Covers ' + reps.length + ' report' + (reps.length === 1 ? '' : 's') + (reps.length ? ' (' + CI.fmtDate(reps[0].received) + (reps.length > 1 ? ' to ' + CI.fmtDate(reps[reps.length - 1].received) : '') + ')' : ''), X0, y);
+    y += 14;
+    var ids = reps.map(function (r) { return r.id; }).join(',  ');
+    doc.setFont('courier', 'normal');
+    CI.pdf.flow(doc, ids || 'None recorded.', { y: y, size: 9.5, lead: 13, again: again });
+    doc.setFont('helvetica', 'normal');
+  }
+  CI.pdf.summarySheets = function (d, idx, summaryIds, fileName) {
+    var doc = CI.pdf.begin();
+    summaryIds.forEach(function (id, i) {
+      var s = d.summaries.filter(function (x) { return x.id === id; })[0]; if (s) summaryPage(doc, d, idx, s, i === 0);
+    });
+    CI.pdf.stamp(doc, 'File summary · ' + fileName);
+    return doc.output('blob');
+  };
+
+  /* The time line of a file: date down the left, information beside it. o: { maxLevel, from, to } */
+  CI.pdf.timelineSheet = function (d, idx, fileId, o) {
+    o = o || {};
+    var doc = CI.pdf.begin(), f = idx.entity[fileId];
+    if (!f) throw new Error('No such file.');
+    var rows = CI.timelineFor(d, fileId, o.maxLevel || 3, o.from, o.to);
+    var again = function () { return CI.pdf.top(doc, 'TIME LINE (continued)', f.name); };
+    var y = CI.pdf.top(doc, 'TIME LINE', f.name);
+    var lv = { 1: 'Key events only', 2: 'Key events and standard entries', 3: 'All entries, including fine detail' }[o.maxLevel || 3];
+    lab(doc, 'Detail', X0, y); lab(doc, 'Period', X0 + 270, y);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text(lv, X0, y + 16);
+    doc.text(o.from || o.to ? (o.from ? CI.fmtDate(o.from) : 'start') + ' to ' + (o.to ? CI.fmtDate(o.to) : 'now') : (rows.length ? CI.fmtDate(rows[0].date) + ' to ' + CI.fmtDate(rows[rows.length - 1].date) : ''), X0 + 270, y + 16);
+    y += 30; doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y, X1, y); y += 22;
+    if (!rows.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('No entries at this level of detail.', X0, y); }
+    rows.forEach(function (t) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+      var ls = doc.splitTextToSize(t.text, 372), h = ls.length * 15 + (t.reportIds.length ? 13 : 0);
+      if (y + h > 735) { doc.addPage('letter', 'portrait'); y = again() + 6; }
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(CI.fmtDate(t.date), X0, y);
+      doc.setFont('helvetica', t.level === 1 ? 'bold' : 'normal'); doc.setFontSize(11);
+      ls.forEach(function (ln, i) { doc.text(ln, X0 + 118, y + i * 15); });
+      if (t.reportIds.length) { doc.setFont('courier', 'normal'); doc.setFontSize(8.5); doc.setTextColor(95); doc.text(t.reportIds.join(', '), X0 + 118, y + ls.length * 15 - 2); doc.setTextColor(17); }
+      doc.setDrawColor(210); doc.setLineWidth(0.5); doc.line(X0, y + h - 7, X1, y + h - 7);
+      y += h + 9;
+    });
+    CI.pdf.stamp(doc, 'Time line · ' + f.name);
+    return doc.output('blob');
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

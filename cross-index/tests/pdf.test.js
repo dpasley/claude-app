@@ -135,3 +135,15 @@ t('lead sheets and board produce real PDFs', async () => {});
   console.log('ok - case chart labels, title and connections taken from the main files'); n++;
   console.log('\n' + n + ' PDF/lead checks passed'); process.exit(0);
 })().catch(e => { console.error('FAIL', e); process.exit(1); });
+
+t('summary and time line sheets build, with page numbers', () => {
+  const d = CI.sampleData(); const idx = CI.buildIndex(d);
+  const f = d.entities.find(e => (idx.reportsByEntity[e.id] || []).length >= 2);
+  const s = CI.addSummary(d, { fileId: f.id, date: '2026-10-20', author: 'DP', text: 'Line of text.\n'.repeat(120), covers: CI.reportsOf(idx, f.id) }).summary;
+  const b = CI.pdf.summarySheets(d, idx, [s.id], f.name);
+  assert.ok(b.size > 1500);
+  for (let i = 0; i < 60; i++) CI.addTimeline(d, { fileId: f.id, date: '2026-09-' + String(1 + i % 28).padStart(2, '0'), text: 'Entry number ' + i + ' with enough words to wrap onto a second line of the sheet when printed.', level: 1 + i % 3, reportIds: CI.reportsOf(idx, f.id)[0] });
+  assert.ok(CI.pdf.timelineSheet(d, idx, f.id, { maxLevel: 3 }).size > 3000);
+  assert.ok(CI.pdf.timelineSheet(d, idx, f.id, { maxLevel: 1, from: '2026-09-05' }).size > 1500);
+  assert.ok(CI.pdf.timelineSheet(d, idx, d.entities[0].id, {}).size > 1000);
+});

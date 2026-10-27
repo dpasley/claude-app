@@ -116,8 +116,8 @@
     return {
       version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
-      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0 },
-      entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [],
+      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0, summary: 0, timeline: 0 },
+      entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [], summaries: [], timeline: [],
       ui: { bankId: null }
     };
   };
@@ -169,13 +169,16 @@
   CI.normalize = function (d) {
     var e = CI.emptyData();
     d = d || {};
-    ['entities', 'reports', 'links', 'banks', 'leads', 'investigations', 'log', 'merges'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
+    ['entities', 'reports', 'links', 'banks', 'leads', 'investigations', 'log', 'merges', 'summaries', 'timeline'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
     d.settings = Object.assign({}, e.settings, d.settings || {});
     ['basisList', 'sourceTypes', 'roles', 'linkTypes'].forEach(function (k) { if (!Array.isArray(d.settings[k]) || !d.settings[k].length) d.settings[k] = e.settings[k]; });
     d.counters = Object.assign({}, e.counters, d.counters || {});
     d.ui = Object.assign({}, e.ui, d.ui || {});
     d.version = 1;
     d.reports.forEach(function (r) { if (!Array.isArray(r.entities)) r.entities = []; });
+    d.entities.forEach(function (x) { if (!x.profile || typeof x.profile !== 'object') x.profile = {}; });
+    d.summaries.forEach(function (x) { if (!Array.isArray(x.covers)) x.covers = []; });
+    d.timeline.forEach(function (x) { if (!Array.isArray(x.reportIds)) x.reportIds = []; if (!x.level) x.level = 2; });
     d.banks.forEach(function (b) {
       if (!b.positions || typeof b.positions !== 'object') b.positions = {};
       if (!Array.isArray(b.estimates)) {
@@ -210,7 +213,7 @@
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
   };
 
-  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-', caseNote: 'W-' };
+  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-', caseNote: 'W-', summary: 'SM-', timeline: 'T-' };
   CI.nextId = function (d, kind) {
     d.counters[kind] = (d.counters[kind] || 0) + 1;
     return PREFIX[kind] + pad(d.counters[kind], 4);
@@ -333,6 +336,7 @@
       aliases: (o.aliases || []).map(function (s) { return String(s).trim(); }).filter(Boolean),
       notes: o.notes || '',
       details: String(o.details || '').trim(),
+      profile: {},
       created: CI.today()
     };
     if (o.type === 'item') e.itemType = String(o.itemType || '').trim();
@@ -384,11 +388,109 @@
     d.reports.forEach(function (x) { if (x.dupOf === id) x.dupOf = r.dupOf || ''; });
     d.reports = d.reports.filter(function (x) { return x.id !== id; });
     CI.caseChartDropReport(d, id);
+    d.summaries.forEach(function (x) { x.covers = (x.covers || []).filter(function (r) { return r !== id; }); });
+    d.timeline.forEach(function (x) { x.reportIds = (x.reportIds || []).filter(function (r) { return r !== id; }); });
   };
+
+
+  /* ---------- profile: the fields a modern profile carries for each kind of file ---------- */
+  CI.PROFILE_FIELDS = {
+    individual: [
+      { id: 'dob', label: 'Date of birth', kind: 'date' }, { id: 'pob', label: 'Place of birth', kind: 'text' },
+      { id: 'gender', label: 'Gender', kind: 'text' }, { id: 'nationality', label: 'Nationality', kind: 'text' },
+      { id: 'languages', label: 'Languages', kind: 'text' }, { id: 'occupation', label: 'Occupation', kind: 'text' },
+      { id: 'employer', label: 'Employer or organization', kind: 'text' }, { id: 'residence', label: 'Where based', kind: 'text', hint: 'city or region' },
+      { id: 'description', label: 'Physical description', kind: 'long' }, { id: 'role', label: 'Role in the matters we follow', kind: 'long' },
+      { id: 'status', label: 'Status', kind: 'select', options: ['Active', 'Dormant', 'Deceased', 'Unknown'] }
+    ],
+    group: [
+      { id: 'kind', label: 'Kind of group', kind: 'text', hint: 'company, movement, club, network…' }, { id: 'founded', label: 'Founded', kind: 'date' },
+      { id: 'status', label: 'Status', kind: 'select', options: ['Active', 'Dormant', 'Disbanded', 'Unknown'] }, { id: 'hq', label: 'Headquarters', kind: 'text', hint: 'city or region' },
+      { id: 'operates', label: 'Where it operates', kind: 'text' }, { id: 'leadership', label: 'Leadership', kind: 'text' },
+      { id: 'size', label: 'Approximate size', kind: 'text' }, { id: 'purpose', label: 'Stated purpose', kind: 'long' },
+      { id: 'affiliations', label: 'Affiliations', kind: 'text' }, { id: 'role', label: 'Role in the matters we follow', kind: 'long' }
+    ],
+    area: [
+      { id: 'kind', label: 'Kind of area', kind: 'select', options: ['City', 'Region', 'Campus', 'Neighbourhood', 'Country', 'Other'] },
+      { id: 'within', label: 'Within', kind: 'text', hint: 'the region or country it sits in' }, { id: 'authority', label: 'Authority or jurisdiction', kind: 'text' },
+      { id: 'population', label: 'Approximate population', kind: 'text' }, { id: 'sites', label: 'Notable sites', kind: 'long' },
+      { id: 'role', label: 'Why it matters to us', kind: 'long' }
+    ],
+    subject: [
+      { id: 'category', label: 'Category', kind: 'text', hint: 'a theme, an event, a trend, a product…' }, { id: 'first', label: 'First noticed', kind: 'date' },
+      { id: 'status', label: 'Status', kind: 'select', options: ['Open', 'Watching', 'Closed'] }, { id: 'description', label: 'Description', kind: 'long' },
+      { id: 'role', label: 'Why it matters to us', kind: 'long' }
+    ]
+  };
+  CI.profileFields = function (type) { return CI.PROFILE_FIELDS[type] || []; };
+
+  /* ---------- file summaries: written by staff, covering only what is new since the last one ---------- */
+  CI.summariesFor = function (d, fileId) {
+    return d.summaries.filter(function (x) { return x.fileId === fileId; }).sort(function (a, b) { return a.date.localeCompare(b.date) || a.id.localeCompare(b.id); });
+  };
+  CI.reportsOf = function (idx, fileId) {
+    return (idx.reportsByEntity[fileId] || []).slice().sort(function (a, b) {
+      var ra = idx.report[a], rb = idx.report[b];
+      return (ra.received || '').localeCompare(rb.received || '') || a.localeCompare(b);
+    });
+  };
+  /* Reports in the file that no summary of this file has covered yet, oldest first. */
+  CI.unsummarized = function (d, idx, fileId) {
+    var done = {}; CI.summariesFor(d, fileId).forEach(function (x) { (x.covers || []).forEach(function (r) { done[r] = 1; }); });
+    return CI.reportsOf(idx, fileId).filter(function (r) { return !done[r]; });
+  };
+  function cleanSummary(d, o) {
+    var text = String(o.text || '').trim(), date = String(o.date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: 'Give the date of the summary.' };
+    if (!text) return { error: 'Write the summary.' };
+    var covers = (o.covers || []).filter(function (r, i, a) { return a.indexOf(r) === i && d.reports.some(function (x) { return x.id === r; }); });
+    return { v: { date: date, author: String(o.author || '').trim(), text: text, covers: covers } };
+  }
+  CI.addSummary = function (d, o) {
+    if (!d.entities.some(function (e) { return e.id === o.fileId; })) return { error: 'No such file.' };
+    var c = cleanSummary(d, o); if (c.error) return c;
+    var s = Object.assign({ id: CI.nextId(d, 'summary'), fileId: o.fileId, created: CI.today() }, c.v);
+    d.summaries.push(s); return { summary: s };
+  };
+  CI.updateSummary = function (d, id, o) {
+    var s = d.summaries.filter(function (x) { return x.id === id; })[0]; if (!s) return { error: 'No such summary.' };
+    var c = cleanSummary(d, o); if (c.error) return c;
+    Object.assign(s, c.v); return { summary: s };
+  };
+  CI.deleteSummary = function (d, id) { d.summaries = d.summaries.filter(function (x) { return x.id !== id; }); };
+
+  /* ---------- time line: dated entries typed by staff, against the date the event happened ---------- */
+  CI.TL_LEVELS = [{ id: 1, label: 'Key event' }, { id: 2, label: 'Standard' }, { id: 3, label: 'Fine detail' }];
+  CI.timelineFor = function (d, fileId, maxLevel, from, to) {
+    return d.timeline.filter(function (x) {
+      return x.fileId === fileId && x.level <= (maxLevel || 3) && (!from || x.date >= from) && (!to || x.date <= to);
+    }).sort(function (a, b) { return a.date.localeCompare(b.date) || a.id.localeCompare(b.id); });
+  };
+  function cleanTimeline(d, o) {
+    var date = String(o.date || ''), text = String(o.text || '').trim(), level = Number(o.level) || 2;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: 'Give the date the event happened.' };
+    if (!text) return { error: 'Write what happened.' };
+    var ids = (Array.isArray(o.reportIds) ? o.reportIds : String(o.reportIds || '').split(/[\s,;]+/)).map(function (s) { return String(s).trim().toUpperCase(); }).filter(Boolean);
+    var bad = ids.filter(function (r) { return !d.reports.some(function (x) { return x.id === r; }); });
+    if (bad.length) return { error: 'No such report: ' + bad.join(', ') + '.' };
+    return { v: { date: date, text: text, level: Math.min(3, Math.max(1, level)), reportIds: ids.filter(function (r, i, a) { return a.indexOf(r) === i; }) } };
+  }
+  CI.addTimeline = function (d, o) {
+    if (!d.entities.some(function (e) { return e.id === o.fileId; })) return { error: 'No such file.' };
+    var c = cleanTimeline(d, o); if (c.error) return c;
+    var t = Object.assign({ id: CI.nextId(d, 'timeline'), fileId: o.fileId }, c.v);
+    d.timeline.push(t); return { entry: t };
+  };
+  CI.updateTimeline = function (d, id, o) {
+    var t = d.timeline.filter(function (x) { return x.id === id; })[0]; if (!t) return { error: 'No such entry.' };
+    var c = cleanTimeline(d, o); if (c.error) return c;
+    Object.assign(t, c.v); return { entry: t };
+  };
+  CI.deleteTimeline = function (d, id) { d.timeline = d.timeline.filter(function (x) { return x.id !== id; }); };
 
   CI.entityInUse = function (d, id) {
     var idx = CI.buildIndex(d);
-    return (idx.reportsByEntity[id] || []).length + (idx.linksByEntity[id] || []).length > 0;
+    return (idx.reportsByEntity[id] || []).length + (idx.linksByEntity[id] || []).length + d.summaries.filter(function (x) { return x.fileId === id; }).length + d.timeline.filter(function (x) { return x.fileId === id; }).length > 0;
   };
 
   CI.deleteEntity = function (d, id) {
@@ -444,6 +546,8 @@
       b.excluded = b.excluded.map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; });
     });
     CI.caseChartMerge(d, fromId, intoId);
+    d.summaries.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
+    d.timeline.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
     d.leads.forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
     d.entities.filter(function (e) { return e.id === fromId; }).forEach(function (e) { if (e.photo && !into.photo) into.photo = e.photo; });
     d.entities = d.entities.filter(function (e) { return e.id !== fromId; });
