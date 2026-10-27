@@ -62,7 +62,7 @@
   function filesTab(b) {
     A.view.className = '';
     A.view.innerHTML = CI.views.bankHead(b, 'files') +
-      '<div class="card"><h2>Files in this special bank <span class="muted small">' + (b.files || []).length + '</span></h2>' +
+      '<div class="card"><div class="row spread"><h2 style="margin:0">Files in this special bank <span class="muted small">' + (b.files || []).length + '</span></h2><button class="btn small" data-action="bank-tl-print" data-bank="' + esc(b.id) + '">Print time line of these files\u2026</button></div>' +
       '<p class="muted small">These are main files, not copies. The chart and the estimate work from this list.</p>' +
       '<label class="big-lbl">Add a file<input type="search" id="bf-q" class="big-in" data-lookup="#bf-res" data-bank="' + esc(b.id) + '" autocomplete="off" placeholder="Start typing a name…" value="' + esc(fq) + '" data-on-input="bf-q"></label><div id="bf-res"></div></div>' +
       '<div class="card flush" id="bf-list">' + fileRows(b) + '</div>' + suggestHtml(b);

@@ -141,18 +141,47 @@
     A.closeModal();
     A.confirm('Delete this time line entry?', function () { CI.deleteTimeline(d, id); A.persist(); reload(t.fileId, 'timeline'); }, { title: 'Delete entry', yes: 'Delete', danger: true });
   };
-  H['tl-print'] = function (el) {
-    var file = el.getAttribute('data-file');
-    A.modal('<h2>Print the time line</h2><label>Level of detail<select id="tp-level">' + A.options([{ value: '1', label: 'Key events only' }, { value: '2', label: 'Key and standard' }, { value: '3', label: 'All entries' }], String(tl.level)) + '</select></label>' +
+  /* Print a time line for one file, or for several together (their entries merge in date order). */
+  var tp = { ids: [], title: '' };
+  function tpChips() {
+    var idx = A.idx();
+    return tp.ids.map(function (id, i) {
+      var e = idx.entity[id]; if (!e) return '';
+      var n = D().timeline.filter(function (x) { return x.fileId === id; }).length;
+      return '<span class="chip">' + esc(e.name) + ' <span class="muted small">' + n + '</span>' + (tp.ids.length > 1 ? '<button data-action="tp-remove" data-id="' + esc(id) + '" aria-label="Remove ' + esc(e.name) + '">×</button>' : '') + '</span>';
+    }).join('');
+  }
+  function tpResults() {
+    var box = document.getElementById('tp-res'); if (!box) return;
+    var q = val('tp-q').trim(); if (!q) { box.innerHTML = ''; return; }
+    var c = CI.findCandidates(D(), q, 6).filter(function (x) { return !CI.isItem(x.entity) && tp.ids.indexOf(x.entity.id) === -1; });
+    box.innerHTML = c.length ? '<table class="fixed list"><tbody>' + c.map(function (x) {
+      return '<tr class="pick"><td class="ellip"><b>' + esc(x.entity.name) + '</b> ' + A.tag(x.entity.type) + '</td><td class="right"><button class="btn small" data-action="tp-add" data-id="' + esc(x.entity.id) + '">Add</button></td></tr>';
+    }).join('') + '</tbody></table>' : '<p class="muted small">No main file matches that.</p>';
+  }
+  function tpFiles() { var c = document.getElementById('tp-files'); if (c) c.innerHTML = tpChips(); var q = document.getElementById('tp-q'); if (q) { q.value = ''; q.focus(); } tpResults(); }
+  function tpOpen() {
+    A.modal('<h2>Print the time line</h2><div><span class="fl">Files</span><div class="chips" id="tp-files">' + tpChips() + '</div></div>' +
+      '<label class="big-lbl">Add another file<input type="search" id="tp-q" data-lookup="#tp-res" data-on-input="tp-q" autocomplete="off" placeholder="Start typing a name…"></label><div id="tp-res"></div>' +
+      '<label>Level of detail<select id="tp-level">' + A.options([{ value: '1', label: 'Key events only' }, { value: '2', label: 'Key and standard' }, { value: '3', label: 'All entries' }], String(tl.level)) + '</select></label>' +
       '<div class="sm-top"><label>From<span class="hint"> optional</span>' + A.dateInput('tp-from', '', 'date-fix') + '</label><label>To<span class="hint"> optional</span>' + A.dateInput('tp-to', '', 'date-fix') + '</label></div>' +
-      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="tl-print-go" data-file="' + esc(file) + '">Print</button></div>');
+      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="tl-print-go">Print</button></div>', true);
+  }
+  H['tl-print'] = function (el) { tp = { ids: [el.getAttribute('data-file')], title: '' }; tpOpen(); };
+  H['bank-tl-print'] = function (el) {
+    var b = D().banks.filter(function (x) { return x.id === el.getAttribute('data-bank'); })[0]; if (!b) return;
+    tp = { ids: (b.files || []).filter(function (id) { return fileOf(id); }), title: b.name }; if (!tp.ids.length) { A.toast('This special bank has no files yet.', true); return; } tpOpen();
   };
-  H['tl-print-go'] = function (el) {
-    var d = D(), file = el.getAttribute('data-file'), f = fileOf(file), from = A.readDate('tp-from'), to = A.readDate('tp-to');
+  H['tp-q'] = function () { tpResults(); };
+  H['tp-add'] = function (el) { var id = el.getAttribute('data-id'); if (tp.ids.indexOf(id) === -1) tp.ids.push(id); tpFiles(); };
+  H['tp-remove'] = function (el) { tp.ids = tp.ids.filter(function (x) { return x !== el.getAttribute('data-id'); }); tpFiles(); };
+  H['tl-print-go'] = function () {
+    var d = D(), from = A.readDate('tp-from'), to = A.readDate('tp-to');
     if (from === null || to === null) { A.toast(A.dateHelp, true); return; }
-    var o = { maxLevel: Number(val('tp-level')) || 3, from: from, to: to };
+    var ids = tp.ids.slice(), o = { maxLevel: Number(val('tp-level')) || 3, from: from, to: to, title: tp.title };
+    if (!d.timeline.some(function (x) { return ids.indexOf(x.fileId) !== -1; })) { A.toast('These files have no time line entries yet.', true); return; }
     A.closeModal();
-    A.saveBlob('Timeline-' + CI.fileSafe(f && f.name) + '.pdf', function () { return CI.pdf.timelineSheet(d, A.idx(), file, o); });
+    A.saveBlob('Timeline-' + CI.fileSafe(tp.title || (fileOf(ids[0]) || {}).name) + '.pdf', function () { return CI.pdf.timelineSheet(d, A.idx(), ids, o); });
   };
 
   /* ================= the other sheets, in the same print style ================= */

@@ -114,18 +114,14 @@
     doc.setFont(mono ? 'courier' : 'helvetica', mono ? 'bold' : 'normal'); doc.setFontSize(mono ? 20 : 12); doc.text(right, X1, 76, { align: 'right' });
     doc.setDrawColor(17); doc.setLineWidth(2.5); doc.line(X0, 87, X1, 87);
   }
-  function footer(doc) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
-    doc.text('Cross-Index', X0, 762); doc.text('Printed ' + CI.fmtDate(CI.today()), X1, 762, { align: 'right' });
-    doc.setTextColor(17);
-  }
+  function footer() { /* the common stamp is added once at the end: CI.pdf.stamp */ }
 
   CI.pdf = CI.pdf || {};
   CI.pdf.leadPage = function (doc, d, lead) {
     var kind = CI.leadKind(lead.kind), bank = d.banks.filter(function (b) { return b.id === lead.bankId; })[0];
     var rep = d.reports.filter(function (r) { return r.id === lead.raisedBy; })[0];
     header(doc, kind.title, lead.id, true);
-    lab(doc, 'Bank', X0, 112); lab(doc, 'Issued', X0 + 250, 112); lab(doc, 'With', X0 + 385, 112);
+    lab(doc, 'Special bank', X0, 112); lab(doc, 'Issued', X0 + 250, 112); lab(doc, 'With', X0 + 385, 112);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
     doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 235), X0, 132);
     doc.text(CI.fmtDate(lead.issued), X0 + 250, 132); doc.text(lead.with, X0 + 385, 132);
@@ -166,7 +162,7 @@
     var tail = lead.kind === 'DATA_REQUEST'
       ? 'Retrieve and preserve only. Do not interpret or contact anyone. Return through Intake and write ' + lead.id + ' on it.'
       : 'Return your results through Intake and write ' + lead.id + ' on them.';
-    lines(doc, tail, W, 2).forEach(function (ln, i) { doc.text(ln, X0, 734 + i * 14); });
+    lines(doc, tail, W, 2).forEach(function (ln, i) { doc.text(ln, X0, 728 + i * 13); });
     footer(doc);
   };
 
@@ -177,6 +173,7 @@
       if (i > 0) doc.addPage('letter', 'portrait');
       CI.pdf.leadPage(doc, d, lead);
     });
+    CI.pdf.stamp(doc, leadIds.length === 1 ? 'Lead sheet \u00b7 ' + leadIds[0] : 'Lead sheets');
     return doc.output('blob');
   };
 
@@ -188,7 +185,7 @@
     var n = function (s) { return all.filter(function (l) { return l.status === s; }).length; };
     function top() {
       header(doc, 'OPEN LEADS', CI.fmtDate(CI.today()), false);
-      lab(doc, 'Bank', X0, 112); lab(doc, 'Not started', X0 + 270, 112); lab(doc, 'In progress', X0 + 355, 112); lab(doc, 'Closed', X0 + 440, 112);
+      lab(doc, 'Special bank', X0, 112); lab(doc, 'Not started', X0 + 270, 112); lab(doc, 'In progress', X0 + 355, 112); lab(doc, 'Closed', X0 + 440, 112);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
       doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 255), X0, 132);
       doc.text(String(n('NOT_STARTED')), X0 + 270, 132); doc.text(String(n('IN_PROGRESS')), X0 + 355, 132); doc.text(String(n('DONE') + n('NO_RESULT')), X0 + 440, 132);
@@ -210,6 +207,7 @@
       doc.setDrawColor(170); doc.setLineWidth(0.6); doc.line(X0, y + h + 6, X1, y + h + 6);
       y += h + 22;
     });
+    CI.pdf.stamp(doc, 'Open leads \u00b7 ' + (bank ? bank.name : ''));
     return doc.output('blob');
   };
 
@@ -226,7 +224,7 @@
     if (!inv) throw new Error('No such investigation.');
     var bank = d.banks.filter(function (b) { return b.id === inv.bankId; })[0], p = inv.plan;
     header(doc, 'HANDLING PLAN', inv.id, true);
-    lab(doc, 'Bank', X0, 112); lab(doc, 'Prepared by', X0 + 250, 112); lab(doc, 'Date', X0 + 385, 112);
+    lab(doc, 'Special bank', X0, 112); lab(doc, 'Prepared by', X0 + 250, 112); lab(doc, 'Date', X0 + 385, 112);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
     doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 235), X0, 132);
     doc.text(oneLine(doc, p.preparedBy || '', 125), X0 + 250, 132); doc.text(p.updated ? CI.fmtDate(p.updated) : '', X0 + 385, 132);
@@ -270,6 +268,7 @@
       lab(doc, sg[2], sg[0], 734);
     });
     footer(doc);
+    CI.pdf.stamp(doc, 'Handling plan \u00b7 ' + inv.id);
     return doc.output('blob');
   };
 
@@ -339,13 +338,14 @@
   };
 
   /* The time line of a file: date down the left, information beside it. o: { maxLevel, from, to } */
-  CI.pdf.timelineSheet = function (d, idx, fileId, o) {
+  CI.pdf.timelineSheet = function (d, idx, fileIds, o) {
     o = o || {};
-    var doc = CI.pdf.begin(), f = idx.entity[fileId];
+    fileIds = [].concat(fileIds); var doc = CI.pdf.begin(), f = idx.entity[fileIds[0]], many = fileIds.length > 1;
     if (!f) throw new Error('No such file.');
-    var rows = CI.timelineFor(d, fileId, o.maxLevel || 3, o.from, o.to);
-    var again = function () { return CI.pdf.top(doc, 'TIME LINE (continued)', f.name); };
-    var y = CI.pdf.top(doc, 'TIME LINE', f.name);
+    var title = o.title || (many ? f.name + ' and ' + (fileIds.length - 1) + ' more' : f.name);
+    var rows = CI.timelineMany(d, fileIds, o.maxLevel || 3, o.from, o.to);
+    var again = function () { return CI.pdf.top(doc, 'TIME LINE (continued)', title); };
+    var y = CI.pdf.top(doc, 'TIME LINE', title);
     var lv = { 1: 'Key events only', 2: 'Key events and standard entries', 3: 'All entries, including fine detail' }[o.maxLevel || 3];
     lab(doc, 'Detail', X0, y); lab(doc, 'Period', X0 + 270, y);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
@@ -355,12 +355,12 @@
     if (!rows.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('No entries at this level of detail.', X0, y); }
     rows.forEach(function (t) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-      var ls = doc.splitTextToSize(t.text, 372), h = ls.length * 15 + (t.reportIds.length ? 13 : 0);
+      var ls = doc.splitTextToSize(plain(t.text), 372), h = ls.length * 15 + (t.reportIds.length || many ? 13 : 0);
       if (y + h > 735) { doc.addPage('letter', 'portrait'); y = again() + 6; }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(CI.fmtDate(t.date), X0, y);
       doc.setFont('helvetica', t.level === 1 ? 'bold' : 'normal'); doc.setFontSize(11);
       ls.forEach(function (ln, i) { doc.text(ln, X0 + 118, y + i * 15); });
-      if (t.reportIds.length) { doc.setFont('courier', 'normal'); doc.setFontSize(8.5); doc.setTextColor(95); doc.text(t.reportIds.join(', '), X0 + 118, y + ls.length * 15 - 2); doc.setTextColor(17); }
+      if (t.reportIds.length || many) { doc.setFont('courier', 'normal'); doc.setFontSize(8.5); doc.setTextColor(95); doc.text(plain((many ? ((idx.entity[t.fileId] || {}).name || '') + (t.reportIds.length ? '   ' : '') : '')) + t.reportIds.join(', '), X0 + 118, y + ls.length * 15 - 2); doc.setTextColor(17); }
       doc.setDrawColor(210); doc.setLineWidth(0.5); doc.line(X0, y + h - 7, X1, y + h - 7);
       y += h + 9;
     });

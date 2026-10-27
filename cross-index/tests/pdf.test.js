@@ -160,3 +160,11 @@ t('profile, connections, report and estimate sheets build', () => {
   const b = d.banks.find(x => !x.quick);
   assert.ok(CI.pdf.estimateSheet(d, idx, b.id, CI.currentEstimate(b).id).size > 1500);
 });
+
+t('time line of several files merges in date order', () => {
+  const d = CI.sampleData(); const idx = CI.buildIndex(d);
+  const [a, b] = d.entities;
+  CI.addTimeline(d, { fileId: a.id, date: '2026-09-09', text: 'A later' }); CI.addTimeline(d, { fileId: b.id, date: '2026-09-01', text: 'B earlier' });
+  assert.deepEqual(CI.timelineMany(d, [a.id, b.id]).map(x => x.text), ['B earlier', 'A later']);
+  assert.ok(CI.pdf.timelineSheet(d, idx, [a.id, b.id], { title: 'Both' }).size > 1500);
+});

@@ -466,6 +466,11 @@
       return x.fileId === fileId && x.level <= (maxLevel || 3) && (!from || x.date >= from) && (!to || x.date <= to);
     }).sort(function (a, b) { return a.date.localeCompare(b.date) || a.id.localeCompare(b.id); });
   };
+  /* The entries of several files together, in date order (an entry belongs to one file). */
+  CI.timelineMany = function (d, fileIds, maxLevel, from, to) {
+    var out = []; fileIds.forEach(function (f) { out = out.concat(CI.timelineFor(d, f, maxLevel, from, to)); });
+    return out.sort(function (a, b) { return a.date.localeCompare(b.date) || a.id.localeCompare(b.id); });
+  };
   function cleanTimeline(d, o) {
     var date = String(o.date || ''), text = String(o.text || '').trim(), level = Number(o.level) || 2;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: 'Give the date the event happened.' };
