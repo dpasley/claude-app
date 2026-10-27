@@ -35,10 +35,10 @@
     var pinned = {}; cc.pins.forEach(function (p) { pinned[p.entityId] = 1; });
     var free = d.entities.filter(function (e) { return !pinned[e.id]; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     var b = d.banks.filter(function (x) { return x.id === v.bankId; })[0];
-    var h = '<datalist id="cc-dl">' + free.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>' +
+    var h = CI.views.invHead(v) + CI.views.invTabs(v, 'chart') + '<datalist id="cc-dl">' + free.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>' +
       '<div class="chart-layout"><aside class="panel" id="ctl"></aside><section class="stage"><div class="toolbar"><strong id="cc-title">' + esc(titleText()) + '</strong><span id="summary" class="muted small" style="margin-left:10px"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cc-fit">Fit</button><button class="btn small" data-action="cc-relayout">Auto-arrange</button><button class="btn small" data-action="cc-png">Image</button><button class="btn small" data-action="cc-print">Print for the wall…</button>' +
-      '<a class="btn small" href="#/investigation/' + esc(v.id) + '">Investigation</a>' + (b ? '<a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a>' : '') +
+       (b ? '<a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a>' : '') +
       '<button class="btn small primary" data-action="cc-raise">Raise a lead</button></div>' +
       '<div id="cy"></div><div class="legend"><span>photo or logo tile = individual / group</span><span>every connection cites the reports behind it</span><span>orange badge = an open lead is about this name</span><span>yellow = label</span><span>drag to arrange; the arrangement is kept and prints</span></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.className = 'wide'; A.view.innerHTML = h;

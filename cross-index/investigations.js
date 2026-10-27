@@ -14,11 +14,11 @@
     var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><select data-on-change="inv-filter" id="inv-show">' + A.options([{ value: 'open', label: 'Open investigations' }, { value: 'all', label: 'All investigations' }], iv.show) + '</select></div></div>' +
       '<p class="muted">An investigation begins when a special bank and its estimate are handed over. This is where executives see what is being worked and how far it has got.</p>';
     if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Hand over a special bank from its <a href="#/chart">Estimates tab</a> to start one.</div>';
-    else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Bank</th><th>Status</th><th>Investigator</th><th>Handed over</th><th class="num">Open leads</th><th>Legal on plan</th><th>Case chart</th></tr></thead><tbody>' +
+    else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Bank</th><th>Status</th><th>Investigator</th><th>Handed over</th><th class="num">Open leads</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (v) {
         var b = bank(v.bankId), open = CI.leadsOf(d, v.id).filter(function (l) { return !CI.isClosed(l); }).length;
-        return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(b ? b.name : '(bank removed)') + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td><td>' + legalTag(v.plan) + '</td><td><a href="#/casechart/' + esc(v.id) + '">' + (CI.caseChartOf(v).pins.length ? CI.caseChartOf(v).pins.length + ' pinned' : 'Open') + '</a></td></tr>';
-      }).join('') : '<tr><td colspan="8" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
+        return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(b ? b.name : '(bank removed)') + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td></tr>';
+      }).join('') : '<tr><td colspan="6" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
     var orphans = d.leads.concat(d.requests).filter(function (l) { return !l.investigationId || !d.investigations.some(function (v) { return v.id === l.investigationId; }); });
     if (orphans.length) h += '<div class="card"><h2>Not attached to an investigation (' + orphans.length + ')</h2><p class="muted small">Leads and requests belong to an investigation. These were made before that rule. Attach each to one, or delete it.</p><table class="fixed"><colgroup><col style="width:10%"><col style="width:52%"><col style="width:38%"></colgroup><tbody>' +
       orphans.map(function (l) {
@@ -40,21 +40,31 @@
     }).join('');
   }
 
+  /* Tabs shared by the investigation pages (the chart tab is drawn by casechart.js). */
+  CI.views.invTabs = function (v, active) {
+    var d = D(), nl = CI.leadsOf(d, v.id).length, nq = CI.requestsOf(d, v.id).length;
+    function t(id, href, label, n) { return '<a class="tab' + (active === id ? ' on' : '') + '" href="' + href + '">' + label + (n != null ? ' <span class="n">' + n + '</span>' : '') + '</a>'; }
+    return '<div class="tabs">' + t('overview', '#/investigation/' + v.id, 'Overview') + t('chart', '#/casechart/' + v.id, 'Chart') + t('leads', '#/investigation/' + v.id + '/leads', 'Leads', nl) + t('requests', '#/investigation/' + v.id + '/requests', 'Requests', nq) + '</div>';
+  };
+  CI.views.invHead = function (v) {
+    var b = bank(v.bankId);
+    return '<div class="chart-head"><a href="#/investigations" class="back">\u2039 Investigations</a><h1>Investigation ' + esc(v.id) + '</h1>' + invTag(v) + (b ? '<span class="muted small">' + esc(b.name) + '</span>' : '') + '</div>';
+  };
   CI.views.investigation = function (id, tab) {
     var d = D(), v = d.investigations.filter(function (x) { return x.id === id; })[0];
     if (!v) { A.view.innerHTML = '<div class="card callout">No such investigation. <a href="#/investigations">Back to investigations</a></div>'; return; }
     var b = bank(v.bankId), p = v.plan, cc = CI.caseChartOf(v), leads = CI.leadsOf(d, v.id), reqs = CI.requestsOf(d, v.id);
     tab = tab === 'leads' || tab === 'requests' ? tab : 'overview';
-    var h = '<div class="page-head"><h1>Investigation ' + esc(v.id) + ' ' + invTag(v) + '</h1><div class="row wrap"><a class="btn primary" href="#/casechart/' + esc(v.id) + '">Case chart</a><a class="btn" href="#/chart/' + esc(v.bankId) + '">Working chart</a><a class="btn" href="#/bank/' + esc(v.bankId) + '/estimates">Estimates</a><a class="btn" href="#/investigations">All investigations</a></div></div>' +
+    var h = '<div class="page-head"><h1>Investigation ' + esc(v.id) + ' ' + invTag(v) + '</h1><div class="row wrap"><a class="btn" href="#/chart/' + esc(v.bankId) + '">Working chart</a><a class="btn" href="#/bank/' + esc(v.bankId) + '/estimates">Estimates</a><a class="btn" href="#/investigations">All investigations</a></div></div>' +
       '<p class="muted">Bank: <b>' + esc(b ? b.name : '(bank removed)') + '</b>' + (b && b.opened.reason ? ' · opened because: ' + esc(b.opened.reason) : '') + '</p>' +
-      '<div class="tabs"><a class="tab' + (tab === 'overview' ? ' on' : '') + '" href="#/investigation/' + esc(v.id) + '">Overview</a><a class="tab' + (tab === 'leads' ? ' on' : '') + '" href="#/investigation/' + esc(v.id) + '/leads">Leads <span class="n">' + leads.length + '</span></a><a class="tab' + (tab === 'requests' ? ' on' : '') + '" href="#/investigation/' + esc(v.id) + '/requests">Requests <span class="n">' + reqs.length + '</span></a></div>';
+      CI.views.invTabs(v, tab);
     if (tab !== 'overview') { A.view.className = ''; A.view.innerHTML = h + (tab === 'leads' ? leadsTab(v) : requestsTab(v)); return; }
     h += '<div class="card"><h3>Leads and requests</h3><p class="muted small">' + leads.length + ' lead' + (leads.length === 1 ? '' : 's') + ' (' + leads.filter(function (l) { return !CI.isClosed(l); }).length + ' open) and ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') + ' to Collection. <a href="#/investigation/' + esc(v.id) + '/leads">Leads</a> \u00b7 <a href="#/investigation/' + esc(v.id) + '/requests">Requests</a></p></div>' +
       '<form class="card form" onsubmit="return false"><div class="grid2"><label>Status<select id="iv-status">' + A.options(CI.INV_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), v.status) + '</select></label>' +
       '<label>Investigator<input type="text" id="iv-who" value="' + esc(v.investigator) + '"></label></div>' +
       '<label>Notes<textarea id="iv-notes" rows="3">' + esc(v.notes) + '</textarea></label>' +
       '<div class="row"><button class="btn primary" data-action="inv-save" data-id="' + esc(v.id) + '">Save</button><span class="muted small">Handed over ' + esc(CI.fmtDate(v.opened)) + (v.closed ? ' · closed ' + esc(CI.fmtDate(v.closed)) : '') + '</span></div></form>' +
-      '<div class="card"><h3>Case chart</h3><p class="muted small">' + (cc.pins.length ? cc.pins.length + ' name' + (cc.pins.length === 1 ? '' : 's') + ' pinned, ' + cc.strings.length + ' string' + (cc.strings.length === 1 ? '' : 's') + '.' : 'Nothing pinned yet.') + ' The investigators build this board to show what has been found and what is next.</p><div class="row"><a class="btn small" href="#/casechart/' + esc(v.id) + '">Open the case chart</a></div></div>' +
+      '<div class="card"><h3>Chart</h3><p class="muted small">' + (cc.pins.length ? cc.pins.length + ' name' + (cc.pins.length === 1 ? '' : 's') + ' pinned, ' + cc.strings.length + ' string' + (cc.strings.length === 1 ? '' : 's') + '.' : 'Nothing pinned yet.') + ' The investigators build this board to show what has been found and what is next.</p><div class="row"><a class="btn small" href="#/casechart/' + esc(v.id) + '">Open the Chart tab</a></div></div>' +
       '<form class="card form" onsubmit="return false"><div class="row spread"><h3 style="margin:0">Handling plan</h3><button class="btn small" data-action="inv-plan-pdf" data-id="' + esc(v.id) + '">Plan sheet (PDF)</button></div>' +
       '<label>Objective <span class="hint">what the plan is meant to achieve</span><textarea id="pl-obj" rows="2">' + esc(p.objective) + '</textarea></label>' +
       '<div class="grid2"><label>Outcome sought<select id="pl-out">' + A.options(CI.PLAN_OUTCOMES.map(function (o) { return { value: o.id, label: o.label }; }), p.outcome) + '</select></label><label>Prepared by<input type="text" id="pl-by" value="' + esc(p.preparedBy) + '"></label></div>' +
