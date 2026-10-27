@@ -1,5 +1,5 @@
-/* Drawn pictures for the sample data: illustrated portraits for individuals and marks for groups.
- * Nobody here is a real person and no logo is a real brand. Each picture is a small self-contained SVG
+/* Drawn marks for the groups in the sample data.
+ * No logo is a real brand. Each picture is a small self-contained SVG
  * returned as a data URI, the same form an uploaded photo or logo takes (`entity.photo`). */
 (function (root) {
   'use strict';
@@ -10,64 +10,6 @@
     var n = parseInt(hex.slice(1), 16), t = k < 0 ? 0 : 255, a = Math.abs(k), c = [n >> 16, (n >> 8) & 255, n & 255].map(function (v) { return Math.round(v + (t - v) * a); });
     return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
   }
-
-  /* ---------- portraits ---------- */
-  var HAIR = {
-    short: function (c) { return '<path d="M52 92c-4-34 14-58 48-58s52 24 46 58c-4-14-10-24-18-30-18 8-40 8-58 0-8 6-14 16-18 30z" fill="' + c + '"/>'; },
-    buzz: function (c) { return '<path d="M56 86c-2-30 14-48 44-48s46 18 44 48c-6-12-12-20-20-24-16 6-32 6-48 0-8 4-14 12-20 24z" fill="' + c + '" opacity=".9"/>'; },
-    side: function (c) { return '<path d="M50 96c-6-40 16-64 52-62 30 2 48 22 44 60-2-16-8-26-16-32-22 2-46-2-62-8-8 8-14 22-18 42z" fill="' + c + '"/><path d="M60 60c18 8 44 12 70 6" stroke="' + shade(c, -0.25) + '" stroke-width="3" fill="none"/>'; },
-    long: function (c) { return '<path d="M48 120c-10-50 6-86 52-86s62 36 52 86c-2 14-8 26-14 34l-6-60c-14 6-44 6-62-2l-8 62c-6-8-12-20-14-34z" fill="' + c + '"/>'; },
-    bob: function (c) { return '<path d="M50 118c-8-48 8-84 50-84s58 36 50 84c0 8-4 14-10 16l-4-58c-18 6-50 6-68-4l-6 62c-8-2-12-8-12-16z" fill="' + c + '"/>'; },
-    bun: function (c) { return '<circle cx="100" cy="28" r="16" fill="' + c + '"/><path d="M52 92c-4-34 14-56 48-56s52 22 46 56c-4-14-10-22-18-28-18 8-40 8-58 0-8 6-14 14-18 28z" fill="' + c + '"/>'; },
-    curly: function (c) {
-      var o = '', pts = [[56, 66], [66, 48], [82, 38], [100, 34], [118, 38], [134, 48], [144, 66], [52, 86], [148, 86], [74, 56], [126, 56]];
-      pts.forEach(function (p) { o += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="15" fill="' + c + '"/>'; }); return o;
-    },
-    none: function () { return ''; },
-    gray: function (c) { return '<path d="M54 90c-2-30 14-50 46-50s48 20 46 50c-4-12-10-20-18-24-18 6-38 6-56 0-8 4-14 12-18 24z" fill="' + c + '"/>'; }
-  };
-
-  /* spec: skin, hair (colour), style, shirt, bg, eyes, glasses, beard (colour or ''), mouth ('smile'|'flat'|'grin'), brow, earring, coat ('suit'|'plain'|'collar') */
-  CI.portrait = function (s) {
-    var skin = s.skin, shadow = shade(skin, -0.12), light = shade(skin, 0.15), hair = s.hair, style = s.style || 'short';
-    var o = '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + shade(s.bg, 0.25) + '"/><stop offset="1" stop-color="' + shade(s.bg, -0.1) + '"/></linearGradient></defs>';
-    o += '<rect width="200" height="200" fill="url(#bg)"/>';
-    // back hair for long styles
-    if (style === 'long' || style === 'bob') o += HAIR[style](hair);
-    // shoulders and shirt
-    o += '<path d="M10 200c0-34 26-54 58-60l32 10 32-10c32 6 58 26 58 60z" fill="' + s.shirt + '"/>';
-    if (s.coat === 'suit') o += '<path d="M68 140l32 60-14 0-30-46z" fill="' + shade(s.shirt, -0.2) + '"/><path d="M132 140l-32 60 14 0 30-46z" fill="' + shade(s.shirt, -0.2) + '"/><path d="M86 142l14 22 14-22-14-8z" fill="#f4f4f4"/>' + (s.tie ? '<path d="M96 150h8l4 36-8 6-8-6z" fill="' + s.tie + '"/>' : '');
-    else if (s.coat === 'collar') o += '<path d="M76 142l24 18 24-18-10-8-14 10-14-10z" fill="' + shade(s.shirt, 0.35) + '"/>';
-    else o += '<path d="M80 144c8 10 32 10 40 0l-6-8H86z" fill="' + shade(s.shirt, -0.15) + '"/>';
-    // neck
-    o += '<path d="M84 118h32v26c0 8-32 8-32 0z" fill="' + shadow + '"/>';
-    // ears
-    o += '<ellipse cx="55" cy="92" rx="7" ry="11" fill="' + skin + '"/><ellipse cx="145" cy="92" rx="7" ry="11" fill="' + skin + '"/>';
-    if (s.earring) o += '<circle cx="55" cy="105" r="3" fill="' + s.earring + '"/><circle cx="145" cy="105" r="3" fill="' + s.earring + '"/>';
-    // head
-    o += '<path d="M58 84c0-30 18-48 42-48s42 18 42 48c0 34-18 52-42 52s-42-18-42-52z" fill="' + skin + '"/>';
-    o += '<path d="M62 100c4 24 18 34 38 34s34-10 38-34c-2 30-16 42-38 42s-36-12-38-42z" fill="' + shadow + '" opacity=".35"/>';
-    // front hair
-    if (style !== 'long' && style !== 'bob') o += HAIR[style](hair); else o += '<path d="M54 90c-2-30 14-54 46-54s48 24 46 54c-4-16-12-28-22-32-14 6-34 6-50-2-10 6-16 18-20 34z" fill="' + hair + '"/>';
-    // beard
-    if (s.beard) o += '<path d="M60 104c2 28 16 40 40 40s38-12 40-40c-4 10-10 16-18 18-6-4-14-6-22-6s-16 2-22 6c-8-2-14-8-18-18z" fill="' + s.beard + '"/><path d="M88 124c8 4 16 4 24 0" stroke="' + shade(skin, -0.3) + '" stroke-width="3" fill="none"/>';
-    // brows
-    var bc = s.brow || shade(hair, -0.15);
-    o += '<path d="M72 78q10-6 20-2" stroke="' + bc + '" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M108 76q10-4 20 2" stroke="' + bc + '" stroke-width="4.5" fill="none" stroke-linecap="round"/>';
-    // eyes
-    [82, 118].forEach(function (x) { o += '<ellipse cx="' + x + '" cy="90" rx="8" ry="5.5" fill="#fff"/><circle cx="' + x + '" cy="90" r="4.2" fill="' + (s.eyes || '#3b2a1f') + '"/><circle cx="' + x + '" cy="90" r="1.8" fill="#111"/><circle cx="' + (x + 1.6) + '" cy="88.4" r="1.2" fill="#fff"/><path d="M' + (x - 8) + ' 88q8-7 16 0" stroke="' + shade(skin, -0.35) + '" stroke-width="1.6" fill="none"/>'; });
-    // nose
-    o += '<path d="M100 92c-2 8-6 14-6 17 4 3 8 3 12 0 0-3-4-9-6-17z" fill="' + shadow + '" opacity=".55"/>';
-    // mouth
-    if (s.mouth === 'grin') o += '<path d="M86 118q14 12 28 0q-14 3-28 0z" fill="#fff" stroke="' + shade('#b5524a', -0.1) + '" stroke-width="2"/>';
-    else if (s.mouth === 'flat') o += '<path d="M88 120q12 3 24 0" stroke="#9a5148" stroke-width="3.2" fill="none" stroke-linecap="round"/>';
-    else o += '<path d="M86 118q14 11 28 0" stroke="#b5524a" stroke-width="3.4" fill="none" stroke-linecap="round"/>';
-    // glasses
-    if (s.glasses) o += '<g fill="rgba(255,255,255,.12)" stroke="' + s.glasses + '" stroke-width="3"><rect x="68" y="80" width="28" height="20" rx="8"/><rect x="104" y="80" width="28" height="20" rx="8"/></g><path d="M96 88h8" stroke="' + s.glasses + '" stroke-width="3"/>';
-    // cheek light
-    o += '<ellipse cx="76" cy="106" rx="9" ry="5" fill="' + light + '" opacity=".35"/><ellipse cx="124" cy="106" rx="9" ry="5" fill="' + light + '" opacity=".35"/>';
-    return uri(o + '</svg>');
-  };
 
   /* ---------- logos ---------- */
   function wrap(inner) { return uri('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#fff"/>' + inner + '</svg>'); }

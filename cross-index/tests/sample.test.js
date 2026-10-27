@@ -5,9 +5,9 @@ require('../core.js'); require('../portraits.js'); require('../sample.js'); requ
 const CI = globalThis.CI; let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 const d = CI.sampleData(), idx = CI.buildIndex(d);
 
-t('at least ten files of each type, with pictures for people and groups', () => {
+t('at least ten files of each type, with logos for groups', () => {
   for (const ty of CI.FILE_TYPES) assert.ok(d.entities.filter(e => e.type === ty).length >= 10, ty);
-  assert.ok(d.entities.filter(e => e.type === 'individual' && e.photo).length >= 10);
+  assert.ok(d.entities.filter(e => e.type === 'individual').every(e => !e.photo));
   assert.ok(d.entities.filter(e => e.type === 'group' && e.photo).length >= 10);
   assert.ok(d.entities.every(e => e.type !== 'item'));
   assert.ok(d.entities.every(e => e.photo ? e.photo.indexOf('data:image/svg+xml') === 0 : true));

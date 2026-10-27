@@ -4,7 +4,7 @@
  *   2. an outage at Depot 4 that was announced online before it happened, and a protest campaign that follows,
  *   3. a leak of depot schedules that feeds a harassment campaign against dispatchers.
  * Two quieter matters (a customs hold at Port Kessler, copper thefts) are in the data as noise and as a closed special bank.
- * The pictures are drawn (see portraits.js), not photographs. */
+ * Groups carry drawn logos (see portraits.js); individuals have the plain icon. */
 (function (root) {
   'use strict';
   var CI = root.CI = root.CI || {};
@@ -26,7 +26,6 @@
       o = o || {};
       var e = CI.addEntity(d, { type: type, name: name, aliases: o.aliases || [], notes: o.notes || '', details: o.details || '' });
       if (o.profile) e.profile = o.profile;
-      if (o.face) e.photo = CI.portrait(o.face);
       if (o.logo) e.photo = CI.logo(o.logo);
       ent[key] = e; return e;
     }
@@ -34,53 +33,38 @@
 
     // --- individuals (16, one of them a deliberate duplicate) ---
     E('vera', 'individual', 'Vera Linden', { aliases: ['V. Linden', 'Vera M. Linden'], details: 'Registered agent for Brightwater Holdings',
-      face: { skin: SK.fair, hair: '#4a2f1e', style: 'side', shirt: '#33415c', bg: '#8ea8c3', coat: 'suit', tie: '#9b2d30' },
       profile: { gender: 'Female', occupation: 'Registered agent', employer: 'Brightwater Holdings LLC', residence: 'Dunmore', languages: 'English', status: 'Active',
         description: 'Mid forties, shoulder-length brown hair, often seen in a navy suit.', role: 'Named agent for Brightwater; pressed Northwind accounts payable to rush Harborline invoices.' } });
     E('orrin', 'individual', 'Orrin Platt', { aliases: ['O. Platt'], details: 'Former Harborline officer; now officer of Cobalt Freight',
-      face: { skin: SK.light, hair: '#cfcfcf', style: 'gray', shirt: '#4b5563', bg: '#c8d0d8', coat: 'suit', tie: '#444', mouth: 'flat', glasses: '#6b4a2a' },
       profile: { gender: 'Male', occupation: 'Company officer', employer: 'Cobalt Freight Brokers', residence: 'Riverside', languages: 'English', status: 'Active',
         description: 'Early sixties, grey hair, wire glasses.', role: 'Listed officer of Harborline until last year; receives monthly transfers from Brightwater.' } });
     E('tobias', 'individual', 'Tobias Crane', { aliases: ['@tcrane_speaks'], details: 'Administers the GridWatch Now account',
-      face: { skin: SK.light, hair: '#d9a441', style: 'short', shirt: '#3f6f4f', bg: '#b8d0b8', coat: 'plain', beard: '#b98a35' },
       profile: { gender: 'Male', occupation: 'Online commentator', residence: 'Millbrook', languages: 'English', status: 'Active',
         role: 'Runs the GridWatch Now account; has posted a named attack on a Northwind dispatcher and a leaked shift schedule.' } });
     E('mara', 'individual', 'Mara Quill', { details: 'Director of Keystone Courier Partners',
-      face: { skin: SK.tan, hair: '#6b3b1e', style: 'bob', shirt: '#a14a4a', bg: '#d8c0b0', coat: 'collar' },
       profile: { gender: 'Female', occupation: 'Company director', employer: 'Keystone Courier Partners', residence: 'Kessler', languages: 'English, Spanish', status: 'Active',
         role: 'Director of Keystone, which has a contractor presence at Depot 4 and shares an address with two other companies of interest.' } });
     E('dana', 'individual', 'Dana Whitcomb', { details: 'Northwind dispatcher, Depot 4 (staff)', notes: 'Internal staff. Target of the harassment campaign.',
-      face: { skin: SK.olive, hair: '#1b1b1b', style: 'bun', shirt: '#6b4e8a', bg: '#b8b0d0', coat: 'plain', earring: '#d4af37' },
       profile: { gender: 'Female', occupation: 'Dispatcher', employer: 'Northwind Logistics', residence: 'Kessler', languages: 'English', status: 'Active', role: 'Subject of online harassment; staff member, not a subject of enquiry.' } });
     E('elias', 'individual', 'Elias Moreno', { details: 'Accounts payable manager, Northwind (staff)',
-      face: { skin: SK.tan, hair: '#3a2a1a', style: 'side', shirt: '#6a3b3b', bg: '#b8c0a8', coat: 'suit', tie: '#2c5d3a' },
       profile: { gender: 'Male', occupation: 'Accounts payable manager', employer: 'Northwind Logistics', residence: 'Kessler', status: 'Active', role: 'Approved two of the Harborline invoices after hours.' } });
     E('priya', 'individual', 'Priya Raman', { details: 'Accounts payable clerk, Northwind (staff)',
-      face: { skin: SK.olive, hair: '#111', style: 'long', shirt: '#c28a2c', bg: '#b0b8c8', coat: 'plain', mouth: 'grin', earring: '#c0c0c0' },
       profile: { gender: 'Female', occupation: 'Accounts payable clerk', employer: 'Northwind Logistics', residence: 'Kessler', status: 'Active', role: 'Raised the first alarm about the Harborline invoices.' } });
     E('gordon', 'individual', 'Gordon Tully', { details: 'Keystone site supervisor',
-      face: { skin: SK.brown, hair: '#111', style: 'buzz', shirt: '#2b2b2b', bg: '#9fa8b0', coat: 'suit', tie: '#315f8a', glasses: '#111' },
       profile: { gender: 'Male', occupation: 'Site supervisor', employer: 'Keystone Courier Partners', residence: 'Eastgate', status: 'Active', role: 'Badge log places him at Depot 4 the night before the outage.' } });
     E('hannah', 'individual', 'Hannah Ostrowski', { details: 'Property manager, Harbor Street business park',
-      face: { skin: SK.fair, hair: '#b5532a', style: 'long', shirt: '#2f5d62', bg: '#d6b8a0', coat: 'collar', mouth: 'grin' },
       profile: { gender: 'Female', occupation: 'Property manager', residence: 'Kessler', status: 'Active', role: 'Manages the business park where three companies of interest are registered.' } });
     E('cal', 'individual', 'Cal Brandt', { details: 'Night supervisor, Depot 4 (staff)',
-      face: { skin: SK.light, hair: '#2a1c14', style: 'short', shirt: '#5b6b5a', bg: '#c9b28a', coat: 'collar', beard: '#2a1c14' },
       profile: { gender: 'Male', occupation: 'Night supervisor', employer: 'Northwind Logistics', residence: 'Oakhaven', status: 'Active', role: 'Witness: let two men in Keystone vests into the cable room.' } });
     E('rosalind', 'individual', 'Rosalind Fenn', { aliases: ['R. Fenn'], details: 'Attorney and filing agent, Fenn & Associates',
-      face: { skin: SK.fair, hair: '#2e2e2e', style: 'none', shirt: '#3a506b', bg: '#a0b8c8', coat: 'suit', tie: '#7a1f2b', beard: '#333', mouth: 'flat' },
       profile: { gender: 'Female', occupation: 'Attorney', employer: 'Fenn & Associates', residence: 'Kessler', languages: 'English, French', status: 'Active', role: 'Files the incorporation papers for several companies of interest.' } });
     E('jonas', 'individual', 'Jonas Weir', { details: 'Organiser, Dark Grid Collective',
-      face: { skin: SK.deep, hair: '#151515', style: 'short', shirt: '#5a7a8a', bg: '#d0c0a0', coat: 'collar', glasses: '#b08d3c' },
       profile: { gender: 'Male', occupation: 'Organiser', employer: 'Dark Grid Collective', residence: 'Millbrook', languages: 'English', status: 'Active', role: 'Publicly leads the Dark Grid campaign against Northwind depots.' } });
     E('teodora', 'individual', 'Teodora Banks', { details: 'Reporter, Kessler Ledger',
-      face: { skin: SK.light, hair: '#8b5a2b', style: 'bun', shirt: '#2f2f5f', bg: '#c8b8c8', coat: 'collar', glasses: '#333' },
       profile: { gender: 'Female', occupation: 'Journalist', employer: 'Kessler Ledger', residence: 'Kessler', status: 'Active', role: 'Reports on Northwind’s contractors; says she has a source inside Northwind finance.' } });
     E('marcus', 'individual', 'Marcus Ellery', { details: 'Former Northwind scheduler, dismissed',
-      face: { skin: SK.tan, hair: '#3a2a1a', style: 'curly', shirt: '#8a2d3c', bg: '#a8c0a0', coat: 'plain', glasses: '#222' },
       profile: { gender: 'Male', occupation: 'Former scheduler', employer: 'Northwind Logistics (until five months ago)', residence: 'Oakhaven', status: 'Active', role: 'Dismissed after a dispute; his old account exported the schedule that was leaked.' } });
     E('sunil', 'individual', 'Sunil Desai', { details: 'Security badge administrator, Northwind (staff)',
-      face: { skin: SK.olive, hair: '#0e0e0e', style: 'short', shirt: '#33415c', bg: '#8ea8c3', coat: 'suit', tie: '#9b2d30', mouth: 'flat' },
       profile: { gender: 'Male', occupation: 'Badge administrator', employer: 'Northwind Logistics', residence: 'Lakeview', status: 'Active', role: 'Issued the override that let a contractor badge open the cable room.' } });
     E('hannah2', 'individual', 'Hannah Ostrowski', { details: 'Leasing contact, Eastgate rail yard',
       profile: { occupation: 'Leasing agent', residence: 'Eastgate', status: 'Unknown', role: 'The same name as the Harbor Street property manager. Not yet established whether it is the same person.' } });
