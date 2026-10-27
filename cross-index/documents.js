@@ -154,4 +154,13 @@
     A.closeModal();
     A.saveBlob('Timeline-' + CI.fileSafe(f && f.name) + '.pdf', function () { return CI.pdf.timelineSheet(d, A.idx(), file, o); });
   };
+
+  /* ================= the other sheets, in the same print style ================= */
+  H['print-profile'] = function (el) { var f = fileOf(el.getAttribute('data-id')); if (f) A.saveBlob('Profile-' + CI.fileSafe(f.name) + '.pdf', function () { return CI.pdf.profileSheet(D(), A.idx(), f.id); }); };
+  H['print-connections'] = function (el) { var f = fileOf(el.getAttribute('data-id')); if (f) A.saveBlob('Connections-' + CI.fileSafe(f.name) + '.pdf', function () { return CI.pdf.connectionsSheet(D(), A.idx(), f.id); }); };
+  H['print-report'] = function (el) { var id = el.getAttribute('data-id'); A.saveBlob('Report-' + id + '.pdf', function () { return CI.pdf.reportSheet(D(), A.idx(), id); }); };
+  H['print-estimate'] = function (el) {
+    var b = D().banks.filter(function (x) { return x.id === el.getAttribute('data-bank'); })[0]; if (!b) return;
+    A.saveBlob('Estimate-' + CI.fileSafe(b.name) + '.pdf', function () { return CI.pdf.estimateSheet(D(), A.idx(), b.id, el.getAttribute('data-est')); });
+  };
 })();

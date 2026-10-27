@@ -367,4 +367,112 @@
     CI.pdf.stamp(doc, 'Time line · ' + f.name);
     return doc.output('blob');
   };
+
+  /* ---------- the other file documents, in the same style ---------- */
+  function plain(t) { return String(t || '').replace(/→/g, '>').replace(/←/g, '<').replace(/↔/g, '<>').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/…/g, '...'); }
+  /* A table that adds pages as it goes. cols: [{ w, head }]; rows: arrays of strings; mono: column numbers in courier. Returns y. */
+  function table(doc, cols, rows, y, again, o) {
+    o = o || {}; var xs = [], x = X0; cols.forEach(function (c) { xs.push(x); x += c.w; });
+    function head() {
+      cols.forEach(function (c, i) { lab(doc, c.head, xs[i], y); });
+      doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y + 7, X1, y + 7); y += 24;
+    }
+    head();
+    rows.forEach(function (r) {
+      if (r.section) {
+        if (y > 700) { doc.addPage('letter', 'portrait'); y = again(); head(); }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(plain(r.section).toUpperCase(), X0, y, { charSpace: 0.8 }); y += 16; return;
+      }
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+      var cells = r.map(function (t, i) { return doc.splitTextToSize(plain(t), cols[i].w - 10).slice(0, 3); });
+      var h = Math.max.apply(null, cells.map(function (c) { return c.length; })) * 13;
+      if (y + h > 735) { doc.addPage('letter', 'portrait'); y = again(); head(); }
+      cells.forEach(function (c, i) {
+        var mo = (o.mono || []).indexOf(i) !== -1; doc.setFont(mo ? 'courier' : 'helvetica', mo ? 'normal' : (i === 0 ? 'bold' : 'normal'));
+        doc.setFontSize(10.5); c.forEach(function (ln, k) { doc.text(ln, xs[i], y + k * 13); });
+      });
+      doc.setDrawColor(215); doc.setLineWidth(0.5); doc.line(X0, y + h - 6, X1, y + h - 6);
+      y += h + 6;
+    });
+    return y;
+  };
+  function facts(doc, items, y) {
+    items.forEach(function (it, i) {
+      var x = X0 + (i % 3) * 165;
+      lab(doc, it[0], x, y); doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.text(oneLine(doc, plain(it[1]) || '-', 150), x, y + 17);
+      if (i % 3 === 2 && i < items.length - 1) y += 40;
+    });
+    y += 38; doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y - 10, X1, y - 10); return y + 14;
+  }
+
+  CI.pdf.profileSheet = function (d, idx, fileId) {
+    var e = idx.entity[fileId]; if (!e) throw new Error('No such file.');
+    var doc = CI.pdf.begin(), again = function () { return CI.pdf.top(doc, 'PROFILE (continued)', e.name); };
+    var y = CI.pdf.top(doc, 'PROFILE', e.name), p = e.profile || {};
+    y = facts(doc, [['Kind of file', CI.TYPE_LABEL[e.type]], ['Identifying details', e.details], ['Also known as', (e.aliases || []).join(', ')]], y);
+    CI.profileFields(e.type).forEach(function (f) {
+      var v = f.kind === 'date' ? CI.fmtDate(p[f.id] || '') : (p[f.id] || '');
+      var ls = doc.splitTextToSize(plain(v) || '', 290).length;
+      if (y + 20 + Math.max(1, ls) * 15 > 735) { doc.addPage('letter', 'portrait'); y = again(); }
+      lab(doc, f.label, X0, y); doc.setFont('helvetica', 'normal'); doc.setFontSize(11.5);
+      y = CI.pdf.flow(doc, plain(v), { x: X0 + 200, w: 290, y: y, size: 11.5, lead: 15, again: again });
+      doc.setDrawColor(215); doc.setLineWidth(0.5); doc.line(X0, y - 8, X1, y - 8); y += 8;
+    });
+    if (e.notes) { y += 6; lab(doc, 'Notes', X0, y); y = CI.pdf.flow(doc, plain(e.notes), { x: X0 + 200, w: 290, y: y, size: 11.5, lead: 15, again: again }); }
+    CI.pdf.stamp(doc, 'Profile · ' + e.name); return doc.output('blob');
+  };
+
+  CI.pdf.connectionsSheet = function (d, idx, fileId) {
+    var e = idx.entity[fileId]; if (!e) throw new Error('No such file.');
+    var doc = CI.pdf.begin(), again = function () { return CI.pdf.top(doc, 'CONNECTIONS (continued)', e.name); };
+    var y = CI.pdf.top(doc, 'CONNECTIONS', e.name), groups = CI.connectionIndex(d, fileId, idx), rows = [];
+    groups.forEach(function (g) { rows.push({ section: g.label }); g.rows.forEach(function (r) { rows.push([r.other.name, r.phrase, r.note, r.reportId]); }); });
+    if (!rows.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('No connections recorded for this name.', X0, y); }
+    else table(doc, [{ w: 130, head: 'Name' }, { w: 100, head: 'Connection' }, { w: 190, head: 'What it is' }, { w: 70, head: 'Report' }], rows, y, again, { mono: [3] });
+    CI.pdf.stamp(doc, 'Connections · ' + e.name); return doc.output('blob');
+  };
+
+  CI.pdf.reportSheet = function (d, idx, reportId) {
+    var r = idx.report[reportId]; if (!r) throw new Error('No such report.');
+    var doc = CI.pdf.begin(), title = r.subject || r.sourceRef || r.id, again = function () { return CI.pdf.top(doc, 'REPORT (continued)', r.id); };
+    var y = CI.pdf.top(doc, 'REPORT', r.id);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); var tl = doc.splitTextToSize(plain(title), W).slice(0, 2); tl.forEach(function (ln, i) { doc.text(ln, X0, y + 6 + i * 19); }); y += 14 + tl.length * 19;
+    y = facts(doc, [['Date of report', CI.fmtDate(r.received)], ['Source', r.sourceRef], ['Preserved copy', r.archiveLoc]], y);
+    if (r.summary) { lab(doc, 'Notes', X0, y); y = CI.pdf.flow(doc, plain(r.summary), { y: y + 18, size: 11.5, lead: 16, again: again }) + 10; }
+    var names = (r.entities || []).map(function (x) { return idx.entity[x.entityId]; }).filter(Boolean).map(function (e) { return [e.name, CI.TYPE_LABEL[e.type] || '', e.details || '']; });
+    if (y > 650) { doc.addPage('letter', 'portrait'); y = again(); }
+    lab(doc, 'Names mentioned (' + names.length + ')', X0, y); y += 16;
+    if (names.length) y = table(doc, [{ w: 200, head: 'Name' }, { w: 90, head: 'Kind' }, { w: 200, head: 'Identifying details' }], names, y, again) + 10;
+    var links = d.links.filter(function (l) { return l.reportId === reportId; }).map(function (l) {
+      var t = CI.linkType(d, l.type), a = idx.entity[l.from], b = idx.entity[l.to];
+      return [a ? a.name : '?', (t.directed ? t.label + ' >' : t.label), b ? b.name : '?', l.note || ''];
+    });
+    if (y > 650) { doc.addPage('letter', 'portrait'); y = again(); }
+    lab(doc, 'Connections shown (' + links.length + ')', X0, y); y += 16;
+    if (links.length) table(doc, [{ w: 120, head: 'From' }, { w: 100, head: 'Connection' }, { w: 120, head: 'To' }, { w: 150, head: 'What it is' }], links, y, again);
+    CI.pdf.stamp(doc, 'Report · ' + r.id); return doc.output('blob');
+  };
+
+  CI.pdf.estimateSheet = function (d, idx, bankId, estId) {
+    var b = d.banks.filter(function (x) { return x.id === bankId; })[0]; if (!b) throw new Error('No such special bank.');
+    var est = CI.estimateOf(b, estId), doc = CI.pdf.begin(), again = function () { return CI.pdf.top(doc, 'ESTIMATE (continued)', b.name); };
+    var y = CI.pdf.top(doc, 'ESTIMATE', b.name);
+    y = facts(doc, [['Estimate', est.label], ['Written', est.updated ? CI.fmtDate(est.updated) : CI.fmtDate(est.created)], ['Files in the bank', String((b.files || []).length)]], y);
+    function block(title, items, empty) {
+      if (y > 690) { doc.addPage('letter', 'portrait'); y = again(); }
+      lab(doc, title, X0, y); y += 18;
+      if (!items.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text(empty, X0, y); y += 24; return; }
+      items.forEach(function (it, i) {
+        y = CI.pdf.flow(doc, (i + 1) + '.', { x: X0, w: 24, y: y, size: 11.5, lead: 16, bold: true, again: again }) - 16;
+        y = CI.pdf.flow(doc, plain(it.text), { x: X0 + 24, w: W - 24, y: y, size: 11.5, lead: 16, again: again });
+        if (it.reportIds.length) { doc.setFont('courier', 'normal'); doc.setFontSize(9); doc.setTextColor(95); doc.text('Rests on ' + it.reportIds.join(', '), X0 + 24, y - 2); doc.setTextColor(17); y += 12; }
+        y += 8;
+      });
+      y += 6;
+    }
+    if (est.summary) { lab(doc, 'Summary', X0, y); y = CI.pdf.flow(doc, plain(est.summary), { y: y + 18, size: 12, lead: 17, again: again }) + 10; }
+    block('Established (rests on reports)', est.items.filter(function (i) { return i.kind === 'ESTABLISHED'; }), 'None.');
+    block('Working theories', est.items.filter(function (i) { return i.kind === 'HYPOTHESIS'; }), 'None.');
+    CI.pdf.stamp(doc, 'Estimate · ' + b.name + ' · ' + est.label); return doc.output('blob');
+  };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -157,7 +157,7 @@
     if (!b) { A.view.innerHTML = '<div class="card callout">No such special bank. <a href="#/chart">Back to special banks</a></div>'; return; }
     var est = CI.estimateOf(b, estId), handed = b.handedOver && b.handedOverEstimate === est.id;
     var h = CI.views.bankHead(b, 'estimates') +
-      '<h2 class="sub-h">' + esc(est.label) + (handed ? ' <span class="tag">handed over</span>' : '') + ' <button class="btn small" data-action="est-rename" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Rename</button></h2>' +
+      '<h2 class="sub-h">' + esc(est.label) + (handed ? ' <span class="tag">handed over</span>' : '') + ' <button class="btn small" data-action="est-rename" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Rename</button> <button class="btn small" data-action="print-estimate" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Print</button></h2>' +
       '<div class="card form"><h2>Summary</h2><label><span class="hint">Where things stand, in a few plain sentences</span><textarea id="est-sum" rows="4" data-on-change="est-sum" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">' + esc(est.summary) + '</textarea></label>' +
       (est.updated ? '<p class="muted small" style="margin:6px 0 0">Updated ' + esc(CI.fmtDate(est.updated)) + '. Changes save as you go.</p>' : '') + '</div>' +
       section(b, est, 'ESTABLISHED', 'What the files establish', 'Statements the reports support. Each must cite at least one report.') +

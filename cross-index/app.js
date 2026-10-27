@@ -323,7 +323,7 @@
     if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '' };
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
-    var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="raise-lead-report" data-id="' + esc(id) + '">Raise a lead</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
+    var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><button class="btn" data-action="raise-lead-report" data-id="' + esc(id) + '">Raise a lead</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
     var mine = d.links.filter(function (l) { return l.reportId === id; });
     h += '<div class="card rep-strip"><div class="facts">' +
       '<div><span class="fl">Date of report</span><span class="fv">' + esc(CI.fmtDate(r.received)) + '</span></div>' +
@@ -650,11 +650,11 @@
       profileFields(e) +
       '<label>Aliases, handles and spellings <span class="hint">comma separated</span><input type="text" id="en-aliases" value="' + esc(e.aliases.join(', ')) + '"></label>' +
       '<label>Notes <span class="hint">analyst notes; facts belong in reports</span><textarea id="en-notes" rows="2">' + esc(e.notes) + '</textarea></label>' +
-      '<div class="row"><button class="btn primary" data-action="save-entity" data-id="' + esc(id) + '">Save</button><span class="muted small">' + esc(id) + '</span></div></form>';
+      '<div class="row"><button class="btn primary" data-action="save-entity" data-id="' + esc(id) + '">Save</button><button class="btn" data-action="print-profile" data-id="' + esc(id) + '">Print profile</button><span class="muted small">' + esc(id) + '</span></div></form>';
     }
     if (tab === 'connections') {
     var cgroups = CI.connectionIndex(d, id, idx());
-    h += '<div class="card flush"><h2 style="padding:14px 16px 6px">Connections</h2>';
+    h += '<div class="card flush"><div class="row spread" style="padding:14px 16px 6px"><h2 style="margin:0">Connections</h2>' + (cgroups.length ? '<button class="btn small" data-action="print-connections" data-id="' + esc(id) + '">Print</button>' : '') + '</div>';
     if (cgroups.length) h += connTable(cgroups);
     else h += '<p class="muted" style="padding:0 16px 14px">No connections recorded for this name yet.</p>';
       h += '</div>';

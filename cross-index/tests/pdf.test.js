@@ -2,7 +2,7 @@
 const assert = require('assert'), fs = require('fs'), path = require('path');
 globalThis.CI = {};
 globalThis.jspdf = require('../vendor/jspdf.umd.min.js');
-require('../core.js'); require('../sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js');
+require('../core.js'); require('../sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js'); require('../pointers.js');
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
@@ -146,4 +146,17 @@ t('summary and time line sheets build, with page numbers', () => {
   assert.ok(CI.pdf.timelineSheet(d, idx, f.id, { maxLevel: 3 }).size > 3000);
   assert.ok(CI.pdf.timelineSheet(d, idx, f.id, { maxLevel: 1, from: '2026-09-05' }).size > 1500);
   assert.ok(CI.pdf.timelineSheet(d, idx, d.entities[0].id, {}).size > 1000);
+});
+
+t('profile, connections, report and estimate sheets build', () => {
+  const d = CI.sampleData(); const idx = CI.buildIndex(d);
+  const f = d.entities.find(e => (idx.reportsByEntity[e.id] || []).length >= 2 && e.type === 'individual');
+  f.profile = { dob: '1981-03-04', occupation: 'Driver', role: 'Long text. '.repeat(40) };
+  assert.ok(CI.pdf.profileSheet(d, idx, f.id).size > 1500);
+  assert.ok(CI.pdf.connectionsSheet(d, idx, f.id).size > 1500);
+  const lone = CI.addEntity(d, { type: 'area', name: 'Nowhere' });
+  assert.ok(CI.pdf.connectionsSheet(d, CI.buildIndex(d), lone.id).size > 1000);
+  assert.ok(CI.pdf.reportSheet(d, idx, d.reports[0].id).size > 1500);
+  const b = d.banks.find(x => !x.quick);
+  assert.ok(CI.pdf.estimateSheet(d, idx, b.id, CI.currentEstimate(b).id).size > 1500);
 });
