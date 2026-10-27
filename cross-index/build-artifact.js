@@ -1,0 +1,22 @@
+// Builds a single self-contained page (dist/cross-index-artifact.html) for hosting as a Claude artifact.
+// Plain Node, nothing to install:  node build-artifact.js
+const fs = require('fs'), path = require('path');
+const dir = __dirname, read = f => fs.readFileSync(path.join(dir, f), 'utf8');
+const safeJs = t => t.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
+const html = read('index.html');
+const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('<script src='));
+const scripts = ['vendor/cytoscape.min.js', 'vendor/jspdf.umd.min.js', 'core.js', 'portraits.js', 'sample.js', 'images.js', 'chart.js', 'pdf.js', 'app.js', 'chartview.js', 'banks.js', 'documents.js', 'leads.js', 'pointers.js', 'observe.js', 'indexes.js', 'investigations.js', 'casechart.js'];
+const out = [
+  '<title>Cross-Index</title>',
+  '<meta name="claude:viewport-fit-sides" content="cover">',
+  '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">',
+  '<style>\n' + read('style.css') + '\n</style>',
+  body.trim(),
+  // Embedded pages cannot start downloads directly, so the artifact build drops the JSON download button (Copy and paste-import remain). PDFs go through the downloads capability.
+  ...scripts.map(f => '<script>\n' + safeJs(read(f)).split('<button class="btn" data-action="export-download">Download file</button>').join('') + '\n</script>'),
+  '<script>CI.app.start();</script>'
+].join('\n');
+fs.mkdirSync(path.join(dir, 'dist'), { recursive: true });
+fs.writeFileSync(path.join(dir, 'dist', 'cross-index-artifact.html'), out);
+console.log('dist/cross-index-artifact.html', (out.length / 1024).toFixed(0) + ' KB');

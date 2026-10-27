@@ -1,7 +1,7 @@
 // Run with: node tests/chart.test.js  — validates elements/style/layouts against real Cytoscape in headless mode.
 const assert = require('assert');
 globalThis.CI = {};
-require('../core.js'); require('../sample.js'); require('../chart.js');
+require('../core.js'); require('../sample.js'); require('./fixture-sample.js'); require('../images.js'); require('../chart.js');
 const cytoscape = require('../vendor/cytoscape.min.js');
 const CI = globalThis.CI;
 const d = CI.sampleData();

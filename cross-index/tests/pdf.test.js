@@ -1,0 +1,185 @@
+// Run with: node tests/pdf.test.js  — PDF layout maths and real PDF generation with the bundled jsPDF.
+const assert = require('assert'), fs = require('fs'), path = require('path');
+globalThis.CI = {};
+globalThis.jspdf = require('../vendor/jspdf.umd.min.js');
+require('../core.js'); require('../sample.js'); require('./fixture-sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js'); require('../pointers.js');
+const CI = globalThis.CI;
+let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
+
+t('PDF short dates carry the year too: day, short month, year', () => {
+  assert.equal(CI.fmtShort('2026-12-25'), '25 Dec. 2026');
+  assert.equal(CI.fmtShort(''), '');
+});
+
+t('planTiles centres and fits the graph inside the poster, tiles cover it', () => {
+  const p = CI.planTiles({ gw: 1200, gh: 700, cols: 2, rows: 2, pageW: 17, pageH: 11, margin: 0.35 });
+  assert.ok(Math.abs(p.pw - 16.3) < 1e-9 && Math.abs(p.ph - 10.3) < 1e-9);
+  assert.equal(p.tiles.length, 4);
+  assert.ok(1200 * p.f <= p.PW - 0.8 + 1e-9 && 700 * p.f <= p.PH - 0.8 + 1e-9);
+  assert.ok(Math.abs(p.offX + 1200 * p.f / 2 - p.PW / 2) < 1e-9);
+  assert.deepEqual(p.tiles.map(t => t.n), [1, 2, 3, 4]);
+  assert.deepEqual([p.tiles[1].r, p.tiles[1].c], [0, 1]);
+});
+t('planTiles caps enlargement so a tiny graph is not blown up', () => {
+  const p = CI.planTiles({ gw: 100, gh: 80, cols: 2, rows: 2, pageW: 17, pageH: 11, margin: 0.35 });
+  assert.equal(p.f, 0.03);
+});
+t('pickDpi lowers resolution for big posters and never below 50', () => {
+  assert.equal(CI.pickDpi(32.6, 20.6, 150), 144);
+  assert.ok(CI.pickDpi(49, 31, 150) < 100);
+  assert.equal(CI.pickDpi(500, 500, 150), 50);
+});
+t('photoGeometry crops faces square and fits logos', () => {
+  const a = CI.photoGeometry(800, 600, 'square', 256); assert.deepEqual([a.sw, a.sh, a.ow, a.oh, a.sx], [600, 600, 256, 256, 100]);
+  const b = CI.photoGeometry(1000, 500, 'fit', 256); assert.deepEqual([b.ow, b.oh], [256, 128]);
+  const c = CI.photoGeometry(100, 60, 'fit', 256); assert.deepEqual([c.ow, c.oh], [100, 60]);
+});
+t('placeholders exist for every type', () => {
+  CI.ENTITY_TYPES.forEach(ty => assert.ok(CI.placeholder(ty, '#123456').startsWith('data:image/svg+xml')));
+});
+t('lead sheets and board produce real PDFs', async () => {});
+(async () => {
+  const d = CI.sampleData();
+  const one = CI.pdf.leadSheets(d, d.leads.concat(d.requests).map(l => l.id));
+  const buf = Buffer.from(await one.arrayBuffer());
+  assert.equal(buf.slice(0, 4).toString(), '%PDF'); assert.ok((buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 4);
+  const board = Buffer.from(await CI.pdf.leadList(d, d.investigations[0].id, { kind: 'lead' }).arrayBuffer());
+  const rboard = Buffer.from(await CI.pdf.leadList(d, d.investigations[0].id, { kind: 'request', openOnly: true }).arrayBuffer()); assert.equal(rboard.slice(0, 4).toString(), '%PDF');
+  assert.equal(board.slice(0, 4).toString(), '%PDF');
+  const out = process.env.PDF_OUT; if (out) { fs.writeFileSync(path.join(out, 'sheets.pdf'), buf); fs.writeFileSync(path.join(out, 'board.pdf'), board); }
+  console.log('ok - lead sheets (4 pages) and board are valid PDFs'); n++;
+  // lead logic
+  const inv0 = d.investigations[0], nL = d.leads.length, nQ = d.requests.length;
+  assert.equal(CI.addLead(d, { investigationId: inv0.id, question: ' ' }).error, 'Give the reason for the lead.');
+  assert.equal(CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: ' ' }).error, 'Say what is to be retrieved.');
+  assert.ok(CI.addLead(d, { investigationId: 'V-9', question: 'q' }).error);
+  assert.ok(CI.addLead(d, { investigationId: inv0.id, question: 'q', raisedBy: 'R-9999' }).error);
+  assert.ok(CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: 'q', forLead: 'L-9999' }).error);
+  const Lr = CI.addLead(d, { investigationId: inv0.id, question: 'No source report needed.', assigned: 'A. Smith' }).lead;
+  assert.equal(Lr.raisedBy, ''); assert.equal(Lr.kind, 'INVESTIGATION'); assert.equal(Lr.assigned, 'A. Smith'); assert.ok(Lr.id.startsWith('L-'));
+  const L = CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: 'q?', raisedBy: 'R-0001', forLead: Lr.id, about: ['E-0001', 'E-0001'] }).lead;
+  assert.ok(L.id.startsWith('Q-')); assert.equal(L.with, 'Collection'); assert.deepEqual(L.about, ['E-0001']); assert.equal(L.forLead, Lr.id); assert.equal(L.status, 'NOT_STARTED');
+  assert.equal(d.requests.length, nQ + 1); assert.equal(d.leads.length, nL + 1); assert.equal(CI.findLead(d, L.id), L);
+  assert.ok(CI.leadsOf(d, inv0.id).includes(Lr) && !CI.leadsOf(d, inv0.id).includes(L) && CI.requestsOf(d, inv0.id).includes(L));
+  d.reports[0].leadId = L.id; assert.equal(CI.leadResults(d, L.id).length, 1);
+  CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.requests.length, nQ);
+  const Q2 = CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: 'again', forLead: Lr.id }).lead;
+  CI.deleteLead(d, Lr.id); assert.equal(d.leads.length, nL); assert.equal(Q2.forLead, ''); CI.deleteLead(d, Q2.id);
+  console.log('ok - lead creation rules, results and delete'); n++;
+  // estimate
+  const b = d.banks[0], cnt = CI.currentEstimate(b).items.length;
+  assert.equal(CI.addEstimateItem(d, b, { kind: 'ESTABLISHED', text: 'x', reportIds: '' }).error, 'An established statement must cite at least one report.');
+  assert.ok(CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'x', reportIds: 'R-9999' }).error.includes('R-9999'));
+  assert.ok(CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'x', reportIds: '' }).item);
+  assert.equal(CI.currentEstimate(b).items.length, cnt + 1);
+  const sn = CI.handOver(d, b); assert.equal(b.handedOver, CI.today()); assert.equal(b.compareId, sn.id); assert.ok(sn.graph.nodes.length > 0);
+  console.log('ok - estimate rules and handover snapshot'); n++;
+  // material stats
+  const st = CI.materialStats(d), id = nm => d.entities.find(e => e.name.startsWith(nm)).id;
+  assert.equal(st[id('Orrin')].reports, 2); assert.equal(st[id('Orrin')].material, 1);
+  assert.equal(st[id('Harborline')].material, 4);
+  // repost collapses
+  assert.equal(st[id('GridWatch')].reports, 2); assert.equal(st[id('GridWatch')].material, 1); // named in R-0010 but not connected there
+  console.log('ok - material vs total reports, reposts collapsed'); n++;
+  const b2 = CI.newBank(d, 'top', [id('Q3')], 3); b2.topN = 4;
+  const g = CI.computeGraph(d, b2); assert.equal(g.nodes.length, 4); assert.ok(g.nodes.some(x => x.seed)); assert.ok(g.trimmed > 0);
+  assert.ok(g.edges.every(e => g.nodes.some(x => x.id === e.source) && g.nodes.some(x => x.id === e.target)));
+  console.log('ok - top-N keeps the heaviest files and the starting entity'); n++;
+  // investigations and handling plans
+  assert.equal(d.investigations.length, 2); // sample's Depot 4 bank was already handed over; the invoice bank was just handed over
+  const inv = CI.investigationFor(d, b.id); assert.ok(inv && inv.status === 'ACTIVE' && /^V-\d{4}$/.test(inv.id) && inv.planFile.name === '');
+  CI.handOver(d, b); assert.equal(d.investigations.length, 2); // one investigation per bank
+  assert.ok(CI.newInvestigation(d, { title: '  ' }).error);
+  const free = CI.newInvestigation(d, { title: 'Tip about the courier', reason: 'Phone call', investigator: 'Q' }).inv;
+  assert.ok(free.bankId === '' && free.status === 'ACTIVE' && !CI.investigationFor(d, '') && d.investigations.length === 3);
+  const fl = CI.addLead(d, { investigationId: free.id, kind: 'INVESTIGATION', question: 'Who called?' }).lead; assert.ok(fl.id);
+  assert.ok(CI.pdf.leadList(d, free.id, { kind: 'lead' }).size > 1000 && CI.pdf.leadSheets(d, [fl.id]).size > 1000);
+  const f0 = CI.invFiles(d, free).length; assert.equal(f0, 0);
+  const ea = d.entities[0].id; assert.ok(!CI.addInvFile(d, free, ea).error && CI.addInvFile(d, free, ea).error && CI.invFiles(d, free)[0].sources[0] === 'Added');
+  CI.addPin(d, free, d.entities[1].id); assert.equal(CI.invFiles(d, free).length, 2);
+  CI.removeInvFile(d, free, ea); assert.equal(CI.invFiles(d, free).length, 1);
+  const nb = CI.newBank(d, 'Attach me', [d.entities[2].id], 1); nb.files = [d.entities[2].id]; d.banks.push(nb);
+  assert.ok(CI.handOver(d, nb, CI.currentEstimate(nb).id, free) && free.bankId === nb.id && d.investigations.length === 3 && CI.handOver(d, nb, null, free) === null);
+  assert.ok(CI.invFiles(d, free).some(x => x.sources.includes('Bank')));
+  const sid = d.reports.find(r => r.entities.length > 2).entities[0].entityId, sh = CI.sharedReportIndex(d, sid);
+  assert.ok(sh.length && sh.every(g => g.rows.every(x => x.other.id !== sid && x.reports.length >= 1)));
+  console.log('ok - investigations: one per bank, one can be opened without a bank, plan kept as a file name only'); n++;
+  // area rename migration
+  const old = JSON.parse(JSON.stringify(d)); old.schema = 2; old.entities.find(e => e.type === 'area').type = 'location'; old.banks[0].entityTypes = ['individual', 'location'];
+  old.banks[0].snapshots[0].graph.nodes.forEach(x => { if (x.type === 'area') x.type = 'location'; });
+  const mig = CI.normalize(old); assert.ok(mig.entities.every(e => e.type !== 'location')); assert.deepEqual(mig.banks[0].entityTypes, ['individual', 'area']);
+  assert.ok(mig.banks[0].snapshots[0].graph.nodes.every(x => x.type !== 'location')); assert.equal(CI.TYPE_LABEL.area, 'Area');
+  console.log('ok - old "location" files migrate to "area"'); n++;
+  // situation observation
+  const o = CI.observe(d, 14);
+  assert.ok(o.files.length >= 1); assert.ok(o.files.every(f => f.why.length && f.now >= 0));
+  assert.ok(o.clusters.every(c => c.ids.length >= 3));
+  const quiet = CI.observe(CI.emptyData(), 14); assert.equal(quiet.files.length, 0); assert.equal(quiet.clusters.length, 0);
+  console.log('ok - situation observation finds what moved (' + o.files.length + ' files, ' + o.clusters.length + ' clusters)'); n++;
+  // case chart
+  const dd = CI.sampleData(), iv = dd.investigations.find(v => dd.banks.find(b => b.id === v.bankId).name.startsWith('Depot')), eid = k => dd.entities.find(e => e.name.startsWith(k)).id;
+  const cc = CI.caseChartOf(iv); const nPins = cc.pins.length, nStr = cc.strings.length;
+  assert.equal(CI.addPin(dd, iv, 'E-9999').error, 'That file does not exist.');
+  assert.ok(CI.addPin(dd, iv, eid('Grid')).error.includes('already'));
+  const dana = CI.addPin(dd, iv, eid('Dana')); assert.ok(dana.pin); assert.equal(cc.pins.length, nPins + 1);
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Dana'), label: 'x', reportIds: ['R-0010'] }).error);
+  assert.equal(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: [] }).error, 'A string must cite at least one report.');
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: ['R-9999'] }).error.includes('R-9999'));
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: ['R-0001'] }).error.includes('does not name'));
+  assert.ok(CI.addString(dd, iv, { a: eid('Dana'), b: eid('Vera'), label: 'x', reportIds: ['R-0010'] }).error.includes('pinned'));
+  const rs = CI.reportsForString(dd, eid('Dana'), eid('Tobias')); assert.deepEqual(rs.both, ['R-0010']);
+  const st1 = CI.addString(dd, iv, { a: eid('Dana'), b: eid('Tobias'), label: 'attacked', reportIds: ['R-0010'] }).string; assert.ok(st1);
+  assert.ok(CI.addString(dd, iv, { a: eid('Tobias'), b: eid('Dana'), label: 'Attacked', reportIds: ['R-0010'] }).error.includes('already'));
+  assert.equal(CI.updateString(dd, iv, st1.id, { label: 'named', reportIds: [] }).error, 'A string must cite at least one report.');
+  const cg = CI.caseGraph(dd, iv); assert.equal(cg.graph.nodes.length, nPins + 1); assert.equal(cg.graph.edges.length, nStr + 1);
+  assert.ok(cg.flags.nodes[eid('Keystone')] && cg.flags.edges['C-0003']); assert.ok(!cg.flags.nodes[eid('Grid')]);
+  dd.leads.forEach(l => { l.status = 'DONE'; }); assert.equal(Object.keys(CI.caseGraph(dd, iv).flags.nodes).length, 0);
+  CI.deleteReport(dd, 'R-0010'); assert.ok(!cc.strings.some(t => t.id === st1.id)); // its only report is gone
+  CI.removePin(dd, iv, eid('Keystone')); assert.ok(!cc.strings.some(t => t.a === eid('Keystone') || t.b === eid('Keystone')));
+  const m1 = CI.addEntity(dd, { type: 'individual', name: 'Orrin P.' }); CI.addPin(dd, iv, m1.id); CI.addPin(dd, iv, eid('Orrin Platt'));
+  CI.mergeEntities(dd, m1.id, eid('Orrin Platt')); assert.equal(cc.pins.filter(p => p.entityId === eid('Orrin Platt')).length, 1); assert.ok(!cc.pins.some(p => p.entityId === m1.id));
+  console.log('ok - case chart: pins, strings need reports, flags from open leads, cleanup on delete and merge'); n++;
+  const olds = JSON.parse(JSON.stringify(CI.sampleData())); olds.schema = 3; olds.investigations[0].caseChart = { pins: [], strings: [] }; olds.leads = olds.leads.filter(l => l.bankId !== olds.investigations[0].bankId);
+  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 7); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2); const o6 = JSON.parse(JSON.stringify(CI.sampleData())); o6.schema = 6; o6.investigations[0].plan = { objective: "x" }; o6.investigations[0].status = "EXECUTING"; const m7 = CI.normalize(o6); assert.ok(m7.investigations[0].status === "ACTIVE" && !m7.investigations[0].plan && typeof m7.investigations[0].planFile.name === "string");
+  const mid = JSON.parse(JSON.stringify(CI.sampleData())); mid.schema = 4; mid.investigations[0].caseChart.title = ''; mid.investigations[0].caseChart.notes = []; assert.equal(CI.normalize(mid).investigations[0].caseChart.notes.length, 2);
+  console.log('ok - sample data saved before case charts gets its case chart on load'); n++;
+  const d5 = CI.sampleData(), v5 = d5.investigations[0], c5 = CI.caseChartOf(v5);
+  assert.equal(CI.addNote(d5, v5, '  ', {}).error, 'Write the label text.'); const nt = CI.addNote(d5, v5, 'Key player', { x: 5, y: 6 }).note; assert.ok(/^W-/.test(nt.id)); assert.equal(CI.updateNote(d5, v5, nt.id, 'Ringleader?').note.text, 'Ringleader?');
+  CI.removeNote(d5, v5, nt.id); assert.ok(!c5.notes.some(x => x.id === nt.id)); CI.setCaseTitle(d5, v5, ' New title '); assert.equal(c5.title, 'New title');
+  const before = c5.strings.length, avail = CI.indexConnections(d5, v5).length; assert.ok(avail >= 1); assert.equal(CI.addIndexConnections(d5, v5), avail); assert.equal(c5.strings.length, before + avail); assert.equal(CI.indexConnections(d5, v5).length, 0);
+  console.log('ok - case chart labels, title and connections taken from the main files'); n++;
+  console.log('\n' + n + ' PDF/lead checks passed'); process.exit(0);
+})().catch(e => { console.error('FAIL', e); process.exit(1); });
+
+t('summary and time line sheets build, with page numbers', () => {
+  const d = CI.sampleData(); const idx = CI.buildIndex(d);
+  const f = d.entities.find(e => (idx.reportsByEntity[e.id] || []).length >= 2);
+  const s = CI.addSummary(d, { fileId: f.id, date: '2026-10-20', author: 'DP', text: 'Line of text.\n'.repeat(120), covers: CI.reportsOf(idx, f.id) }).summary;
+  const b = CI.pdf.summarySheets(d, idx, [s.id], f.name);
+  assert.ok(b.size > 1500);
+  for (let i = 0; i < 60; i++) CI.addTimeline(d, { fileId: f.id, date: '2026-09-' + String(1 + i % 28).padStart(2, '0'), text: 'Entry number ' + i + ' with enough words to wrap onto a second line of the sheet when printed.', level: 1 + i % 3, reportIds: CI.reportsOf(idx, f.id)[0] });
+  assert.ok(CI.pdf.timelineSheet(d, idx, f.id, { maxLevel: 3 }).size > 3000);
+  assert.ok(CI.pdf.timelineSheet(d, idx, f.id, { maxLevel: 1, from: '2026-09-05' }).size > 1500);
+  assert.ok(CI.pdf.timelineSheet(d, idx, d.entities[0].id, {}).size > 1000);
+});
+
+t('profile, connections, report and estimate sheets build', () => {
+  const d = CI.sampleData(); const idx = CI.buildIndex(d);
+  const f = d.entities.find(e => (idx.reportsByEntity[e.id] || []).length >= 2 && e.type === 'individual');
+  f.profile = { dob: '1981-03-04', occupation: 'Driver', role: 'Long text. '.repeat(40) };
+  assert.ok(CI.pdf.profileSheet(d, idx, f.id).size > 1500);
+  assert.ok(CI.pdf.connectionsSheet(d, idx, f.id).size > 1500);
+  const lone = CI.addEntity(d, { type: 'area', name: 'Nowhere' });
+  assert.ok(CI.pdf.connectionsSheet(d, CI.buildIndex(d), lone.id).size > 1000);
+  assert.ok(CI.pdf.reportSheet(d, idx, d.reports[0].id).size > 1500);
+  const b = d.banks.find(x => !x.quick);
+  assert.ok(CI.pdf.estimateSheet(d, idx, b.id, CI.currentEstimate(b).id).size > 1500);
+});
+
+t('time line of several files merges in date order', () => {
+  const d = CI.sampleData(); const idx = CI.buildIndex(d);
+  const [a, b] = d.entities;
+  CI.addTimeline(d, { fileId: a.id, date: '2026-09-09', text: 'A later' }); CI.addTimeline(d, { fileId: b.id, date: '2026-09-01', text: 'B earlier' });
+  assert.deepEqual(CI.timelineMany(d, [a.id, b.id]).map(x => x.text), ['B earlier', 'A later']);
+  assert.ok(CI.pdf.timelineSheet(d, idx, [a.id, b.id], { title: 'Both' }).size > 1500);
+});
