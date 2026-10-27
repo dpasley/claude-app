@@ -217,7 +217,7 @@
       if (b.handedOver == null) b.handedOver = '';
       if (!b.opened || typeof b.opened !== 'object') b.opened = { date: '', reason: '' };
       if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
-    d.investigations.forEach(function (v) { CI.caseChartOf(v); });
+    d.investigations.forEach(function (v) { CI.caseChartOf(v); if (!Array.isArray(v.files)) v.files = []; });
     migrate(d);
     // Special banks hold a chosen list of main files. Older banks get the names their chart showed.
     d.banks.forEach(function (b) {
@@ -528,6 +528,7 @@
     if (CI.entityInUse(d, id)) return false;
     d.entities = d.entities.filter(function (e) { return e.id !== id; });
     CI.caseChartDropEntity(d, id);
+    d.investigations.forEach(function (v) { v.files = (v.files || []).filter(function (x) { return x !== id; }); });
     d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
     d.banks.forEach(function (b) {
       b.seeds = b.seeds.filter(function (x) { return x !== id; });
@@ -981,22 +982,42 @@
   /* An investigation can also be opened without a special bank (a tip, a referral). */
   CI.newInvestigation = function (d, o) {
     var title = String(o.title || '').trim(); if (!title) return { error: 'Give the investigation a title.' };
-    var inv = { id: CI.nextId(d, 'investigation'), bankId: '', title: title, reason: String(o.reason || '').trim(), status: 'ACTIVE', investigator: String(o.investigator || '').trim(), opened: o.opened || CI.today(), closed: '', notes: '', planFile: { name: '', location: '' } };
+    var inv = { id: CI.nextId(d, 'investigation'), bankId: '', title: title, reason: String(o.reason || '').trim(), status: 'ACTIVE', investigator: String(o.investigator || '').trim(), opened: o.opened || CI.today(), closed: '', notes: '', files: [], planFile: { name: '', location: '' } };
     d.investigations.push(inv); return { inv: inv };
   };
-  CI.handOver = function (d, bank, estId) {
+  CI.handOver = function (d, bank, estId, into) {
     if (bank.outcome) return null;
+    if (into && into.bankId) return null;
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
     var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live), positions: clone(bank.positions || {}) };
     CI.ensureCharts(bank); bank.handedOverChart = bank.chartId;
     bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today(); bank.handedOverEstimate = CI.estimateOf(bank, estId).id;
-    var inv = CI.investigationFor(d, bank.id);
-    if (!inv) {
-      inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, title: '', reason: b0reason(bank), status: 'ACTIVE', investigator: '', opened: CI.today(), closed: '', notes: '', planFile: { name: '', location: '' } };
+    var inv = into || CI.investigationFor(d, bank.id);
+    if (into) { into.bankId = bank.id; if (!into.reason) into.reason = b0reason(bank); }
+    else if (!inv) {
+      inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, title: '', reason: b0reason(bank), status: 'ACTIVE', investigator: '', opened: CI.today(), closed: '', notes: '', files: [], planFile: { name: '', location: '' } };
       d.investigations.push(inv);
     }
     return sn;
   };
+  /* The files of an investigation: the ones added by hand, plus those in its bank, on its chart, or named in its leads and requests. */
+  CI.invFiles = function (d, inv) {
+    var map = {}, add = function (id, why) { if (!id) return; var e = d.entities.filter(function (x) { return x.id === id; })[0]; if (!e) return; (map[id] = map[id] || { entity: e, sources: [] }); if (map[id].sources.indexOf(why) === -1) map[id].sources.push(why); };
+    var b = d.banks.filter(function (x) { return x.id === inv.bankId; })[0];
+    (inv.files || []).forEach(function (id) { add(id, 'Added'); });
+    if (b) (b.files || []).forEach(function (id) { add(id, 'Bank'); });
+    CI.caseChartOf(inv).pins.forEach(function (p) { add(p.entityId, 'Chart'); });
+    CI.leadsOf(d, inv.id).concat(CI.requestsOf(d, inv.id)).forEach(function (l) { (l.about || []).forEach(function (id) { add(id, 'Lead'); }); });
+    var order = CI.FILE_TYPES;
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, c) { return order.indexOf(a.entity.type) - order.indexOf(c.entity.type) || a.entity.name.localeCompare(c.entity.name); });
+  };
+  CI.addInvFile = function (d, inv, id) {
+    if (!d.entities.some(function (e) { return e.id === id; })) return { error: 'No such file.' };
+    if (CI.invFiles(d, inv).some(function (x) { return x.entity.id === id; })) return { error: 'That file is already in this investigation.' };
+    inv.files = inv.files || []; inv.files.push(id); return {};
+  };
+  CI.removeInvFile = function (d, inv, id) { inv.files = (inv.files || []).filter(function (x) { return x !== id; }); };
+
   /* ---------- case chart (the investigators' board) ---------- */
   /* Pins are files from the main files; strings are drawn by hand and every string must cite at least one report that names one of its ends. */
   CI.caseChartOf = function (inv) {
@@ -1124,6 +1145,7 @@
   };
   CI.caseChartDropEntity = function (d, id) { d.investigations.forEach(function (v) { if (v.caseChart) CI.removePin(d, v, id); }); };
   CI.caseChartMerge = function (d, fromId, intoId) {
+    d.investigations.forEach(function (v) { var f = v.files || []; if (f.indexOf(fromId) !== -1) { v.files = f.filter(function (x) { return x !== fromId; }); if (v.files.indexOf(intoId) === -1) v.files.push(intoId); } });
     caseChartsDo(d, function (cc) {
       var had = cc.pins.some(function (p) { return p.entityId === intoId; });
       if (had) cc.pins = cc.pins.filter(function (p) { return p.entityId !== fromId; });

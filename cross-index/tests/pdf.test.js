@@ -94,6 +94,13 @@ t('lead sheets and board produce real PDFs', async () => {});
   assert.ok(free.bankId === '' && free.status === 'ACTIVE' && !CI.investigationFor(d, '') && d.investigations.length === 3);
   const fl = CI.addLead(d, { investigationId: free.id, kind: 'INVESTIGATION', question: 'Who called?' }).lead; assert.ok(fl.id);
   assert.ok(CI.pdf.leadList(d, free.id, { kind: 'lead' }).size > 1000 && CI.pdf.leadSheets(d, [fl.id]).size > 1000);
+  const f0 = CI.invFiles(d, free).length; assert.equal(f0, 0);
+  const ea = d.entities[0].id; assert.ok(!CI.addInvFile(d, free, ea).error && CI.addInvFile(d, free, ea).error && CI.invFiles(d, free)[0].sources[0] === 'Added');
+  CI.addPin(d, free, d.entities[1].id); assert.equal(CI.invFiles(d, free).length, 2);
+  CI.removeInvFile(d, free, ea); assert.equal(CI.invFiles(d, free).length, 1);
+  const nb = CI.newBank(d, 'Attach me', [d.entities[2].id], 1); nb.files = [d.entities[2].id]; d.banks.push(nb);
+  assert.ok(CI.handOver(d, nb, CI.currentEstimate(nb).id, free) && free.bankId === nb.id && d.investigations.length === 3 && CI.handOver(d, nb, null, free) === null);
+  assert.ok(CI.invFiles(d, free).some(x => x.sources.includes('Bank')));
   console.log('ok - investigations: one per bank, one can be opened without a bank, plan kept as a file name only'); n++;
   // area rename migration
   const old = JSON.parse(JSON.stringify(d)); old.schema = 2; old.entities.find(e => e.type === 'area').type = 'location'; old.banks[0].entityTypes = ['individual', 'location'];

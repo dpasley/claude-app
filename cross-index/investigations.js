@@ -43,9 +43,9 @@
 
   /* Tabs shared by the investigation pages (the chart tab is drawn by casechart.js). */
   CI.views.invTabs = function (v, active) {
-    var d = D(), nl = CI.leadsOf(d, v.id).length, nq = CI.requestsOf(d, v.id).length;
+    var d = D(), nl = CI.leadsOf(d, v.id).length, nq = CI.requestsOf(d, v.id).length, nf = CI.invFiles(d, v).length;
     function t(id, href, label, n) { return '<a class="tab' + (active === id ? ' on' : '') + '" href="' + href + '">' + label + (n != null ? ' <span class="n">' + n + '</span>' : '') + '</a>'; }
-    return '<div class="tabs">' + t('overview', '#/investigation/' + v.id, 'Overview') + t('chart', '#/casechart/' + v.id, 'Chart') + t('leads', '#/investigation/' + v.id + '/leads', 'Leads', nl) + t('requests', '#/investigation/' + v.id + '/requests', 'Requests', nq) + '</div>';
+    return '<div class="tabs">' + t('overview', '#/investigation/' + v.id, 'Overview') + t('files', '#/investigation/' + v.id + '/files', 'Files', nf) + t('chart', '#/casechart/' + v.id, 'Chart') + t('leads', '#/investigation/' + v.id + '/leads', 'Leads', nl) + t('requests', '#/investigation/' + v.id + '/requests', 'Requests', nq) + '</div>';
   };
   CI.views.invHead = function (v) {
     return '<div class="chart-head"><a href="#/investigations" class="back">\u2039 Investigations</a><h1>Investigation ' + esc(v.id) + '</h1>' + invTag(v) + '<span class="muted small">' + esc(invName(v)) + '</span></div>';
@@ -54,9 +54,9 @@
     var d = D(), v = d.investigations.filter(function (x) { return x.id === id; })[0];
     if (!v) { A.view.innerHTML = '<div class="card callout">No such investigation. <a href="#/investigations">Back to investigations</a></div>'; return; }
     var b = bank(v.bankId), cc = CI.caseChartOf(v), leads = CI.leadsOf(d, v.id), reqs = CI.requestsOf(d, v.id), pf = v.planFile || { name: '', location: '' };
-    tab = tab === 'leads' || tab === 'requests' ? tab : 'overview';
+    tab = tab === 'leads' || tab === 'requests' || tab === 'files' ? tab : 'overview';
     var h = CI.views.invHead(v) + CI.views.invTabs(v, tab);
-    if (tab !== 'overview') { A.view.className = ''; A.view.innerHTML = h + (tab === 'leads' ? leadsTab(v) : requestsTab(v)); return; }
+    if (tab !== 'overview') { A.view.className = ''; A.view.innerHTML = h + (tab === 'leads' ? leadsTab(v) : tab === 'files' ? filesTab(v) : requestsTab(v)); return; }
     h += '<form class="card form" onsubmit="return false"><label>Title<input type="text" id="iv-title" value="' + esc(v.title || '') + '" placeholder="' + esc(b ? b.name : '') + '"></label>' +
       '<label>Why it was opened<textarea id="iv-reason" rows="2">' + esc(v.reason || '') + '</textarea></label>' +
       '<div class="grid2"><label>Status<select id="iv-status">' + A.options(CI.INV_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), v.status) + '</select></label>' +
@@ -65,11 +65,52 @@
       '<h3 class="sep">Handling plan</h3><p class="muted small">The plan is written outside this app. Record the name of the file and where it is kept.</p>' +
       '<div class="grid2"><label>File name<input type="text" id="iv-pfname" value="' + esc(pf.name) + '"></label><label>Where it is kept<input type="text" id="iv-pfloc" value="' + esc(pf.location) + '"></label></div>' +
       '<div class="row"><button class="btn primary" data-action="inv-save" data-id="' + esc(v.id) + '">Save</button><span class="muted small">' + (b ? 'Handed over ' : 'Opened ') + esc(CI.fmtDate(v.opened)) + (v.closed ? ' \u00b7 closed ' + esc(CI.fmtDate(v.closed)) : '') + '</span></div></form>' +
-      '<div class="card"><h3>Special bank</h3><p class="muted small">' + (b ? esc(b.name) + (b.opened && b.opened.reason ? ' \u00b7 opened because: ' + esc(b.opened.reason) : '') : 'This investigation was opened without a special bank.') + '</p>' + (b ? '<div class="row"><a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a><a class="btn small" href="#/bank/' + esc(b.id) + '/estimates">Estimates</a></div>' : '') + '</div>' +
+      '<div class="card"><h3>Special bank</h3><p class="muted small">' + (b ? esc(b.name) + (b.opened && b.opened.reason ? ' \u00b7 opened because: ' + esc(b.opened.reason) : '') : 'This investigation was opened without a special bank.') + '</p>' + (!b ? '<div class="row"><button class="btn small" data-action="inv-attach" data-id="' + esc(v.id) + '">Attach a special bank</button></div>' : '') + (b ? '<div class="row"><a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a><a class="btn small" href="#/bank/' + esc(b.id) + '/estimates">Estimates</a></div>' : '') + '</div>' +
       '<div class="card"><h3>Leads and requests</h3><p class="muted small">' + leads.length + ' lead' + (leads.length === 1 ? '' : 's') + ' (' + leads.filter(function (l) { return !CI.isClosed(l); }).length + ' open) and ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') + ' to Collection. <a href="#/investigation/' + esc(v.id) + '/leads">Leads</a> \u00b7 <a href="#/investigation/' + esc(v.id) + '/requests">Requests</a></p></div>' +
       '<div class="card"><h3>Chart</h3><p class="muted small">' + (cc.pins.length ? cc.pins.length + ' name' + (cc.pins.length === 1 ? '' : 's') + ' pinned, ' + cc.strings.length + ' string' + (cc.strings.length === 1 ? '' : 's') + '.' : 'Nothing pinned yet.') + ' The investigators build this board to show what has been found and what is next.</p><div class="row"><a class="btn small" href="#/casechart/' + esc(v.id) + '">Open the Chart tab</a></div></div>';
     A.view.className = ''; A.view.innerHTML = h;
   };
+  /* ----- files of one investigation ----- */
+  function filesTab(v) {
+    var d = D(), rows = CI.invFiles(d, v), pinned = {}; CI.caseChartOf(v).pins.forEach(function (p) { pinned[p.entityId] = 1; });
+    var inList = {}; rows.forEach(function (r) { inList[r.entity.id] = 1; });
+    var free = d.entities.filter(function (e) { return !inList[e.id]; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    return '<div class="card"><div class="row spread wrap"><div><b>' + rows.length + '</b> file' + (rows.length === 1 ? '' : 's') + '<div class="muted small">The individuals, groups, areas and subjects this investigation is about. Files from its bank, its chart and its leads appear here too.</div></div>' +
+      '<div><datalist id="if-dl">' + free.map(function (e) { return '<option value="' + esc(e.name + ' \u00b7 ' + CI.TYPE_LABEL[e.type].toLowerCase() + ' \u00b7 ' + e.id) + '">'; }).join('') + '</datalist>' +
+      '<input type="text" list="if-dl" id="if-add" data-vid="' + esc(v.id) + '" placeholder="Add a file: type a name…" data-on-change="inv-file-add" autocomplete="off" style="min-width:280px"></div></div></div>' +
+      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:34%"><col style="width:14%"><col style="width:26%"><col style="width:26%"></colgroup><thead><tr><th>Name</th><th>Type</th><th>Why it is here</th><th></th></tr></thead><tbody>' + rows.map(function (r) {
+        var e = r.entity, mine = r.sources.indexOf('Added') !== -1;
+        return '<tr><td class="ellip">' + A.entLink(e.id) + '</td><td>' + esc(CI.TYPE_LABEL[e.type]) + '</td><td class="ellip">' + esc(r.sources.join(', ')) + '</td><td class="right">' +
+          (pinned[e.id] ? '<span class="muted small">on the chart</span>' : '<button class="btn small" data-action="inv-file-pin" data-id="' + esc(v.id) + '" data-eid="' + esc(e.id) + '">Pin to chart</button>') +
+          (mine ? ' <button class="btn small" data-action="inv-file-del" data-id="' + esc(v.id) + '" data-eid="' + esc(e.id) + '">Remove</button>' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">No files yet. Add one above.</p></div>');
+  }
+  H['inv-file-add'] = function (el) {
+    var v = D().investigations.filter(function (x) { return x.id === el.getAttribute('data-vid'); })[0]; if (!v || !el.value.trim()) return;
+    var m = el.value.match(/(E-\d{4,})\s*$/), id = m ? m[1] : ((CI.findCandidates(D(), el.value, 1)[0] || {}).entity || {}).id;
+    if (!id) { A.toast('No file matches that.', true); return; }
+    var res = CI.addInvFile(D(), v, id); if (res.error) { A.toast(res.error, true); return; }
+    A.persist(); CI.views.investigation(v.id, 'files'); var i = document.getElementById('if-add'); if (i) i.focus();
+  };
+  H['inv-file-del'] = function (el) { var v = invOf(el); if (!v) return; CI.removeInvFile(D(), v, el.getAttribute('data-eid')); A.persist(); CI.views.investigation(v.id, 'files'); };
+  H['inv-file-pin'] = function (el) { var v = invOf(el); if (!v) return; var r = CI.addPin(D(), v, el.getAttribute('data-eid')); if (r.error) { A.toast(r.error, true); return; } A.persist(); CI.views.investigation(v.id, 'files'); };
+  H['inv-attach'] = function (el) {
+    var d = D(), v = invOf(el); if (!v) return;
+    var banks = d.banks.filter(function (b) { return !b.handedOver && !b.outcome && !b.quick; });
+    if (!banks.length) { A.toast('There is no special bank waiting to be handed over. Analysts open one from Special banks.', true); return; }
+    A.modal('<h2>Attach a special bank <span class="muted small">' + esc(v.id) + '</span></h2><div class="form"><p class="muted small">The bank is frozen as it stands and handed over to this investigation with the estimate you choose.</p>' +
+      '<label>Special bank<select id="at-bank" data-on-change="inv-attach-bank">' + A.options(banks.map(function (b) { return { value: b.id, label: b.name }; }), banks[0].id) + '</select></label>' +
+      '<label>Estimate to send<select id="at-est">' + estOptions(banks[0]) + '</select></label></div>' +
+      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="inv-attach-go" data-id="' + esc(v.id) + '">Hand over to this investigation</button></div>');
+  };
+  function estOptions(b) { return A.options(b.estimates.slice().reverse().map(function (e) { return { value: e.id, label: e.label }; }), CI.currentEstimate(b).id); }
+  H['inv-attach-bank'] = function () { var b = bank(val('at-bank')), s = document.getElementById('at-est'); if (b && s) s.innerHTML = estOptions(b); };
+  H['inv-attach-go'] = function (el) {
+    var v = invOf(el), b = bank(val('at-bank')); if (!v || !b) return;
+    if (!CI.handOver(D(), b, val('at-est'), v)) { A.toast('That bank cannot be handed over.', true); return; }
+    A.persist(); A.closeModal(); A.toast('Bank attached.'); CI.views.investigation(v.id);
+  };
+
   /* ----- leads and requests of one investigation ----- */
   function statusTag(l) {
     var s = CI.leadStatus(l.status), cls = l.status === 'DONE' || l.status === 'NO_RESULT' ? 'ok' : (l.status === 'IN_PROGRESS' ? 'warn' : '');
