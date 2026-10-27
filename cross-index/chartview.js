@@ -34,10 +34,11 @@
       return !q || CI.norm([b.name, seeds, (b.opened && b.opened.reason) || ''].join(' ')).indexOf(q) !== -1;
     });
     if (!rows.length) return '<p class="muted pad">' + (d.banks.some(function (b) { return !b.quick; }) ? 'No special bank matches that.' : 'No special banks yet. Open one from Indexes (Heating up), or start one with “New special bank”.') + '</p>';
-    return '<table class="fixed"><colgroup><col style="width:26%"><col style="width:30%"><col style="width:11%"><col style="width:7%"><col style="width:9%"><col style="width:17%"></colgroup>' +
+    return '<table class="fixed"><colgroup><col style="width:24%"><col style="width:25%"><col style="width:11%"><col style="width:7%"><col style="width:9%"><col style="width:24%"></colgroup>' +
       '<thead><tr><th>Special bank</th><th>Opened because</th><th>Opened</th><th class="num">Files</th><th class="num">Estimates</th><th></th></tr></thead><tbody>' + rows.map(function (b) {
         var why = (b.opened && b.opened.reason) || '';
         var tag = b.handedOver ? ' <span class="tag">handed over</span>' : '';
+        var nw = CI.bankNews(d, b), nn = nw.reports.length + nw.links.length; if (nn) tag += ' <span class="tag warn" title="New since you last looked: ' + nw.reports.length + ' reports, ' + nw.links.length + ' connections">' + nw.reports.length + ' new report' + (nw.reports.length === 1 ? '' : 's') + '</span>';
         return '<tr class="pick"><td class="ellip" title="' + esc(b.name) + '"><a href="#/bank/' + esc(b.id) + '"><b>' + esc(b.name) + '</b></a>' + tag + '</td>' +
           '<td class="ellip muted" title="' + esc(why) + '">' + esc(why) + '</td>' +
           '<td>' + (b.opened && b.opened.date ? esc(CI.fmtDate(b.opened.date)) : '') + '</td><td class="num">' + (b.files || []).length + '</td><td class="num">' + b.estimates.length + '</td>' +
@@ -90,6 +91,13 @@
     var h = '<datalist id="ent-dl">' + ents.map(function (e) { return '<option value="' + esc(entLabel(e)) + '">'; }).join('') + '</datalist>';
     if (bank.quick) h += '<div class="chart-head"><a href="#/chart" class="back">‹ Special banks</a><h1>Quick look</h1><span class="spacer"></span><button class="btn small primary" data-action="cv-save-preview">Open a special bank from this</button></div><p class="bank-why">A quick look is not saved. The next one replaces it.</p>';
     else h += CI.views.bankHead(bank, 'chart');
+    if (!bank.quick) {
+      CI.ensureCharts(bank);
+      h += '<div class="chartbar"><label>Chart <select data-on-change="cv-chart-pick" aria-label="Chart">' + bank.charts.map(function (c) { return '<option value="' + esc(c.id) + '"' + (c.id === bank.chartId ? ' selected' : '') + '>' + esc(c.name) + '</option>'; }).join('') + '</select></label>' +
+        '<button class="btn small" data-action="cv-chart-new">New chart</button><button class="btn small" data-action="cv-chart-copy">Copy this chart</button><button class="btn small" data-action="cv-chart-rename">Rename</button>' +
+        (bank.charts.length > 1 ? '<button class="btn small danger" data-action="cv-chart-del">Delete</button>' : '') +
+        '<span class="muted small">Each chart keeps its own filters, arrangement and snapshots.</span></div>';
+    }
     h += '<div class="chart-layout nodetail" id="cl"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
@@ -168,7 +176,7 @@
     if (cur.frozen) { if (!cur.frozen.positions) { cur.frozen.positions = CI.clone(bank.positions || {}); A.persist(); } posMap = cur.frozen.positions; } else posMap = bank.positions;
     var force = !!st.forceLayout, forceFit = !!st.forceFit; st.forceLayout = false; st.forceFit = false;
     CI.chart.render(document.getElementById('cy'), graph, {
-      layout: bank.layout, positions: posMap, forceLayout: force, forceFit: forceFit, viewKey: bank.id + '|' + (cur.frozen ? cur.frozen.id : 'live'),
+      layout: bank.layout, positions: posMap, forceLayout: force, forceFit: forceFit, viewKey: bank.id + '|' + bank.chartId + '|' + (cur.frozen ? cur.frozen.id : 'live'),
       onLaidOut: function (all) { Object.keys(all).forEach(function (k) { posMap[k] = all[k]; }); A.persist(); }, photoOf: function (id) { var e = A.idx().entity[id]; return e && e.photo ? e.photo : ''; },
       onMoved: function (id, p) { posMap[id] = p; A.persist(); },
       edgeLabels: bank.edgeLabels !== false, diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
@@ -191,6 +199,10 @@
       if (graph.trimmed) txt += ' · ' + graph.trimmed + ' lighter name' + (graph.trimmed === 1 ? '' : 's') + ' not shown';
       if (graph.hiddenWeak && !cur.frozen) txt += ' · ' + graph.hiddenWeak + ' hidden below the minimum of ' + bank.minWeight;
       if (diff) txt += ' · since “' + esc(snapOf(bank, bank.compareId).label) + '”: ' + Object.keys(diff.newNodes).length + ' new entities, ' + Object.keys(diff.newEdges).length + ' new connections, ' + Object.keys(diff.grownEdges).length + ' strengthened';
+      if (!bank.quick && Array.isArray(bank.files) && !cur.frozen) {
+        var out = CI.suggestFiles(A.data(), bank, A.idx(), 999).length;
+        if (out) txt += ' · <a href="#/bank/' + esc(bank.id) + '" title="Connected to files in this bank but not in it. Open the Files tab to add them.">' + out + ' connected file' + (out === 1 ? ' is' : 's are') + ' outside this bank</a>';
+      }
       s.innerHTML = txt;
     }
     renderDetail();
@@ -329,6 +341,27 @@
   H['cv-node-hide'] = function (el) {
     var id = el.getAttribute('data-id');
     mutate(function (b) { if (b.excluded.indexOf(id) === -1) b.excluded.push(id); b.seeds = b.seeds.filter(function (x) { return x !== id; }); }, true); st.sel = null; renderDetail();
+  };
+
+  /* several charts per special bank */
+  function chartReset() { st.sel = null; st.path = null; st.results = []; st.whole = null; }
+  H['cv-chart-pick'] = function (el) { var b = B(); if (CI.switchChart(b, el.value)) { A.persist(); chartReset(); renderShell(); } };
+  H['cv-chart-new'] = function () {
+    A.ask('Name of the new chart?', '', function (n) { var b = B(); CI.addChart(b, n, false); A.persist(); chartReset(); A.toast('New chart. It starts with all the bank\u2019s files.'); renderShell(); }, { title: 'New chart', ok: 'Create' });
+  };
+  H['cv-chart-copy'] = function () {
+    var b = B(), c0 = CI.activeChart(b);
+    A.ask('Name of the copy?', c0.name + ' (copy)', function (n) { CI.addChart(B(), n, true); A.persist(); chartReset(); renderShell(); }, { title: 'Copy this chart', ok: 'Copy' });
+  };
+  H['cv-chart-rename'] = function () {
+    var b = B(), c0 = CI.activeChart(b);
+    A.ask('New name?', c0.name, function (n) { if (n.trim()) c0.name = n.trim(); A.persist(); renderShell(); }, { title: 'Rename chart', ok: 'Rename' });
+  };
+  H['cv-chart-del'] = function () {
+    var b = B(), c0 = CI.activeChart(b);
+    A.confirm('Delete the chart “' + c0.name + '”? Its arrangement and snapshots go with it. The special bank, its files and estimates are untouched.', function () {
+      var msg = CI.deleteChart(B(), c0.id); if (msg) { A.toast(msg, true); return; } A.persist(); chartReset(); renderShell();
+    }, { title: 'Delete chart', yes: 'Delete', danger: true });
   };
 
   /* snapshots */

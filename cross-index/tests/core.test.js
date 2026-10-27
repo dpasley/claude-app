@@ -387,3 +387,35 @@ t('summaries cover only what is new; time line is typed against the event date',
   ['individual', 'group', 'area', 'subject'].forEach(t => assert.ok(CI.profileFields(t).length >= 5));
   assert.deepEqual(CI.normalize(JSON.parse(JSON.stringify(CI.emptyData()))).summaries, []);
 });
+
+t('special bank news: what arrived since staff last marked it seen', () => {
+  const d = CI.sampleData(); let idx = CI.buildIndex(d);
+  const b = d.banks.find(x => !x.quick); assert.ok(b.seen);
+  assert.equal(CI.bankNews(d, b).reports.length, 0);
+  const f = d.entities.find(e => b.files.includes(e.id));
+  const rep = CI.addReport ? null : null;
+  const r = { id: CI.nextId(d, 'report'), received: CI.today(), sourceRef: 'x', entities: [{ entityId: f.id, role: 'subject' }], created: CI.today() }; d.reports.push(r);
+  const other = d.entities.find(e => e.id !== f.id && !b.files.includes(e.id));
+  const l = CI.addLink(d, { reportId: r.id, from: f.id, to: other.id, type: 'CONNECTED_TO', note: 'n' });
+  const news = CI.bankNews(d, b); assert.equal(news.reports.length, 1); assert.ok(news.links.length <= 1);
+  CI.markSeen(d, b); assert.equal(CI.bankNews(d, b).reports.length, 0);
+  assert.ok(CI.newBank(d, 'x', [], 1).seen);
+});
+
+t('several charts per special bank keep their own settings, arrangement and snapshots', () => {
+  const d = CI.sampleData();
+  const b = d.banks.find(x => !x.quick); assert.equal(b.charts.length, 1);
+  b.positions = { a: { x: 1, y: 2 } }; b.minWeight = 2; b.snapshots.push({ id: 'N-X', label: 's', graph: { nodes: [], edges: [] } });
+  const c2 = CI.addChart(b, 'Money', false);
+  assert.equal(b.chartId, c2.id); assert.deepEqual(b.positions, {}); assert.equal(b.minWeight, 1); assert.equal(b.snapshots.length, 0);
+  b.excluded = ['E-0001']; b.positions = { a: { x: 9, y: 9 } };
+  CI.switchChart(b, 'CH-1');
+  assert.equal(b.minWeight, 2); assert.deepEqual(b.positions, { a: { x: 1, y: 2 } }); assert.equal(b.snapshots.length, 1); assert.deepEqual(b.excluded, []);
+  const c3 = CI.addChart(b, 'Copy', true);
+  assert.equal(b.minWeight, 2); assert.deepEqual(b.positions, { a: { x: 1, y: 2 } }); assert.equal(b.snapshots.length, 0);
+  CI.switchChart(b, c2.id); assert.deepEqual(b.excluded, ['E-0001']);
+  assert.equal(CI.deleteChart(b, c3.id), ''); assert.equal(b.charts.length, 2);
+  CI.deleteChart(b, c2.id); assert.equal(b.charts.length, 1); assert.equal(b.chartId, 'CH-1'); assert.ok(CI.deleteChart(b, 'CH-1'));
+  const sn = CI.handOver(d, b, CI.currentEstimate(b).id); assert.equal(b.handedOverChart, 'CH-1');
+  assert.ok(sn);
+});

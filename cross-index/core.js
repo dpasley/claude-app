@@ -188,6 +188,8 @@
       delete b.estimate;
       b.estimates.forEach(function (x) { if (!Array.isArray(x.items)) x.items = []; });
       if (b.topN == null) b.topN = 0;
+      CI.ensureCharts(b);
+      if (!b.quick && (!b.seen || typeof b.seen !== 'object')) b.seen = { report: d.counters.report || 0, link: d.counters.link || 0 };
       if (b.handedOver == null) b.handedOver = '';
       if (!b.opened || typeof b.opened !== 'object') b.opened = { date: '', reason: '' };
       if (!Array.isArray(b.snapshots)) b.snapshots = []; if (!Array.isArray(b.seeds)) b.seeds = []; if (!Array.isArray(b.excluded)) b.excluded = []; });
@@ -598,8 +600,9 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null,
-      estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }]
+      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
+      estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }],
+      charts: [{ id: 'CH-1', name: 'Chart', state: null }], chartId: 'CH-1', chartSeq: 1
     };
   };
 
@@ -819,6 +822,55 @@
 
   /* ---------- estimate and handover ---------- */
   CI.ESTIMATE_KINDS = [{ id: 'ESTABLISHED', label: 'Established' }, { id: 'HYPOTHESIS', label: 'Hypothesis' }];
+  /* What arrived on a special bank's files since staff last marked it seen. */
+  function idNum(id) { return parseInt(String(id).replace(/\D/g, ''), 10) || 0; }
+  CI.bankNews = function (d, b) {
+    if (b.quick || !b.seen) return { reports: [], links: [] };
+    var have = {}; (b.files || []).forEach(function (id) { have[id] = 1; });
+    return {
+      reports: d.reports.filter(function (r) { return idNum(r.id) > b.seen.report && (r.entities || []).some(function (x) { return have[x.entityId]; }); }),
+      links: d.links.filter(function (l) { return idNum(l.id) > b.seen.link && (have[l.from] || have[l.to]); })
+    };
+  };
+  CI.markSeen = function (d, b) { b.seen = { report: d.counters.report || 0, link: d.counters.link || 0 }; };
+  /* ---------- several charts per special bank ----------
+   * The bank's live chart settings (filters, arrangement, snapshots) belong to its active chart. Switching saves them
+   * into the chart being left and loads the other's, so the rest of the app keeps reading them straight off the bank. */
+  CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId'];
+  function chartDefaults() {
+    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: true, positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '' };
+  }
+  CI.ensureCharts = function (b) {
+    if (b.quick) return;
+    if (!Array.isArray(b.charts) || !b.charts.length) { b.charts = [{ id: 'CH-1', name: 'Chart', state: null }]; b.chartId = 'CH-1'; b.chartSeq = 1; }
+    if (!b.charts.some(function (c) { return c.id === b.chartId; })) b.chartId = b.charts[0].id;
+    if (!b.chartSeq) b.chartSeq = b.charts.length;
+  };
+  CI.activeChart = function (b) { CI.ensureCharts(b); return b.charts.filter(function (c) { return c.id === b.chartId; })[0]; };
+  function stash(b) {
+    var c = CI.activeChart(b), s = {}; CI.CHART_KEYS.forEach(function (k) { s[k] = b[k] === undefined ? chartDefaults()[k] : clone(b[k]); }); c.state = s;
+  }
+  function load(b, state) { var s = state ? clone(state) : chartDefaults(); CI.CHART_KEYS.forEach(function (k) { b[k] = s[k] === undefined ? chartDefaults()[k] : s[k]; }); }
+  CI.switchChart = function (b, id) {
+    CI.ensureCharts(b);
+    var t = b.charts.filter(function (c) { return c.id === id; })[0]; if (!t || id === b.chartId) return false;
+    stash(b); b.chartId = id; load(b, t.state); t.state = null; return true;
+  };
+  /* A new chart starts blank (all the bank's files, nothing hidden), or as a copy of this one with its arrangement. */
+  CI.addChart = function (b, name, copy) {
+    CI.ensureCharts(b);
+    var nm = String(name || '').trim() || 'Chart ' + (b.chartSeq + 1); b.chartSeq++;
+    var c = { id: 'CH-' + b.chartSeq, name: nm, state: null };
+    if (copy) { stash(b); c.state = clone(b.charts.filter(function (x) { return x.id === b.chartId; })[0].state); c.state.snapshots = []; c.state.compareId = ''; c.state.frozenId = ''; c.state.viewMode = 'live'; }
+    b.charts.push(c); CI.switchChart(b, c.id); return c;
+  };
+  CI.deleteChart = function (b, id) {
+    CI.ensureCharts(b);
+    if (b.charts.length < 2) return 'A special bank keeps at least one chart.';
+    if (b.handedOver && b.handedOverChart === id) return 'This chart was handed over with the bank, so it stays.';
+    if (id === b.chartId) { var other = b.charts.filter(function (c) { return c.id !== id; })[0]; CI.switchChart(b, other.id); }
+    b.charts = b.charts.filter(function (c) { return c.id !== id; }); return '';
+  };
   CI.currentEstimate = function (bank) {
     if (!bank.estimates || !bank.estimates.length) bank.estimates = [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }];
     return bank.estimates[bank.estimates.length - 1];
@@ -897,6 +949,7 @@
   CI.handOver = function (d, bank, estId) {
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
     var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live), positions: clone(bank.positions || {}) };
+    CI.ensureCharts(bank); bank.handedOverChart = bank.chartId;
     bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today(); bank.handedOverEstimate = CI.estimateOf(bank, estId).id;
     var inv = CI.investigationFor(d, bank.id);
     if (!inv) {

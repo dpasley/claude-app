@@ -144,7 +144,7 @@
       return '<div class="stmt"><textarea rows="2" class="stmt-text" data-on-change="es-text" ' + at + '>' + esc(it.text) + '</textarea>' +
         '<div class="stmt-cites">' + (it.reportIds.length ? '<span class="fl">Rests on</span>' + citeChips(it.reportIds, at) : '<span class="muted small">No reports cited.</span>') + '</div>' +
         lookupBox(it.id, b, est, it.id, kind) +
-        '<div class="stmt-act"><button class="btn small" data-action="es-move" ' + at + ' data-to="' + other + '">' + (kind === 'ESTABLISHED' ? 'Make it a working theory' : 'Make it established') + '</button><button class="btn small danger" data-action="est-del" ' + at + '>Remove</button></div></div>';
+        '<div class="stmt-act"><button class="btn small" data-action="es-move" ' + at + ' data-to="' + other + '">' + (kind === 'ESTABLISHED' ? 'Make it a working theory' : 'Make it established') + '</button>' + (kind === 'HYPOTHESIS' ? '<button class="btn small" data-action="es-lead" ' + at + ' title="Ask Investigations or Collection to test this theory">Raise a lead to test this</button>' : '') + '<button class="btn small danger" data-action="est-del" ' + at + '>Remove</button></div></div>';
     }).join('') || '<p class="muted small">None yet.</p>';
     h += '<div class="stmt new"><label class="big-lbl">Add one<textarea rows="2" id="es-new-' + kind + '" data-on-input="es-draft-text" data-kind="' + kind + '" data-est="' + esc(est.id) + '" placeholder="Write the statement in plain words…">' + esc(dr.text) + '</textarea></label>' +
       '<div class="stmt-cites">' + (dr.reports.length ? '<span class="fl">Rests on</span>' + citeChips(dr.reports, 'data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-kind="' + kind + '" data-draft="1"') : (kind === 'ESTABLISHED' ? '<span class="muted small">An established statement must cite at least one report.</span>' : '')) + '</div>' +
@@ -214,6 +214,12 @@
     var b = bankOf(el), e = estOf(el), r = CI.updateEstimateItem(D(), e, el.getAttribute('data-id'), { kind: el.getAttribute('data-to') });
     if (r.error) { A.toast(r.error + ' Cite a report first.', true); return; }
     A.persist(); CI.views.estimate(b.id, e.id);
+  };
+  H['es-lead'] = function (el) {
+    var d = D(), b = bankOf(el), e = estOf(el), it = e.items.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!it) return;
+    var idx = A.idx(), about = {};
+    it.reportIds.forEach(function (r) { var rep = idx.report[r]; if (rep) rep.entities.forEach(function (x) { if ((b.files || []).indexOf(x.entityId) !== -1) about[x.entityId] = 1; }); });
+    CI.views.openLead({ bankId: b.id, question: 'Is this so? ' + it.text, raisedBy: it.reportIds[0] || '', about: Object.keys(about) });
   };
   H['est-add'] = function (el) {
     var b = bankOf(el), e = estOf(el), kind = el.getAttribute('data-kind'), dr = draftOf(e.id, kind);

@@ -22,7 +22,17 @@
       '<span class="spacer"></span>' + (inv ? '<a class="btn small" href="#/investigation/' + esc(inv.id) + '">Investigation</a>' : '') +
       '<button class="btn small" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button class="btn small" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button class="btn small danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div>' +
       (b.opened && b.opened.reason ? '<p class="bank-why"><span class="fl">Opened ' + esc(CI.fmtDate(b.opened.date)) + ' because</span> ' + esc(b.opened.reason) + '</p>' : '') +
-      CI.views.bankTabs(b, active);
+      newsBanner(b) + CI.views.bankTabs(b, active);
+  };
+  /* What arrived on this bank's files since staff last marked it seen. */
+  function newsBanner(b) {
+    var n = CI.bankNews(D(), b); if (!n.reports.length && !n.links.length) return '';
+    return '<div class="news"><span><b>New since you last looked:</b> ' + n.reports.length + ' report' + (n.reports.length === 1 ? '' : 's') + (n.reports.length ? ' (' + n.reports.slice(0, 6).map(function (r) { return A.repLink(r.id); }).join(', ') + (n.reports.length > 6 ? ', \u2026' : '') + ')' : '') +
+      ' and ' + n.links.length + ' connection' + (n.links.length === 1 ? '' : 's') + ' on its files.</span><button class="btn small" data-action="bank-seen" data-bank="' + esc(b.id) + '">Mark as seen</button></div>';
+  }
+  H['bank-seen'] = function (el) {
+    var b = bankOf(el); if (!b) return; CI.markSeen(D(), b); A.persist();
+    var n = document.querySelector('.news'); if (n) n.remove();
   };
 
   /* ----- Files tab ----- */
