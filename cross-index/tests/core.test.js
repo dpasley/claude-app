@@ -337,3 +337,16 @@ t('special banks: chosen files, several estimates, suggestions', () => {
   assert.equal(back.banks[0].estimates.length, n0 + 1);
   assert.ok(!('estimate' in back.banks[0]));
 });
+
+t('estimate statements can be edited, re-cited and promoted', () => {
+  const d = CI.sampleData(), b = d.banks[0], est = CI.currentEstimate(b);
+  const th = CI.addEstimateItem(d, b, { kind: 'HYPOTHESIS', text: 'A theory.', reportIds: '' }).item;
+  assert.ok(CI.updateEstimateItem(d, est, th.id, { kind: 'ESTABLISHED' }).error, 'cannot promote without a report');
+  assert.ok(!CI.updateEstimateItem(d, est, th.id, { kind: 'ESTABLISHED', reportIds: ['R-0001'] }).error);
+  assert.equal(th.kind, 'ESTABLISHED');
+  assert.ok(CI.updateEstimateItem(d, est, th.id, { reportIds: [] }).error, 'established keeps a report');
+  assert.ok(CI.updateEstimateItem(d, est, th.id, { reportIds: ['R-9999'] }).error);
+  assert.ok(CI.updateEstimateItem(d, est, th.id, { text: '  ' }).error);
+  assert.ok(!CI.updateEstimateItem(d, est, th.id, { text: 'Edited.', kind: 'HYPOTHESIS', reportIds: [] }).error);
+  assert.equal(th.text, 'Edited.');
+});

@@ -494,3 +494,16 @@ table.list.spaced { margin-top: 20px; }
 .cmpnote .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #d9480f; margin-right: 4px; vertical-align: baseline; }
 details.snap { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 8px; }
 details.snap > summary { cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+
+/* Estimate form */
+.est-sec h2, .card.form h2 { margin: 0 0 4px; }
+.stmt { padding: 14px 0; border-top: 1px solid var(--border); }
+.stmt:first-of-type { border-top: 0; }
+.stmt.new { background: #f8f9fc; margin: 14px -22px -20px; padding: 16px 22px 18px; border-radius: 0 0 8px 8px; border-top: 1px solid var(--border); }
+.stmt textarea { width: 100%; box-sizing: border-box; }
+.stmt-cites { margin: 8px 0 4px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.stmt-cites .fl { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.cite-row { margin-top: 6px; }
+.cite-in { width: 100%; box-sizing: border-box; }
+.cite-res { margin-top: 4px; }
+.stmt-act { display: flex; gap: 8px; margin-top: 10px; }

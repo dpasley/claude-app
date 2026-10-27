@@ -745,6 +745,19 @@
     var more = CI.suggestFiles(d, tmp, idx, 200).map(function (x) { return x.id; });
     return seeds.concat(more).slice(0, Math.max(n || 12, seeds.length));
   };
+  /* Change a statement: text, the reports it rests on, or whether it is established or a working theory. */
+  CI.updateEstimateItem = function (d, est, id, patch) {
+    var it = est.items.filter(function (i) { return i.id === id; })[0];
+    if (!it) return { error: 'No such statement.' };
+    var next = { kind: patch.kind || it.kind, text: patch.text != null ? String(patch.text).trim() : it.text, reportIds: patch.reportIds || it.reportIds };
+    if (!next.text) return { error: 'The statement cannot be empty.' };
+    var bad = next.reportIds.filter(function (r) { return !d.reports.some(function (x) { return x.id === r; }); });
+    if (bad.length) return { error: 'No such report: ' + bad.join(', ') + '.' };
+    if (next.kind === 'ESTABLISHED' && !next.reportIds.length) return { error: 'An established statement must cite at least one report.' };
+    it.kind = next.kind; it.text = next.text; it.reportIds = next.reportIds.filter(function (r, i, a) { return a.indexOf(r) === i; });
+    est.updated = CI.today();
+    return { item: it };
+  };
   CI.addEstimateItem = function (d, bank, o, est) {
     est = est || CI.currentEstimate(bank);
     if (!CI.ESTIMATE_KINDS.some(function (k) { return k.id === o.kind; })) return { error: 'Choose established or hypothesis.' };

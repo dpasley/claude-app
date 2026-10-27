@@ -123,38 +123,104 @@
   };
 
   /* ---------- estimate of the situation (one of the special bank's estimates) ---------- */
+  var draft = {};   // unsaved new statements, per estimate and kind
+  function draftOf(estId, kind) { var k = estId + '|' + kind; return draft[k] || (draft[k] = { text: '', reports: [] }); }
+  function citeChips(ids, attrs) {
+    return ids.map(function (r) {
+      var rep = A.idx().report[r];
+      return '<span class="chip">' + A.repLink(r) + (rep && rep.subject ? ' <span class="muted small">' + esc(A.trunc(rep.subject, 40)) + '</span>' : '') +
+        '<button data-action="es-uncite" ' + attrs + ' data-report="' + esc(r) + '" aria-label="Remove ' + esc(r) + '">×</button></span>';
+    }).join('');
+  }
+  /* A report lookup: reports that name this bank's files come first. */
+  function lookupBox(target, bank, est, id, kind) {
+    return '<div class="cite-row"><input type="search" class="cite-in" id="es-in-' + esc(target) + '" data-lookup="#es-res-' + esc(target) + '" autocomplete="off" placeholder="Add a report it rests on: type a number, subject or source…" data-on-input="es-find" data-target="' + esc(target) + '" data-bank="' + esc(bank.id) + '" data-est="' + esc(est.id) + '"' + (id ? ' data-id="' + esc(id) + '"' : '') + ' data-kind="' + esc(kind) + '"></div><div class="cite-res" id="es-res-' + esc(target) + '"></div>';
+  }
+  function section(b, est, kind, title, hint) {
+    var items = est.items.filter(function (i) { return i.kind === kind; }), dr = draftOf(est.id, kind), other = kind === 'ESTABLISHED' ? 'HYPOTHESIS' : 'ESTABLISHED';
+    var h = '<div class="card est-sec"><h2>' + title + '</h2><p class="muted small">' + hint + '</p>';
+    h += items.map(function (it) {
+      var at = 'data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-id="' + esc(it.id) + '"';
+      return '<div class="stmt"><textarea rows="2" class="stmt-text" data-on-change="es-text" ' + at + '>' + esc(it.text) + '</textarea>' +
+        '<div class="stmt-cites">' + (it.reportIds.length ? '<span class="fl">Rests on</span>' + citeChips(it.reportIds, at) : '<span class="muted small">No reports cited.</span>') + '</div>' +
+        lookupBox(it.id, b, est, it.id, kind) +
+        '<div class="stmt-act"><button class="btn small" data-action="es-move" ' + at + ' data-to="' + other + '">' + (kind === 'ESTABLISHED' ? 'Make it a working theory' : 'Make it established') + '</button><button class="btn small danger" data-action="est-del" ' + at + '>Remove</button></div></div>';
+    }).join('') || '<p class="muted small">None yet.</p>';
+    h += '<div class="stmt new"><label class="big-lbl">Add one<textarea rows="2" id="es-new-' + kind + '" data-on-input="es-draft-text" data-kind="' + kind + '" data-est="' + esc(est.id) + '" placeholder="Write the statement in plain words…">' + esc(dr.text) + '</textarea></label>' +
+      '<div class="stmt-cites">' + (dr.reports.length ? '<span class="fl">Rests on</span>' + citeChips(dr.reports, 'data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-kind="' + kind + '" data-draft="1"') : (kind === 'ESTABLISHED' ? '<span class="muted small">An established statement must cite at least one report.</span>' : '')) + '</div>' +
+      lookupBox('new-' + kind, b, est, '', kind) +
+      '<div class="stmt-act"><button class="btn primary" data-action="est-add" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-kind="' + kind + '">Add</button></div></div></div>';
+    return h;
+  }
   CI.views.estimate = function (bankId, estId) {
     var d = D(), b = d.banks.filter(function (x) { return x.id === bankId; })[0];
     if (!b) { A.view.innerHTML = '<div class="card callout">No such special bank. <a href="#/chart">Back to special banks</a></div>'; return; }
-    var est = CI.estimateOf(b, estId), ests = est.items.filter(function (i) { return i.kind === 'ESTABLISHED'; }), hyp = est.items.filter(function (i) { return i.kind === 'HYPOTHESIS'; });
-    function list(items) {
-      return items.length ? '<ul class="plain">' + items.map(function (it) {
-        return '<li>' + esc(it.text) + (it.reportIds.length ? '<div class="muted small">Based on ' + it.reportIds.map(function (r) { return A.repLink(r); }).join(', ') + '</div>' : '') +
-          ' <button class="btn small" data-action="est-del" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-id="' + esc(it.id) + '">Remove</button></li>';
-      }).join('') + '</ul>' : '<p class="muted small">None yet.</p>';
-    }
-    var handed = b.handedOver && b.handedOverEstimate === est.id;
+    var est = CI.estimateOf(b, estId), handed = b.handedOver && b.handedOverEstimate === est.id;
     var h = CI.views.bankHead(b, 'estimates') +
       '<h2 class="sub-h">' + esc(est.label) + (handed ? ' <span class="tag">handed over</span>' : '') + ' <button class="btn small" data-action="est-rename" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Rename</button></h2>' +
-      '<form class="card form" onsubmit="return false"><label>Summary <span class="hint">where things stand, in a few plain sentences</span><textarea id="est-sum" rows="5">' + esc(est.summary) + '</textarea></label>' +
-      '<div class="row"><button class="btn primary" data-action="est-save" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Save summary</button>' + (est.updated ? '<span class="muted small">Updated ' + esc(CI.fmtDate(est.updated)) + '</span>' : '') + '</div></form>' +
-      '<div class="card"><h3>What the files establish</h3>' + list(ests) + '<h3 class="sep">Working theories (not yet established)</h3>' + list(hyp) + '</div>' +
-      '<form class="card form" onsubmit="return false"><h3>Add a statement</h3><div class="grid2"><label>Kind<select id="est-kind">' + A.options(CI.ESTIMATE_KINDS.map(function (k) { return { value: k.id, label: k.label }; }), 'ESTABLISHED') + '</select></label>' +
-      '<label>Reports it rests on <span class="hint">e.g. R-0003, R-0007 (required if established)</span><input type="text" id="est-reps" placeholder="R-0001, R-0002"></label></div>' +
-      '<label>Statement<textarea id="est-text" rows="2"></textarea></label><div class="row"><button class="btn" data-action="est-add" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">Add</button></div></form>';
+      '<div class="card form"><h2>Summary</h2><label><span class="hint">Where things stand, in a few plain sentences</span><textarea id="est-sum" rows="4" data-on-change="est-sum" data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '">' + esc(est.summary) + '</textarea></label>' +
+      (est.updated ? '<p class="muted small" style="margin:6px 0 0">Updated ' + esc(CI.fmtDate(est.updated)) + '. Changes save as you go.</p>' : '') + '</div>' +
+      section(b, est, 'ESTABLISHED', 'What the files establish', 'Statements the reports support. Each must cite at least one report.') +
+      section(b, est, 'HYPOTHESIS', 'Working theories', 'Not yet established. Citing reports is optional.');
     A.view.className = ''; A.view.innerHTML = h;
   };
   function bankOf(el) { return D().banks.filter(function (x) { return x.id === el.getAttribute('data-bank'); })[0]; }
   function estOf(el) { var b = bankOf(el); return b ? CI.estimateOf(b, el.getAttribute('data-est')) : null; }
-  H['est-save'] = function (el) { var b = bankOf(el), e = estOf(el); e.summary = val('est-sum').trim(); e.updated = CI.today(); A.persist(); A.toast('Summary saved.'); CI.views.estimate(b.id, e.id); };
+  H['est-sum'] = function (el) { var e = estOf(el); e.summary = el.value.trim(); e.updated = CI.today(); A.persist(); };
   H['est-rename'] = function (el) {
     var b = bankOf(el), e = estOf(el);
     A.ask('Name for this estimate?', e.label, function (n) { e.label = n; A.persist(); CI.views.estimate(b.id, e.id); }, { title: 'Rename estimate', ok: 'Rename' });
   };
-  H['est-add'] = function (el) {
-    var b = bankOf(el), e = estOf(el), res = CI.addEstimateItem(D(), b, { kind: val('est-kind'), text: val('est-text'), reportIds: val('est-reps') }, e);
-    if (res.error) { A.toast(res.error, true); return; }
+  H['es-draft-text'] = function (el) { draftOf(el.getAttribute('data-est'), el.getAttribute('data-kind')).text = el.value; };
+  H['es-text'] = function (el) {
+    var b = bankOf(el), e = estOf(el), r = CI.updateEstimateItem(D(), e, el.getAttribute('data-id'), { text: el.value });
+    if (r.error) { A.toast(r.error, true); CI.views.estimate(b.id, e.id); return; }
+    A.persist();
+  };
+  H['es-find'] = function (el) {
+    var box = document.getElementById('es-res-' + el.getAttribute('data-target')); if (!box) return;
+    var b = bankOf(el), q = CI.norm(el.value), idx = A.idx(), files = {}; (b.files || []).forEach(function (id) { files[id] = 1; });
+    var cur = el.getAttribute('data-id') ? (estOf(el).items.filter(function (i) { return i.id === el.getAttribute('data-id'); })[0] || {}).reportIds || [] : draftOf(el.getAttribute('data-est'), el.getAttribute('data-kind')).reports;
+    var rows = D().reports.filter(function (r) { return cur.indexOf(r.id) === -1 && (!q || CI.norm([r.id, r.subject, r.sourceRef, r.summary].join(' ')).indexOf(q) !== -1); }).map(function (r) {
+      return { r: r, rel: r.entities.some(function (x) { return files[x.entityId]; }) };
+    }).sort(function (x, y) { return (y.rel - x.rel) || (CI.reportDate(y.r) < CI.reportDate(x.r) ? -1 : 1); }).slice(0, 8);
+    if (!q && !rows.length) { box.innerHTML = ''; return; }
+    box.innerHTML = rows.length ? '<table class="fixed list"><tbody>' + rows.map(function (x) {
+      return '<tr class="pick"><td class="ellip"><b>' + esc(x.r.id) + '</b> ' + esc(A.trunc(x.r.subject || '', 60)) + ' <span class="muted small">' + esc(CI.fmtDate(CI.reportDate(x.r))) + ' · ' + esc(A.trunc(x.r.sourceRef || '', 30)) + '</span>' + (x.rel ? ' <span class="tag">names a file in this bank</span>' : '') + '</td>' +
+        '<td class="right"><button class="btn small" data-action="es-cite" data-target="' + esc(el.getAttribute('data-target')) + '" data-bank="' + esc(b.id) + '" data-est="' + esc(el.getAttribute('data-est')) + '" data-kind="' + esc(el.getAttribute('data-kind')) + '"' + (el.getAttribute('data-id') ? ' data-id="' + esc(el.getAttribute('data-id')) + '"' : '') + ' data-report="' + esc(x.r.id) + '">Cite</button></td></tr>';
+    }).join('') + '</tbody></table>' : '<p class="muted small">No report matches that.</p>';
+  };
+  function refocus(target) { var i = document.getElementById('es-in-' + target); if (i) i.focus(); }
+  H['es-cite'] = function (el) {
+    var b = bankOf(el), e = estOf(el), id = el.getAttribute('data-id'), rep = el.getAttribute('data-report');
+    if (id) {
+      var it = e.items.filter(function (i) { return i.id === id; })[0], r = CI.updateEstimateItem(D(), e, id, { reportIds: it.reportIds.concat([rep]) });
+      if (r.error) { A.toast(r.error, true); return; }
+      A.persist();
+    } else { var dr = draftOf(e.id, el.getAttribute('data-kind')); if (dr.reports.indexOf(rep) === -1) dr.reports.push(rep); }
+    CI.views.estimate(b.id, e.id); refocus(el.getAttribute('data-target'));
+  };
+  H['es-uncite'] = function (el) {
+    var b = bankOf(el), e = estOf(el), rep = el.getAttribute('data-report'), id = el.getAttribute('data-id');
+    if (el.getAttribute('data-draft')) { var dr = draftOf(e.id, el.getAttribute('data-kind')); dr.reports = dr.reports.filter(function (x) { return x !== rep; }); }
+    else {
+      var it = e.items.filter(function (i) { return i.id === id; })[0], r = CI.updateEstimateItem(D(), e, id, { reportIds: it.reportIds.filter(function (x) { return x !== rep; }) });
+      if (r.error) { A.toast(r.error, true); return; }
+      A.persist();
+    }
+    CI.views.estimate(b.id, e.id);
+  };
+  H['es-move'] = function (el) {
+    var b = bankOf(el), e = estOf(el), r = CI.updateEstimateItem(D(), e, el.getAttribute('data-id'), { kind: el.getAttribute('data-to') });
+    if (r.error) { A.toast(r.error + ' Cite a report first.', true); return; }
     A.persist(); CI.views.estimate(b.id, e.id);
+  };
+  H['est-add'] = function (el) {
+    var b = bankOf(el), e = estOf(el), kind = el.getAttribute('data-kind'), dr = draftOf(e.id, kind);
+    var res = CI.addEstimateItem(D(), b, { kind: kind, text: dr.text, reportIds: dr.reports.join(',') }, e);
+    if (res.error) { A.toast(res.error, true); return; }
+    dr.text = ''; dr.reports = []; A.persist(); CI.views.estimate(b.id, e.id);
+    var t = document.getElementById('es-new-' + kind); if (t) t.focus();
   };
   H['est-del'] = function (el) { var b = bankOf(el), e = estOf(el), id = el.getAttribute('data-id'); e.items = e.items.filter(function (i) { return i.id !== id; }); A.persist(); CI.views.estimate(b.id, e.id); };
   H['est-handover'] = function (el) {
