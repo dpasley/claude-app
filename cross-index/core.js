@@ -97,9 +97,10 @@
   /* Leads: an open question raised by a report, worked by one of the three areas. */
   CI.LEAD_KINDS = [
     { id: 'INVESTIGATION', label: 'Investigation', title: 'INVESTIGATION LEAD' },
-    { id: 'DATA_REQUEST', label: 'Data request', title: 'DATA REQUEST' }
+    { id: 'DATA_REQUEST', label: 'Request', title: 'REQUEST TO COLLECTION' }
   ];
   CI.LEAD_WITH = ['Investigations', 'Collection', 'Estimates'];
+  CI.isRequest = function (l) { return l && l.kind === 'DATA_REQUEST'; };
   CI.LEAD_STATUS = [
     { id: 'NOT_STARTED', label: 'Not started' }, { id: 'IN_PROGRESS', label: 'In progress' },
     { id: 'DONE', label: 'Done' }, { id: 'NO_RESULT', label: 'Checked, nothing found' }
@@ -116,8 +117,8 @@
     return {
       version: 1, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
-      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0, summary: 0, timeline: 0 },
-      entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [], summaries: [], timeline: [],
+      counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0, summary: 0, timeline: 0, request: 0 },
+      entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [], summaries: [], timeline: [], requests: [],
       ui: { bankId: null }
     };
   };
@@ -150,6 +151,20 @@
       if (d.sampleLoaded && typeof CI.seedSampleCaseChart === 'function') CI.seedSampleCaseChart(d);
       d.schema = 5;
     }
+    if ((d.schema || 1) < 6) {
+      // Leads belong to an investigation; requests to Collection are kept apart from leads.
+      var inv0 = function (bankId) { return (d.investigations || []).filter(function (v) { return v.bankId === bankId; })[0]; };
+      var keep = [], remap = {};
+      (d.leads || []).forEach(function (l) {
+        if (l.kind === 'DATA_REQUEST') {
+          var nid = CI.nextId(d, 'request'); remap[l.id] = nid; l.id = nid; delete l.forLead; (d.requests = d.requests || []).push(l);
+        } else keep.push(l);
+      });
+      d.leads = keep;
+      (d.reports || []).forEach(function (r) { if (r.leadId && remap[r.leadId]) r.leadId = remap[r.leadId]; });
+      (d.leads || []).concat(d.requests || []).forEach(function (l) { var v = inv0(l.bankId); l.investigationId = v ? v.id : ''; if (l.assigned == null) l.assigned = ''; });
+      d.schema = 6;
+    }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
     d.settings.linkTypes.forEach(function (t) { if (OLD_LINK[t.id]) { t.id = OLD_LINK[t.id]; t.label = t.id; } });
@@ -169,7 +184,7 @@
   CI.normalize = function (d) {
     var e = CI.emptyData();
     d = d || {};
-    ['entities', 'reports', 'links', 'banks', 'leads', 'investigations', 'log', 'merges', 'summaries', 'timeline'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
+    ['entities', 'reports', 'links', 'banks', 'leads', 'investigations', 'log', 'merges', 'summaries', 'timeline', 'requests'].forEach(function (k) { if (!Array.isArray(d[k])) d[k] = e[k]; });
     d.settings = Object.assign({}, e.settings, d.settings || {});
     ['basisList', 'sourceTypes', 'roles', 'linkTypes'].forEach(function (k) { if (!Array.isArray(d.settings[k]) || !d.settings[k].length) d.settings[k] = e.settings[k]; });
     d.counters = Object.assign({}, e.counters, d.counters || {});
@@ -188,6 +203,7 @@
       delete b.estimate;
       b.estimates.forEach(function (x) { if (!Array.isArray(x.items)) x.items = []; });
       if (b.topN == null) b.topN = 0;
+      if (b.outcome === undefined) b.outcome = null;
       CI.ensureCharts(b);
       if (!b.quick && (!b.seen || typeof b.seen !== 'object')) b.seen = { report: d.counters.report || 0, link: d.counters.link || 0 };
       if (b.handedOver == null) b.handedOver = '';
@@ -215,7 +231,7 @@
     try { root.localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); return true; } catch (e) { return false; }
   };
 
-  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-', caseNote: 'W-', summary: 'SM-', timeline: 'T-' };
+  var PREFIX = { report: 'R-', entity: 'E-', link: 'K-', bank: 'B-', snag: 'S-', merge: 'M-', snapshot: 'N-', lead: 'L-', item: 'I-', investigation: 'V-', caseString: 'C-', caseNote: 'W-', summary: 'SM-', timeline: 'T-', request: 'Q-' };
   CI.nextId = function (d, kind) {
     d.counters[kind] = (d.counters[kind] || 0) + 1;
     return PREFIX[kind] + pad(d.counters[kind], 4);
@@ -504,7 +520,7 @@
     if (CI.entityInUse(d, id)) return false;
     d.entities = d.entities.filter(function (e) { return e.id !== id; });
     CI.caseChartDropEntity(d, id);
-    d.leads.forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
+    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
     d.banks.forEach(function (b) {
       b.seeds = b.seeds.filter(function (x) { return x !== id; });
       b.excluded = b.excluded.filter(function (x) { return x !== id; });
@@ -555,7 +571,7 @@
     CI.caseChartMerge(d, fromId, intoId);
     d.summaries.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
     d.timeline.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
-    d.leads.forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
+    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
     d.entities.filter(function (e) { return e.id === fromId; }).forEach(function (e) { if (e.photo && !into.photo) into.photo = e.photo; });
     d.entities = d.entities.filter(function (e) { return e.id !== fromId; });
     d.merges.push(rec);
@@ -600,7 +616,7 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
+      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
       estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }],
       charts: [{ id: 'CH-1', name: 'Chart', state: null }], chartId: 'CH-1', chartSeq: 1
     };
@@ -797,27 +813,36 @@
   CI.statsFor = function (stats, id) { return stats[id] || { reports: 0, material: 0, sources: 0, neighbors: 0, hub: false, score: 0, first: '', last: '' }; };
 
   /* ---------- leads ---------- */
+  /* A lead (a question the investigators follow up) or a request (a thing for Collection to retrieve and preserve) belongs to an investigation.
+   * A lead needs only its reason; the report that prompted it is optional. */
   CI.addLead = function (d, o) {
-    var bank = d.banks.filter(function (b) { return b.id === o.bankId; })[0];
-    if (!bank) return { error: 'Choose a bank.' };
-    if (!CI.LEAD_KINDS.some(function (k) { return k.id === o.kind; })) return { error: 'Choose whether this is an investigation or a data request.' };
-    if (CI.LEAD_WITH.indexOf(o.with) === -1) return { error: 'Choose who the lead is with.' };
+    var inv = d.investigations.filter(function (v) { return v.id === o.investigationId; })[0];
+    if (!inv) return { error: 'Leads and requests belong to an investigation.' };
+    var kind = o.kind === 'DATA_REQUEST' ? 'DATA_REQUEST' : 'INVESTIGATION';
     var q = String(o.question || '').trim();
-    if (!q) return { error: 'Write the question.' };
-    var r = d.reports.filter(function (x) { return x.id === o.raisedBy; })[0];
-    if (!r) return { error: 'Choose the report that raised it.' };
+    if (!q) return { error: kind === 'DATA_REQUEST' ? 'Say what is to be retrieved.' : 'Give the reason for the lead.' };
+    var raised = String(o.raisedBy || '');
+    if (raised && !d.reports.some(function (x) { return x.id === raised; })) return { error: 'No such report: ' + raised + '.' };
+    var forLead = String(o.forLead || '');
+    if (forLead && !d.leads.some(function (x) { return x.id === forLead; })) return { error: 'No such lead: ' + forLead + '.' };
     var lead = {
-      id: CI.nextId(d, 'lead'), bankId: bank.id, kind: o.kind, with: o.with, question: q, raisedBy: r.id,
+      id: CI.nextId(d, kind === 'DATA_REQUEST' ? 'request' : 'lead'), investigationId: inv.id, bankId: inv.bankId, kind: kind,
+      with: kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations', assigned: String(o.assigned || '').trim(), question: q, raisedBy: raised,
       about: (o.about || []).filter(function (x, i, a) { return a.indexOf(x) === i; }), issued: o.issued || CI.today(),
       status: 'NOT_STARTED', response: '', returnedBy: '', returnedDate: '', created: CI.today()
     };
-    d.leads.push(lead);
+    if (kind === 'DATA_REQUEST') { lead.forLead = forLead; d.requests.push(lead); } else d.leads.push(lead);
     return { lead: lead };
   };
+  CI.findLead = function (d, id) { return d.leads.concat(d.requests).filter(function (l) { return l.id === id; })[0]; };
+  CI.leadsOf = function (d, invId) { return d.leads.filter(function (l) { return l.investigationId === invId; }); };
+  CI.requestsOf = function (d, invId) { return d.requests.filter(function (l) { return l.investigationId === invId; }); };
   CI.leadResults = function (d, id) { return d.reports.filter(function (r) { return r.leadId === id; }); };
   CI.deleteLead = function (d, id) {
     d.reports.forEach(function (r) { if (r.leadId === id) r.leadId = ''; });
     d.leads = d.leads.filter(function (l) { return l.id !== id; });
+    d.requests = d.requests.filter(function (l) { return l.id !== id; });
+    d.requests.forEach(function (q) { if (q.forLead === id) q.forLead = ''; });
   };
 
   /* ---------- estimate and handover ---------- */
@@ -946,7 +971,15 @@
     return { objective: '', outcome: 'REFERRAL', actions: [], preparedBy: '', updated: '', legal: { status: 'NOT_SUBMITTED', reviewer: '', date: '', comments: '' }, execution: { status: 'NOT_STARTED', outcome: '' } };
   };
   CI.investigationFor = function (d, bankId) { return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
+  /* A special bank may end with the finding that there is no situation: nothing is handed over and no investigation is needed. */
+  CI.closeBank = function (d, bank, reason) {
+    if (bank.handedOver) return 'This bank was handed over to Investigations.';
+    var r = String(reason || '').trim(); if (!r) return 'Say why there is no situation.';
+    bank.outcome = { kind: 'NO_SITUATION', reason: r, date: CI.today() }; return '';
+  };
+  CI.reopenBank = function (bank) { bank.outcome = null; };
   CI.handOver = function (d, bank, estId) {
+    if (bank.outcome) return null;
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
     var sn = { id: CI.nextId(d, 'snapshot'), label: 'Handover ' + CI.fmtDate(CI.today()), at: new Date().toISOString(), graph: clone(live), positions: clone(bank.positions || {}) };
     CI.ensureCharts(bank); bank.handedOverChart = bank.chartId;
@@ -1072,7 +1105,7 @@
   CI.caseGraph = function (d, inv, idx) {
     idx = idx || CI.buildIndex(d);
     var cc = CI.caseChartOf(inv), nodes = [], edges = [], positions = {}, flags = { nodes: {}, edges: {} };
-    var open = d.leads.filter(function (l) { return l.bankId === inv.bankId && !CI.isClosed(l); });
+    var open = CI.leadsOf(d, inv.id).filter(function (l) { return !CI.isClosed(l); });
     cc.pins.forEach(function (p) {
       var e = idx.entity[p.entityId]; if (!e) return;
       var deg = cc.strings.filter(function (t) { return t.a === p.entityId || t.b === p.entityId; }).length;

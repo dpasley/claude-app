@@ -118,27 +118,36 @@
 
   CI.pdf = CI.pdf || {};
   CI.pdf.leadPage = function (doc, d, lead) {
-    var kind = CI.leadKind(lead.kind), bank = d.banks.filter(function (b) { return b.id === lead.bankId; })[0];
+    var kind = CI.leadKind(lead.kind), inv = d.investigations.filter(function (v) { return v.id === lead.investigationId; })[0];
+    var bank = inv && d.banks.filter(function (b) { return b.id === inv.bankId; })[0];
     var rep = d.reports.filter(function (r) { return r.id === lead.raisedBy; })[0];
     header(doc, kind.title, lead.id, true);
-    lab(doc, 'Special bank', X0, 112); lab(doc, 'Issued', X0 + 250, 112); lab(doc, 'With', X0 + 385, 112);
+    lab(doc, 'Investigation', X0, 112); lab(doc, 'Issued', X0 + 250, 112); lab(doc, lead.kind === 'DATA_REQUEST' ? 'With' : 'Assigned to', X0 + 385, 112);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-    doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 235), X0, 132);
-    doc.text(CI.fmtDate(lead.issued), X0 + 250, 132); doc.text(lead.with, X0 + 385, 132);
-    lab(doc, lead.kind === 'DATA_REQUEST' ? 'Retrieve' : 'Question', X0, 172);
+    doc.text(oneLine(doc, plain(inv ? inv.id + '  ' + (bank ? bank.name : '') : '(none)'), 235), X0, 132);
+    doc.text(CI.fmtDate(lead.issued), X0 + 250, 132); doc.text(oneLine(doc, lead.kind === 'DATA_REQUEST' ? lead.with : (lead.assigned || ''), 105), X0 + 385, 132);
+    lab(doc, lead.kind === 'DATA_REQUEST' ? 'Retrieve' : 'Reason for the lead', X0, 172);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
     var q = lines(doc, lead.question, W, 5), y = 198;
     q.forEach(function (ln, i) { doc.text(ln, X0, y + i * 25); });
     y += (q.length - 1) * 25 + 34;
-    lab(doc, 'Raised by', X0, y);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    doc.text(rep ? rep.id : lead.raisedBy + ' (removed)', X0, y + 17);
-    if (rep) {
-      doc.setFont('helvetica', 'normal'); doc.text(rep.sourceType + '  ·  ' + CI.fmtDate(CI.reportDate(rep)), X0 + 52, y + 17);
-      doc.setFontSize(11); doc.setTextColor(40);
-      var sm = lines(doc, '“' + rep.summary + '”', W, 3); sm.forEach(function (ln, i) { doc.text(ln, X0, y + 34 + i * 14); });
-      y += 34 + sm.length * 14;
-    } else y += 20;
+    if (lead.raisedBy || lead.forLead) {
+      lab(doc, lead.raisedBy ? 'Prompted by' : 'For lead', X0, y);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+      if (lead.raisedBy) {
+        doc.text(rep ? rep.id : lead.raisedBy + ' (removed)', X0, y + 17);
+        if (rep) {
+          doc.setFont('helvetica', 'normal'); doc.text((rep.sourceType || '') + '  \u00b7  ' + CI.fmtDate(CI.reportDate(rep)), X0 + 52, y + 17);
+          doc.setFontSize(11); doc.setTextColor(40);
+          var sm = lines(doc, plain('"' + (rep.summary || rep.subject || '') + '"'), W, 3); sm.forEach(function (ln, i) { doc.text(ln, X0, y + 34 + i * 14); });
+          y += 34 + sm.length * 14;
+        } else y += 20;
+      } else {
+        var fl = d.leads.filter(function (x) { return x.id === lead.forLead; })[0];
+        doc.text(lead.forLead, X0, y + 17); doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+        if (fl) doc.text(oneLine(doc, plain(fl.question), 400), X0 + 52, y + 17); y += 22;
+      }
+    }
     doc.setTextColor(17);
     var yR = y + 20; lab(doc, 'Response', X0, yR);
     doc.setDrawColor(140); doc.setLineWidth(0.6);
@@ -169,7 +178,7 @@
   CI.pdf.leadSheets = function (d, leadIds) {
     var JS = JsPDF(), doc = new JS({ unit: 'pt', format: 'letter', compress: true });
     leadIds.forEach(function (id, i) {
-      var lead = d.leads.filter(function (l) { return l.id === id; })[0]; if (!lead) return;
+      var lead = CI.findLead(d, id); if (!lead) return;
       if (i > 0) doc.addPage('letter', 'portrait');
       CI.pdf.leadPage(doc, d, lead);
     });
@@ -177,37 +186,43 @@
     return doc.output('blob');
   };
 
-  CI.pdf.board = function (d, bankId) {
-    var JS = JsPDF(), doc = new JS({ unit: 'pt', format: 'letter', compress: true });
-    var bank = d.banks.filter(function (b) { return b.id === bankId; })[0];
-    var all = d.leads.filter(function (l) { return l.bankId === bankId; }).sort(function (a, b) { return a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); });
-    var open = all.filter(function (l) { return !CI.isClosed(l); });
-    var n = function (s) { return all.filter(function (l) { return l.status === s; }).length; };
-    function top() {
-      header(doc, 'OPEN LEADS', CI.fmtDate(CI.today()), false);
-      lab(doc, 'Special bank', X0, 112); lab(doc, 'Not started', X0 + 270, 112); lab(doc, 'In progress', X0 + 355, 112); lab(doc, 'Closed', X0 + 440, 112);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-      doc.text(oneLine(doc, bank ? bank.name : '(bank removed)', 255), X0, 132);
-      doc.text(String(n('NOT_STARTED')), X0 + 270, 132); doc.text(String(n('IN_PROGRESS')), X0 + 355, 132); doc.text(String(n('DONE') + n('NO_RESULT')), X0 + 440, 132);
-      lab(doc, 'Lead', X0, 176); lab(doc, 'Question', X0 + 64, 176); lab(doc, 'With', X0 + 270, 176); lab(doc, 'Issued', X0 + 346, 176); lab(doc, 'Status', X0 + 416, 176);
-      doc.setDrawColor(17); doc.setLineWidth(1.6); doc.line(X0, 183, X1, 183);
-      footer(doc);
-      return 205;
-    }
-    var y = top();
-    if (!open.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text('No open leads.', X0, y + 10); }
-    open.forEach(function (l) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-      var ql = lines(doc, l.question, 196, 4), h = Math.max(1, ql.length) * 14;
-      if (y + h > 728) { doc.addPage('letter', 'portrait'); y = top(); }
-      doc.setFont('courier', 'bold'); doc.text(l.id, X0, y);
-      doc.setFont('helvetica', 'normal'); ql.forEach(function (ln, i) { doc.text(ln, X0 + 64, y + i * 14); });
-      doc.text(oneLine(doc, l.with, 70), X0 + 270, y); doc.setFontSize(10); doc.text(CI.fmtShort(l.issued), X0 + 346, y); doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold'); doc.text(oneLine(doc, CI.leadStatus(l.status).label, 70), X0 + 416, y);
-      doc.setDrawColor(170); doc.setLineWidth(0.6); doc.line(X0, y + h + 6, X1, y + h + 6);
-      y += h + 22;
+  /* The list of an investigation's leads (or its requests): one entry each with reason, assignment, dates, status and a line or two of response.
+   * o: { kind: 'lead' | 'request', openOnly } */
+  CI.pdf.leadList = function (d, invId, o) {
+    o = o || {};
+    var inv = d.investigations.filter(function (v) { return v.id === invId; })[0]; if (!inv) throw new Error('No such investigation.');
+    var bank = d.banks.filter(function (b) { return b.id === inv.bankId; })[0], req = o.kind === 'request';
+    var all = (req ? CI.requestsOf(d, invId) : CI.leadsOf(d, invId)).sort(function (a, b) { return a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); });
+    var rows = o.openOnly ? all.filter(function (l) { return !CI.isClosed(l); }) : all;
+    var doc = CI.pdf.begin(), title = (req ? 'REQUEST LIST' : 'LEAD LIST');
+    var again = function () { return CI.pdf.top(doc, title + ' (continued)', inv.id); };
+    var y = CI.pdf.top(doc, title, inv.id);
+    var n = function (st) { return all.filter(function (l) { return l.status === st; }).length; };
+    lab(doc, 'Special bank', X0, y); lab(doc, 'Investigator', X0 + 250, y); lab(doc, 'Showing', X0 + 385, y);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+    doc.text(oneLine(doc, plain(bank ? bank.name : ''), 235), X0, y + 18); doc.text(oneLine(doc, plain(inv.investigator || ''), 125), X0 + 250, y + 18);
+    doc.text((o.openOnly ? 'Open ' : 'All ') + rows.length + ' of ' + all.length, X0 + 385, y + 18);
+    y += 34; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(95);
+    doc.text('Not started ' + n('NOT_STARTED') + '   ·   In progress ' + n('IN_PROGRESS') + '   ·   Done ' + n('DONE') + '   ·   Nothing found ' + n('NO_RESULT'), X0, y); doc.setTextColor(17);
+    y += 12; doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y, X1, y); y += 20;
+    if (!rows.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.text(req ? 'No requests.' : 'No leads.', X0, y); }
+    rows.forEach(function (l) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      var ql = doc.splitTextToSize(plain(l.question), 245).slice(0, 4), rl = l.response ? doc.splitTextToSize('Response: ' + plain(l.response), W - 70).slice(0, 2) : [];
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      var al = doc.splitTextToSize(plain(req ? l.with : (l.assigned || '')) || ' ', 92).slice(0, 2), sl = doc.splitTextToSize(CI.leadStatus(l.status).label, 70).slice(0, 2);
+      var top = Math.max(ql.length * 14, (al.length + 1) * 12 + 2, sl.length * 12), h = top + (rl.length ? rl.length * 12 + 4 : 0);
+      if (y + h > 735) { doc.addPage('letter', 'portrait'); y = again() + 6; }
+      doc.setFont('courier', 'bold'); doc.setFontSize(10.5); doc.text(l.id, X0, y);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11); ql.forEach(function (ln, i) { doc.text(ln, X0 + 62, y + i * 14); });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+      al.forEach(function (ln, i) { doc.text(ln, X0 + 318, y + i * 12); }); doc.text(CI.fmtShort(l.issued), X0 + 318, y + al.length * 12 + 2);
+      doc.setFont('helvetica', 'bold'); sl.forEach(function (ln, i) { doc.text(ln, X0 + 420, y + i * 12); });
+      if (rl.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(70); rl.forEach(function (ln, i) { doc.text(ln, X0 + 62, y + top + i * 12); }); doc.setTextColor(17); }
+      doc.setDrawColor(200); doc.setLineWidth(0.5); doc.line(X0, y + h + 2, X1, y + h + 2);
+      y += h + 16;
     });
-    CI.pdf.stamp(doc, 'Open leads \u00b7 ' + (bank ? bank.name : ''));
+    CI.pdf.stamp(doc, (req ? 'Request list' : 'Lead list') + ' · ' + inv.id + (bank ? ' · ' + bank.name : ''));
     return doc.output('blob');
   };
 

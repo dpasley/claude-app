@@ -22,104 +22,92 @@
   }
   CI.app.saveBlob = saveBlob;
 
-  /* ---------- list ---------- */
-  CI.views.leads = function () {
-    var d = D(), rows = d.leads.slice().sort(function (a, b) { return b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); })
-      .filter(function (l) { return (!ls.bank || l.bankId === ls.bank) && (ls.show === 'all' || !CI.isClosed(l)); });
-    var open = d.leads.filter(function (l) { return !CI.isClosed(l); }).length;
-    var h = '<div class="page-head"><h1>Leads</h1><div class="row wrap"><button class="btn primary" data-action="lead-new">New lead</button></div></div>' +
-      '<div class="card"><div class="row wrap"><select data-on-change="lead-filter" id="ld-bank">' + A.options(d.banks.map(function (b) { return { value: b.id, label: b.name }; }), ls.bank, 'All banks') + '</select>' +
-      '<select data-on-change="lead-filter" id="ld-show">' + A.options([{ value: 'open', label: 'Open leads' }, { value: 'all', label: 'All leads' }], ls.show) + '</select>' +
-      '<span class="spacer"></span><span class="muted small">' + open + ' open of ' + d.leads.length + '</span></div>' +
-      '<div class="row wrap" style="margin-top:10px"><button class="btn small" data-action="lead-board"' + (ls.bank ? '' : ' disabled') + '>Open-leads board (PDF)</button>' +
-      '<button class="btn small" data-action="lead-sheets"' + (ls.bank ? '' : ' disabled') + '>All open lead sheets (PDF)</button>' +
-      (ls.bank ? '' : '<span class="muted small">Choose a bank to print its board or sheets.</span>') + '</div></div>';
-    if (!d.leads.length) h += '<div class="card callout"><strong>No leads yet.</strong> A lead is a question that comes out of a bank and its estimate. It goes to Investigations to find out, or to Collection as a request to retrieve something. Raise one from a report, or from the chart.</div>';
-    else h += '<div class="card flush"><table><thead><tr><th>Lead</th><th>Question</th><th>Bank</th><th>With</th><th>Issued</th><th>Status</th></tr></thead><tbody>' +
-      (rows.length ? rows.map(function (l) {
-        return '<tr><td><a href="#/lead/' + esc(l.id) + '">' + esc(l.id) + '</a></td><td>' + esc(A.trunc(l.question, 110)) + '<div class="muted small">' + esc(CI.leadKind(l.kind).title) + '</div></td><td>' + esc(bankName(l.bankId)) + '</td><td>' + esc(l.with) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
-      }).join('') : '<tr><td colspan="6" class="empty">No leads match.</td></tr>') + '</tbody></table></div>';
-    A.view.className = ''; A.view.innerHTML = h;
-  };
-  H['lead-filter'] = function () { ls.bank = val('ld-bank'); ls.show = val('ld-show'); CI.views.leads(); };
-  H['lead-board'] = function () { saveBlob('Open-leads-' + CI.fileSafe(bankName(ls.bank)) + '.pdf', function () { return CI.pdf.board(D(), ls.bank); }); };
-  H['lead-sheets'] = function () {
-    var ids = D().leads.filter(function (l) { return l.bankId === ls.bank && !CI.isClosed(l); }).map(function (l) { return l.id; });
-    if (!ids.length) { A.toast('That bank has no open leads.', true); return; }
-    saveBlob('Lead-sheets-' + CI.fileSafe(bankName(ls.bank)) + '.pdf', function () { return CI.pdf.leadSheets(D(), ids); });
-  };
+  function isReq(l) { return CI.isRequest(l); }
+  function invOfLead(l) { return D().investigations.filter(function (v) { return v.id === l.investigationId; })[0]; }
+  function backHref(l) { return l.investigationId ? '#/investigation/' + l.investigationId + '/' + (isReq(l) ? 'requests' : 'leads') : '#/investigations'; }
+  /* A report box with suggestions you can walk through with the arrow keys. The value is picked up as the report number. */
+  function reportBox(id, value) {
+    var reps = A.data().reports.slice().sort(function (a, b) { return b.id.localeCompare(a.id); }).slice(0, 300);
+    return '<input type="text" id="' + id + '" list="' + id + '-dl" autocomplete="off" value="' + esc(value || '') + '" placeholder="Optional: start typing a report number or subject"><datalist id="' + id + '-dl">' +
+      reps.map(function (r) { return '<option value="' + esc(r.id + ' – ' + A.trunc(r.subject || r.summary || r.sourceRef || '', 60)) + '">'; }).join('') + '</datalist>';
+  }
+  function readReport(id) { var m = val(id).match(/R-\d+/i); return m ? m[0].toUpperCase() : (val(id).trim() ? '?' + val(id).trim() : ''); }
+  function repLabel(rid) { var r = A.idx().report[rid]; return r ? rid + ' – ' + A.trunc(r.subject || r.summary || r.sourceRef || '', 60) : (rid || ''); }
 
-  /* ---------- create ---------- */
+  /* ---------- create (from inside an investigation) ---------- */
   CI.views.openLead = function (pre) {
     pre = pre || {};
-    var d = D();
-    if (!d.banks.length) { A.toast('Make a bank on the Chart screen first. A lead belongs to a bank.', true); return; }
-    if (!d.reports.length) { A.toast('Add a report first. Every lead says which report raised it.', true); return; }
-    var bankId = pre.bankId || d.ui.bankId || d.banks[0].id, kind = pre.kind || 'INVESTIGATION';
-    var reps = d.reports.slice().sort(function (a, b) { return b.id.localeCompare(a.id); }).map(function (r) { return { value: r.id, label: r.id + ' – ' + A.trunc(r.summary || '', 70) }; });
-    A.modal('<h2>New lead</h2><div class="form">' +
-      '<div class="grid2"><label>Bank<select id="nl-bank">' + A.options(d.banks.map(function (b) { return { value: b.id, label: b.name }; }), bankId) + '</select></label>' +
-      '<label>Kind<select id="nl-kind" data-on-change="lead-kind">' + A.options(CI.LEAD_KINDS.map(function (k) { return { value: k.id, label: k.title }; }), kind) + '</select></label></div>' +
-      '<div class="grid2"><label>With<select id="nl-with">' + A.options(CI.LEAD_WITH.map(function (w) { return { value: w, label: w }; }), pre.with || (kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations')) + '</select></label>' +
+    var d = D(), inv = d.investigations.filter(function (v) { return v.id === pre.investigationId; })[0];
+    if (!inv) { A.toast('Leads and requests are made inside an investigation.', true); return; }
+    var req = pre.kind === 'DATA_REQUEST', leads = CI.leadsOf(d, inv.id);
+    A.modal('<h2>' + (req ? 'New request to Collection' : 'New lead') + ' <span class="muted small">' + esc(inv.id) + '</span></h2><div class="form">' +
+      '<label>' + (req ? 'What is to be retrieved' : 'Reason for the lead') + ' <span class="hint">' + (req ? 'retrieve and preserve only; no interpretation' : 'what we want to find out, and why') + '</span><textarea id="nl-q" rows="3">' + esc(pre.question || '') + '</textarea></label>' +
+      '<div class="grid2">' + (req ? '<label>For lead <span class="hint">optional</span><select id="nl-for">' + A.options(leads.map(function (l) { return { value: l.id, label: l.id + ' – ' + A.trunc(l.question, 50) }; }), pre.forLead || '', 'No particular lead') + '</select></label>'
+        : '<label>Assigned to <span class="hint">optional</span><input type="text" id="nl-who" value="' + esc(pre.assigned || inv.investigator || '') + '"></label>') +
       '<label>Issued ' + A.dateInput('nl-issued', pre.issued || CI.today()) + '</label></div>' +
-      '<label>Question <span class="hint">one clear question, or the thing to retrieve</span><textarea id="nl-q" rows="3">' + esc(pre.question || '') + '</textarea></label>' +
-      '<label>Raised by report<select id="nl-rep">' + A.options(reps, pre.raisedBy || '', 'Choose a report') + '</select></label>' +
+      '<label>Prompted by report ' + reportBox('nl-rep', repLabel(pre.raisedBy)) + '</label>' +
       '<p class="muted small" id="nl-note">' + (pre.about && pre.about.length ? 'About: ' + esc(pre.about.map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ')) : '') + '</p>' +
-      '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="lead-create">Create lead</button></div>');
+      '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="lead-create" data-inv="' + esc(inv.id) + '" data-kind="' + (req ? 'DATA_REQUEST' : 'INVESTIGATION') + '">' + (req ? 'Create request' : 'Create lead') + '</button></div>');
     CI.views._leadAbout = pre.about || [];
     var q = document.getElementById('nl-q'); if (q) q.focus();
   };
-  H['lead-kind'] = function (el) { var w = document.getElementById('nl-with'); if (w) w.value = el.value === 'DATA_REQUEST' ? 'Collection' : 'Investigations'; };
-  H['lead-new'] = function () { CI.views.openLead({ bankId: ls.bank || undefined }); };
-  H['lead-create'] = function () {
+  H['lead-create'] = function (el) {
     var iss = A.readDate('nl-issued');
     if (iss === null) { A.toast('Issued: ' + A.dateHelp, true); return; }
-    var res = CI.addLead(D(), { bankId: val('nl-bank'), kind: val('nl-kind'), with: val('nl-with'), question: val('nl-q'), raisedBy: val('nl-rep'), issued: iss || CI.today(), about: CI.views._leadAbout });
+    var who = document.getElementById('nl-who'), fl = document.getElementById('nl-for');
+    var res = CI.addLead(D(), { investigationId: el.getAttribute('data-inv'), kind: el.getAttribute('data-kind'), question: val('nl-q'), raisedBy: readReport('nl-rep'), assigned: who ? who.value : '', forLead: fl ? fl.value : '', issued: iss || CI.today(), about: CI.views._leadAbout });
     if (res.error) { A.toast(res.error, true); return; }
-    A.persist(); A.closeModal(); A.toast('Lead ' + res.lead.id + ' created.'); A.go('#/lead/' + res.lead.id);
+    if (CI.views._leadTheory && !isReq(res.lead)) res.lead.theory = CI.views._leadTheory; CI.views._leadTheory = '';
+    A.persist(); A.closeModal(); A.toast((isReq(res.lead) ? 'Request ' : 'Lead ') + res.lead.id + ' created.'); A.go('#/' + (isReq(res.lead) ? 'lead/' : 'lead/') + res.lead.id);
   };
 
-  /* ---------- one lead ---------- */
+  /* ---------- one lead or request ---------- */
   CI.views.lead = function (id) {
-    var d = D(), l = d.leads.filter(function (x) { return x.id === id; })[0];
-    if (!l) { A.view.innerHTML = '<div class="card callout">No such lead. <a href="#/leads">Back to leads</a></div>'; return; }
-    var reps = d.reports.slice().sort(function (a, b) { return b.id.localeCompare(a.id); }).map(function (r) { return { value: r.id, label: r.id + ' – ' + A.trunc(r.summary || '', 70) }; });
-    var results = CI.leadResults(d, l.id), raised = A.idx().report[l.raisedBy];
-    var h = '<div class="page-head"><h1>Lead ' + esc(l.id) + ' ' + statusTag(l) + '</h1><div class="row wrap"><button class="btn" data-action="lead-sheet-one" data-id="' + esc(l.id) + '">Lead sheet (PDF)</button><a class="btn" href="#/leads">All leads</a></div></div>' +
-      '<form class="card form" onsubmit="return false"><div class="grid2"><label>Bank<select id="ld-f-bank">' + A.options(d.banks.map(function (b) { return { value: b.id, label: b.name }; }), l.bankId) + '</select></label>' +
-      '<label>Issued ' + A.dateInput('ld-f-issued', l.issued) + '</label></div>' +
-      '<div class="grid2"><label>Kind<select id="ld-f-kind">' + A.options(CI.LEAD_KINDS.map(function (k) { return { value: k.id, label: k.title }; }), l.kind) + '</select></label>' +
-      '<label>With<select id="ld-f-with">' + A.options(CI.LEAD_WITH.map(function (w) { return { value: w, label: w }; }), l.with) + '</select></label></div>' +
-      '<label>Question<textarea id="ld-f-q" rows="3">' + esc(l.question) + '</textarea></label>' +
-      '<label>Raised by report<select id="ld-f-rep">' + A.options(reps, l.raisedBy) + '</select></label>' +
+    var d = D(), l = CI.findLead(d, id);
+    if (!l) { A.view.innerHTML = '<div class="card callout">No such lead. <a href="#/investigations">Back to investigations</a></div>'; return; }
+    var req = isReq(l), inv = invOfLead(l), bank = inv && d.banks.filter(function (b) { return b.id === inv.bankId; })[0];
+    var results = CI.leadResults(d, l.id), raised = A.idx().report[l.raisedBy], word = req ? 'Request' : 'Lead';
+    var forLead = req && l.forLead ? d.leads.filter(function (x) { return x.id === l.forLead; })[0] : null;
+    var h = '<div class="page-head"><h1>' + word + ' ' + esc(l.id) + ' ' + statusTag(l) + '</h1><div class="row wrap"><button class="btn" data-action="lead-sheet-one" data-id="' + esc(l.id) + '">' + word + ' sheet (PDF)</button><a class="btn" href="' + backHref(l) + '">' + (inv ? 'Back to ' + esc(inv.id) : 'Investigations') + '</a></div></div>' +
+      '<p class="muted">' + (inv ? 'Investigation <a href="#/investigation/' + esc(inv.id) + '">' + esc(inv.id) + '</a>' + (bank ? ' · ' + esc(bank.name) : '') : 'Not attached to an investigation.') + '</p>' +
+      '<form class="card form" onsubmit="return false"><div class="grid2"><label>Issued ' + A.dateInput('ld-f-issued', l.issued) + '</label>' +
+      (req ? '<label>With<input type="text" value="Collection" disabled></label>' : '<label>Assigned to<input type="text" id="ld-f-who" value="' + esc(l.assigned || '') + '"></label>') + '</div>' +
+      '<label>' + (req ? 'What is to be retrieved' : 'Reason for the lead') + '<textarea id="ld-f-q" rows="3">' + esc(l.question) + '</textarea></label>' +
+      (req ? '<label>For lead <span class="hint">optional</span><select id="ld-f-for">' + A.options(CI.leadsOf(d, l.investigationId).map(function (x) { return { value: x.id, label: x.id + ' – ' + A.trunc(x.question, 60) }; }), l.forLead || '', 'No particular lead') + '</select></label>' : '') +
+      '<label>Prompted by report ' + reportBox('ld-f-rep', repLabel(l.raisedBy)) + '</label>' +
       (raised ? '<p class="muted small" style="margin-top:-6px">' + esc(raised.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(raised))) + ' · ' + esc(A.trunc(raised.summary || '', 140)) + ' <a href="#/report/' + esc(raised.id) + '">Open report</a></p>' : '') +
+      (forLead ? '<p class="small">For lead <a href="#/lead/' + esc(forLead.id) + '">' + esc(forLead.id) + '</a> ' + esc(A.trunc(forLead.question, 100)) + '</p>' : '') +
       (l.about && l.about.length ? '<p class="small">About: ' + l.about.map(function (e) { return A.entLink(e); }).join(', ') + '</p>' : '') +
       '<label>Status<select id="ld-f-status">' + A.options(CI.LEAD_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), l.status) + '</select></label>' +
       '<label>Response <span class="hint">what came back, in a few words</span><textarea id="ld-f-resp" rows="4">' + esc(l.response) + '</textarea></label>' +
       '<div class="grid2"><label>Returned by<input type="text" id="ld-f-by" value="' + esc(l.returnedBy) + '"></label><label>Returned on ' + A.dateInput('ld-f-ret', l.returnedDate) + '</label></div>' +
       '<div class="row"><button class="btn primary" data-action="lead-save" data-id="' + esc(l.id) + '">Save</button></div></form>' +
-      '<div class="card"><h3>Results that came back</h3>' + (results.length ? '<ul class="plain">' + results.map(function (r) { return '<li>' + A.repLink(r.id) + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span><div class="small">' + esc(A.trunc(r.summary || '', 140)) + '</div></li>'; }).join('') + '</ul>' : '<p class="muted small">None yet. What comes back is filed through Intake like any other report.</p>') +
+      '<div class="card"><h3>Results that came back</h3>' + (results.length ? '<ul class="plain">' + results.map(function (r) { return '<li>' + A.repLink(r.id) + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span><div class="small">' + esc(A.trunc(r.summary || '', 140)) + '</div></li>'; }).join('') + '</ul>' : '<p class="muted small">None yet. Whatever comes back is filed through Intake as a report that carries this number.</p>') +
       '<div class="row"><button class="btn" data-action="lead-result" data-id="' + esc(l.id) + '">File a result as a new report</button></div></div>' +
-      '<div class="card"><h3>Housekeeping</h3><button class="btn danger" data-action="lead-del" data-id="' + esc(l.id) + '">Delete this lead</button></div>';
+      '<div class="card"><h3>Housekeeping</h3><button class="btn danger" data-action="lead-del" data-id="' + esc(l.id) + '">Delete this ' + word.toLowerCase() + '</button></div>';
     A.view.className = ''; A.view.innerHTML = h;
   };
   H['lead-save'] = function (el) {
-    var d = D(), l = d.leads.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!l) return;
-    var q = val('ld-f-q').trim(); if (!q) { A.toast('Write the question.', true); return; }
+    var d = D(), l = CI.findLead(d, el.getAttribute('data-id')); if (!l) return;
+    var q = val('ld-f-q').trim(); if (!q) { A.toast(isReq(l) ? 'Say what is to be retrieved.' : 'Give the reason for the lead.', true); return; }
     var iss = A.readDate('ld-f-issued'), ret = A.readDate('ld-f-ret');
     if (iss === null || ret === null) { A.toast((iss === null ? 'Issued: ' : 'Returned on: ') + A.dateHelp, true); return; }
-    l.bankId = val('ld-f-bank'); l.issued = iss || l.issued; l.kind = val('ld-f-kind'); l.with = val('ld-f-with'); l.question = q;
-    l.raisedBy = val('ld-f-rep'); l.status = val('ld-f-status'); l.response = val('ld-f-resp').trim(); l.returnedBy = val('ld-f-by').trim(); l.returnedDate = ret;
-    A.persist(); A.toast('Lead saved.'); CI.views.lead(l.id);
+    var rep = readReport('ld-f-rep');
+    if (rep && (rep.charAt(0) === '?' || !A.idx().report[rep])) { A.toast('No such report: ' + rep.replace('?', '') + '.', true); return; }
+    l.issued = iss || l.issued; l.question = q; l.raisedBy = rep;
+    var who = document.getElementById('ld-f-who'); if (who) l.assigned = who.value.trim();
+    var fl = document.getElementById('ld-f-for'); if (fl) l.forLead = fl.value;
+    l.status = val('ld-f-status'); l.response = val('ld-f-resp').trim(); l.returnedBy = val('ld-f-by').trim(); l.returnedDate = ret;
+    A.persist(); A.toast('Saved.'); CI.views.lead(l.id);
   };
   H['lead-del'] = function (el) {
-    var id = el.getAttribute('data-id');
-    A.confirm('Delete lead ' + id + '? Reports filed against it are kept.', function () { CI.deleteLead(D(), id); A.persist(); A.closeModal(); A.go('#/leads'); }, { title: 'Delete lead', yes: 'Delete', danger: true });
+    var id = el.getAttribute('data-id'), l = CI.findLead(D(), id), back = l ? backHref(l) : '#/investigations';
+    A.confirm('Delete ' + id + '? Reports filed against it are kept.', function () { CI.deleteLead(D(), id); A.persist(); A.closeModal(); A.go(back); }, { title: 'Delete', yes: 'Delete', danger: true });
   };
-  H['lead-sheet-one'] = function (el) { var id = el.getAttribute('data-id'); saveBlob('Lead-' + id + '.pdf', function () { return CI.pdf.leadSheets(D(), [id]); }); };
+  H['lead-sheet-one'] = function (el) { var id = el.getAttribute('data-id'); saveBlob((id.charAt(0) === 'Q' ? 'Request-' : 'Lead-') + id + '.pdf', function () { return CI.pdf.leadSheets(D(), [id]); }); };
   H['lead-result'] = function (el) {
-    var l = D().leads.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!l) return;
-    A.startReport({ leadId: l.id, sourceType: l.with === 'Investigations' ? 'Investigator report' : '' });
+    var l = CI.findLead(D(), el.getAttribute('data-id')); if (!l) return;
+    A.startReport({ leadId: l.id, sourceType: isReq(l) ? '' : 'Investigator report' });
   };
 
   /* ---------- estimate of the situation (one of the special bank's estimates) ---------- */
@@ -144,7 +132,7 @@
       return '<div class="stmt"><textarea rows="2" class="stmt-text" data-on-change="es-text" ' + at + '>' + esc(it.text) + '</textarea>' +
         '<div class="stmt-cites">' + (it.reportIds.length ? '<span class="fl">Rests on</span>' + citeChips(it.reportIds, at) : '<span class="muted small">No reports cited.</span>') + '</div>' +
         lookupBox(it.id, b, est, it.id, kind) +
-        '<div class="stmt-act"><button class="btn small" data-action="es-move" ' + at + ' data-to="' + other + '">' + (kind === 'ESTABLISHED' ? 'Make it a working theory' : 'Make it established') + '</button>' + (kind === 'HYPOTHESIS' ? '<button class="btn small" data-action="es-lead" ' + at + ' title="Ask Investigations or Collection to test this theory">Raise a lead to test this</button>' : '') + '<button class="btn small danger" data-action="est-del" ' + at + '>Remove</button></div></div>';
+        '<div class="stmt-act"><button class="btn small" data-action="es-move" ' + at + ' data-to="' + other + '">' + (kind === 'ESTABLISHED' ? 'Make it a working theory' : 'Make it established') + '</button>' + '<button class="btn small danger" data-action="est-del" ' + at + '>Remove</button></div></div>';
     }).join('') || '<p class="muted small">None yet.</p>';
     h += '<div class="stmt new"><label class="big-lbl">Add one<textarea rows="2" id="es-new-' + kind + '" data-on-input="es-draft-text" data-kind="' + kind + '" data-est="' + esc(est.id) + '" placeholder="Write the statement in plain words…">' + esc(dr.text) + '</textarea></label>' +
       '<div class="stmt-cites">' + (dr.reports.length ? '<span class="fl">Rests on</span>' + citeChips(dr.reports, 'data-bank="' + esc(b.id) + '" data-est="' + esc(est.id) + '" data-kind="' + kind + '" data-draft="1"') : (kind === 'ESTABLISHED' ? '<span class="muted small">An established statement must cite at least one report.</span>' : '')) + '</div>' +
@@ -215,12 +203,6 @@
     if (r.error) { A.toast(r.error + ' Cite a report first.', true); return; }
     A.persist(); CI.views.estimate(b.id, e.id);
   };
-  H['es-lead'] = function (el) {
-    var d = D(), b = bankOf(el), e = estOf(el), it = e.items.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!it) return;
-    var idx = A.idx(), about = {};
-    it.reportIds.forEach(function (r) { var rep = idx.report[r]; if (rep) rep.entities.forEach(function (x) { if ((b.files || []).indexOf(x.entityId) !== -1) about[x.entityId] = 1; }); });
-    CI.views.openLead({ bankId: b.id, question: 'Is this so? ' + it.text, raisedBy: it.reportIds[0] || '', about: Object.keys(about) });
-  };
   H['est-add'] = function (el) {
     var b = bankOf(el), e = estOf(el), kind = el.getAttribute('data-kind'), dr = draftOf(e.id, kind);
     var res = CI.addEstimateItem(D(), b, { kind: kind, text: dr.text, reportIds: dr.reports.join(',') }, e);
@@ -233,5 +215,4 @@
     var b = bankOf(el), sel = document.getElementById('ho-est'), estId = sel ? sel.value : '';
     A.confirm('Freeze “' + b.name + '” as it stands and hand it to Investigations with ' + CI.estimateOf(b, estId).label + '? This opens an investigation for it.', function () { CI.handOver(D(), b, estId); A.persist(); A.closeModal(); A.toast('Handed over. A snapshot was saved.'); A.go('#/bank/' + b.id + '/estimates'); }, { title: 'Hand over', yes: 'Hand over' });
   };
-  H['lead-new-bank'] = function (el) { CI.views.openLead({ bankId: el.getAttribute('data-bank') }); };
 })();

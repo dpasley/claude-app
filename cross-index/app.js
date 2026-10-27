@@ -142,7 +142,7 @@
     if (sb) sb.hidden = true;
     document.querySelectorAll('#nav a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
-      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'leads' && h.indexOf('#/lead') === 0) || (key === 'chart' && (h.indexOf('#/estimate') === 0 || h.indexOf('#/bank') === 0)) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/casechart') === 0)));
+      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'chart' && (h.indexOf('#/estimate') === 0 || h.indexOf('#/bank') === 0)) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/lead') === 0 || h.indexOf('#/casechart') === 0)));
       if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/observation') === 0)) a.classList.add('active');
     });
     var rc = document.getElementById('review-count'), n = openCount();
@@ -193,9 +193,9 @@
     else if (name === 'bank') CI.views.bank(parts[1] || '', parts[2] || '');
     else if (name === 'observation') CI.views.observation();
     else if (name === 'investigations') CI.views.investigations();
-    else if (name === 'investigation') CI.views.investigation(parts[1]);
+    else if (name === 'investigation') CI.views.investigation(parts[1], parts[2]);
     else if (name === 'casechart') CI.views.casechart(parts[1]);
-    else if (name === 'leads') CI.views.leads();
+    else if (name === 'leads') CI.views.investigations();
     else if (name === 'lead') CI.views.lead(parts[1]);
     else if (name === 'estimate') CI.views.estimate(parts[1], parts[2]);
     else if (name === 'review') viewReview();
@@ -323,7 +323,7 @@
     if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '' };
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
-    var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><button class="btn" data-action="raise-lead-report" data-id="' + esc(id) + '">Raise a lead</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
+    var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
     var mine = d.links.filter(function (l) { return l.reportId === id; });
     h += '<div class="card rep-strip"><div class="facts">' +
       '<div><span class="fl">Date of report</span><span class="fv">' + esc(CI.fmtDate(r.received)) + '</span></div>' +
@@ -567,7 +567,6 @@
       CI.deleteReport(d, id); persist(); go('#/entities');
     }, { title: 'Delete report', yes: 'Delete', danger: true });
   };
-  handlers['raise-lead-report'] = function (el) { CI.views.openLead({ raisedBy: el.getAttribute('data-id') }); };
 
   /* ---------- FILES LIST (drawers by type; items by kind) ---------- */
   var entScope = 'files';

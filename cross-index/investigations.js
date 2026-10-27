@@ -16,10 +16,20 @@
     if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Hand over a special bank from its <a href="#/chart">Estimates tab</a> to start one.</div>';
     else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Bank</th><th>Status</th><th>Investigator</th><th>Handed over</th><th class="num">Open leads</th><th>Legal on plan</th><th>Case chart</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (v) {
-        var b = bank(v.bankId), open = d.leads.filter(function (l) { return l.bankId === v.bankId && !CI.isClosed(l); }).length;
+        var b = bank(v.bankId), open = CI.leadsOf(d, v.id).filter(function (l) { return !CI.isClosed(l); }).length;
         return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(b ? b.name : '(bank removed)') + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td><td>' + legalTag(v.plan) + '</td><td><a href="#/casechart/' + esc(v.id) + '">' + (CI.caseChartOf(v).pins.length ? CI.caseChartOf(v).pins.length + ' pinned' : 'Open') + '</a></td></tr>';
       }).join('') : '<tr><td colspan="8" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
+    var orphans = d.leads.concat(d.requests).filter(function (l) { return !l.investigationId || !d.investigations.some(function (v) { return v.id === l.investigationId; }); });
+    if (orphans.length) h += '<div class="card"><h2>Not attached to an investigation (' + orphans.length + ')</h2><p class="muted small">Leads and requests belong to an investigation. These were made before that rule. Attach each to one, or delete it.</p><table class="fixed"><colgroup><col style="width:10%"><col style="width:52%"><col style="width:38%"></colgroup><tbody>' +
+      orphans.map(function (l) {
+        return '<tr><td><a href="#/lead/' + esc(l.id) + '">' + esc(l.id) + '</a></td><td class="ellip">' + esc(l.question) + '</td><td class="right"><select id="at-' + esc(l.id) + '">' + A.options(d.investigations.map(function (v) { var b = bank(v.bankId); return { value: v.id, label: v.id + ' ' + (b ? b.name : '') }; }), '', 'Choose…') + '</select> <button class="btn small" data-action="lead-attach" data-id="' + esc(l.id) + '">Attach</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
     A.view.className = ''; A.view.innerHTML = h;
+  };
+  H['lead-attach'] = function (el) {
+    var id = el.getAttribute('data-id'), l = CI.findLead(D(), id), vid = val('at-' + id), v = D().investigations.filter(function (x) { return x.id === vid; })[0];
+    if (!l || !v) { A.toast('Choose an investigation.', true); return; }
+    l.investigationId = v.id; l.bankId = v.bankId; A.persist(); CI.views.investigations();
   };
   H['inv-filter'] = function () { iv.show = val('inv-show'); CI.views.investigations(); };
 
@@ -30,19 +40,21 @@
     }).join('');
   }
 
-  CI.views.investigation = function (id) {
+  CI.views.investigation = function (id, tab) {
     var d = D(), v = d.investigations.filter(function (x) { return x.id === id; })[0];
     if (!v) { A.view.innerHTML = '<div class="card callout">No such investigation. <a href="#/investigations">Back to investigations</a></div>'; return; }
-    var b = bank(v.bankId), p = v.plan, cc = CI.caseChartOf(v), leads = d.leads.filter(function (l) { return l.bankId === v.bankId; });
+    var b = bank(v.bankId), p = v.plan, cc = CI.caseChartOf(v), leads = CI.leadsOf(d, v.id), reqs = CI.requestsOf(d, v.id);
+    tab = tab === 'leads' || tab === 'requests' ? tab : 'overview';
     var h = '<div class="page-head"><h1>Investigation ' + esc(v.id) + ' ' + invTag(v) + '</h1><div class="row wrap"><a class="btn primary" href="#/casechart/' + esc(v.id) + '">Case chart</a><a class="btn" href="#/chart/' + esc(v.bankId) + '">Working chart</a><a class="btn" href="#/bank/' + esc(v.bankId) + '/estimates">Estimates</a><a class="btn" href="#/investigations">All investigations</a></div></div>' +
       '<p class="muted">Bank: <b>' + esc(b ? b.name : '(bank removed)') + '</b>' + (b && b.opened.reason ? ' · opened because: ' + esc(b.opened.reason) : '') + '</p>' +
+      '<div class="tabs"><a class="tab' + (tab === 'overview' ? ' on' : '') + '" href="#/investigation/' + esc(v.id) + '">Overview</a><a class="tab' + (tab === 'leads' ? ' on' : '') + '" href="#/investigation/' + esc(v.id) + '/leads">Leads <span class="n">' + leads.length + '</span></a><a class="tab' + (tab === 'requests' ? ' on' : '') + '" href="#/investigation/' + esc(v.id) + '/requests">Requests <span class="n">' + reqs.length + '</span></a></div>';
+    if (tab !== 'overview') { A.view.className = ''; A.view.innerHTML = h + (tab === 'leads' ? leadsTab(v) : requestsTab(v)); return; }
+    h += '<div class="card"><h3>Leads and requests</h3><p class="muted small">' + leads.length + ' lead' + (leads.length === 1 ? '' : 's') + ' (' + leads.filter(function (l) { return !CI.isClosed(l); }).length + ' open) and ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') + ' to Collection. <a href="#/investigation/' + esc(v.id) + '/leads">Leads</a> \u00b7 <a href="#/investigation/' + esc(v.id) + '/requests">Requests</a></p></div>' +
       '<form class="card form" onsubmit="return false"><div class="grid2"><label>Status<select id="iv-status">' + A.options(CI.INV_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), v.status) + '</select></label>' +
       '<label>Investigator<input type="text" id="iv-who" value="' + esc(v.investigator) + '"></label></div>' +
       '<label>Notes<textarea id="iv-notes" rows="3">' + esc(v.notes) + '</textarea></label>' +
       '<div class="row"><button class="btn primary" data-action="inv-save" data-id="' + esc(v.id) + '">Save</button><span class="muted small">Handed over ' + esc(CI.fmtDate(v.opened)) + (v.closed ? ' · closed ' + esc(CI.fmtDate(v.closed)) : '') + '</span></div></form>' +
       '<div class="card"><h3>Case chart</h3><p class="muted small">' + (cc.pins.length ? cc.pins.length + ' name' + (cc.pins.length === 1 ? '' : 's') + ' pinned, ' + cc.strings.length + ' string' + (cc.strings.length === 1 ? '' : 's') + '.' : 'Nothing pinned yet.') + ' The investigators build this board to show what has been found and what is next.</p><div class="row"><a class="btn small" href="#/casechart/' + esc(v.id) + '">Open the case chart</a></div></div>' +
-      '<div class="card"><h3>Leads (' + leads.length + ')</h3>' + (leads.length ? '<ul class="plain">' + leads.map(function (l) { return '<li><a href="#/lead/' + esc(l.id) + '">' + esc(l.id) + '</a> ' + esc(A.trunc(l.question, 90)) + ' <span class="muted small">' + esc(l.with) + ' · ' + esc(CI.leadStatus(l.status).label) + '</span></li>'; }).join('') + '</ul>' : '<p class="muted small">No leads yet.</p>') +
-      '<div class="row"><button class="btn small" data-action="inv-raise" data-bank="' + esc(v.bankId) + '">Raise a lead</button></div></div>' +
       '<form class="card form" onsubmit="return false"><div class="row spread"><h3 style="margin:0">Handling plan</h3><button class="btn small" data-action="inv-plan-pdf" data-id="' + esc(v.id) + '">Plan sheet (PDF)</button></div>' +
       '<label>Objective <span class="hint">what the plan is meant to achieve</span><textarea id="pl-obj" rows="2">' + esc(p.objective) + '</textarea></label>' +
       '<div class="grid2"><label>Outcome sought<select id="pl-out">' + A.options(CI.PLAN_OUTCOMES.map(function (o) { return { value: o.id, label: o.label }; }), p.outcome) + '</select></label><label>Prepared by<input type="text" id="pl-by" value="' + esc(p.preparedBy) + '"></label></div>' +
@@ -55,6 +67,56 @@
       '<div class="row"><button class="btn primary" data-action="plan-save" data-id="' + esc(v.id) + '">Save plan</button>' + (p.updated ? '<span class="muted small">Updated ' + esc(CI.fmtDate(p.updated)) + '</span>' : '') + '</div></form>';
     A.view.className = ''; A.view.innerHTML = h;
   };
+  /* ----- leads and requests of one investigation ----- */
+  function statusTag(l) {
+    var s = CI.leadStatus(l.status), cls = l.status === 'DONE' || l.status === 'NO_RESULT' ? 'ok' : (l.status === 'IN_PROGRESS' ? 'warn' : '');
+    return '<span class="tag ' + cls + '">' + esc(s.label) + '</span>';
+  }
+  function printBar(v, kind, n) {
+    return '<div class="row"><select id="ll-show" aria-label="What to print"><option value="all">Print all</option><option value="open">Print open only</option></select>' +
+      '<button class="btn" data-action="ll-print" data-id="' + esc(v.id) + '" data-kind="' + kind + '"' + (n ? '' : ' disabled') + '>' + (kind === 'request' ? 'Print request list' : 'Print lead list') + '</button></div>';
+  }
+  function theoryCard(v) {
+    var d = D(), b = bank(v.bankId); if (!b) return '';
+    var est = CI.estimateOf(b, b.handedOverEstimate), th = est.items.filter(function (i) { return i.kind === 'HYPOTHESIS'; });
+    if (!th.length) return '';
+    return '<div class="card"><h3>Working theories from the estimate</h3><p class="muted small">The analysts could not establish these. Make a lead of any you want followed up.</p><table class="fixed"><colgroup><col style="width:80%"><col style="width:20%"></colgroup><tbody>' +
+      th.map(function (t) {
+        var key = est.id + '|' + t.id, taken = d.leads.filter(function (l) { return l.theory === key; })[0];
+        return '<tr><td class="ellip" title="' + esc(t.text) + '">' + esc(t.text) + '</td><td class="right">' + (taken ? '<a href="#/lead/' + esc(taken.id) + '">' + esc(taken.id) + '</a>' : '<button class="btn small" data-action="lead-from-theory" data-id="' + esc(v.id) + '" data-est="' + esc(est.id) + '" data-item="' + esc(t.id) + '">Make it a lead</button>') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function leadsTab(v) {
+    var d = D(), rows = CI.leadsOf(d, v.id).sort(function (a, b) { return b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); });
+    return '<div class="card"><div class="row spread wrap"><div><b>' + rows.length + '</b> lead' + (rows.length === 1 ? '' : 's') + ', <b>' + rows.filter(function (l) { return !CI.isClosed(l); }).length + '</b> open' +
+      '<div class="muted small">A lead is a question the investigators follow up. It needs only its reason.</div></div><div class="row wrap">' + printBar(v, 'lead', rows.length) + '<button class="btn primary" data-action="lead-new" data-id="' + esc(v.id) + '" data-kind="INVESTIGATION">New lead</button></div></div></div>' +
+      theoryCard(v) +
+      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:9%"><col style="width:45%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Lead</th><th>Reason</th><th>Assigned to</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
+        return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip">' + esc(l.assigned || '') + '</td><td>' + esc(CI.fmtDate(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">No leads yet.</p></div>');
+  }
+  function requestsTab(v) {
+    var d = D(), rows = CI.requestsOf(d, v.id).sort(function (a, b) { return b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); });
+    return '<div class="card"><div class="row spread wrap"><div><b>' + rows.length + '</b> request' + (rows.length === 1 ? '' : 's') + ' to Collection, <b>' + rows.filter(function (l) { return !CI.isClosed(l); }).length + '</b> open' +
+      '<div class="muted small">A request asks Collection to retrieve and preserve something. What comes back is filed through Intake carrying the request number.</div></div><div class="row wrap">' + printBar(v, 'request', rows.length) + '<button class="btn primary" data-action="lead-new" data-id="' + esc(v.id) + '" data-kind="DATA_REQUEST">New request</button></div></div></div>' +
+      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:9%"><col style="width:45%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Request</th><th>To retrieve</th><th>For lead</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
+        return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td>' + esc(l.forLead || '') + '</td><td>' + esc(CI.fmtDate(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">No requests yet.</p></div>');
+  }
+  H['lead-open'] = function (el) { A.go('#/lead/' + el.getAttribute('data-id')); };
+  H['lead-new'] = function (el) { CI.views.openLead({ investigationId: el.getAttribute('data-id'), kind: el.getAttribute('data-kind') }); };
+  H['lead-from-theory'] = function (el) {
+    var d = D(), v = invOf(el), b = v && bank(v.bankId); if (!b) return;
+    var est = CI.estimateOf(b, el.getAttribute('data-est')), it = est.items.filter(function (x) { return x.id === el.getAttribute('data-item'); })[0]; if (!it) return;
+    var about = {}; it.reportIds.forEach(function (r) { var rep = A.idx().report[r]; if (rep) rep.entities.forEach(function (x) { if ((b.files || []).indexOf(x.entityId) !== -1) about[x.entityId] = 1; }); });
+    CI.views._leadTheory = est.id + '|' + it.id;
+    CI.views.openLead({ investigationId: v.id, kind: 'INVESTIGATION', question: 'Is this so? ' + it.text, raisedBy: it.reportIds[0] || '', about: Object.keys(about) });
+  };
+  H['ll-print'] = function (el) {
+    var d = D(), v = invOf(el); if (!v) return;
+    var kind = el.getAttribute('data-kind'), open = val('ll-show') === 'open';
+    A.saveBlob((kind === 'request' ? 'Request-list-' : 'Lead-list-') + v.id + '.pdf', function () { return CI.pdf.leadList(d, v.id, { kind: kind, openOnly: open }); });
+  };
   function invOf(el) { return D().investigations.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; }
   H['inv-save'] = function (el) {
     var v = invOf(el); if (!v) return;
@@ -62,7 +124,6 @@
     if (v.status === 'CLOSED' && !v.closed) v.closed = CI.today(); if (v.status !== 'CLOSED') v.closed = '';
     A.persist(); A.toast('Saved.'); CI.views.investigation(v.id);
   };
-  H['inv-raise'] = function (el) { CI.views.openLead({ bankId: el.getAttribute('data-bank') }); };
   H['plan-save'] = function (el) {
     var v = invOf(el); if (!v) return;
     var ldate = A.readDate('pl-ldate');

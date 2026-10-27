@@ -37,7 +37,7 @@
     return '<table class="fixed"><colgroup><col style="width:24%"><col style="width:25%"><col style="width:11%"><col style="width:7%"><col style="width:9%"><col style="width:24%"></colgroup>' +
       '<thead><tr><th>Special bank</th><th>Opened because</th><th>Opened</th><th class="num">Files</th><th class="num">Estimates</th><th></th></tr></thead><tbody>' + rows.map(function (b) {
         var why = (b.opened && b.opened.reason) || '';
-        var tag = b.handedOver ? ' <span class="tag">handed over</span>' : '';
+        var tag = b.handedOver ? ' <span class="tag">handed over</span>' : (b.outcome ? ' <span class="tag">no situation</span>' : '');
         var nw = CI.bankNews(d, b), nn = nw.reports.length + nw.links.length; if (nn) tag += ' <span class="tag warn" title="New since you last looked: ' + nw.reports.length + ' reports, ' + nw.links.length + ' connections">' + nw.reports.length + ' new report' + (nw.reports.length === 1 ? '' : 's') + '</span>';
         return '<tr class="pick"><td class="ellip" title="' + esc(b.name) + '"><a href="#/bank/' + esc(b.id) + '"><b>' + esc(b.name) + '</b></a>' + tag + '</td>' +
           '<td class="ellip muted" title="' + esc(why) + '">' + esc(why) + '</td>' +
@@ -66,8 +66,6 @@
   };
   H['cl-del'] = function (el) {
     var b = bankOf(el); if (!b) return;
-    var nl = D().leads.filter(function (l) { return l.bankId === b.id; }).length;
-    if (nl) { A.toast('This special bank has ' + nl + ' lead' + (nl === 1 ? '' : 's') + '. Delete or move them first.', true); return; }
     if (CI.investigationFor(D(), b.id)) { A.toast('This special bank has been handed over and has an investigation, so it cannot be deleted.', true); return; }
     A.confirm('Delete the special bank “' + b.name + '”, with its chart and estimates? The reports and files are not affected.', function () {
       D().banks = D().banks.filter(function (x) { return x.id !== b.id; }); A.persist();
@@ -101,7 +99,7 @@
     h += '<div class="chart-layout nodetail" id="cl"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
       '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
-      '<button class="btn small primary" data-action="cv-raise">Raise a lead</button></div>' +
+      '</div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
       '<div id="cmpnote" class="cmpnote" hidden></div><div id="cy"></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.innerHTML = h;
@@ -246,7 +244,7 @@
       if (!frozen) {
         h += '<button class="btn small" data-action="cv-node-hide" data-id="' + esc(id) + '">Hide in this bank</button>';
       }
-      h += '<button class="btn small" data-action="cv-raise-node" data-id="' + esc(id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-pin-case" data-id="' + esc(id) + '">Pin to the case chart</button>' : '') + '</div>';
+      h += (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-pin-case" data-id="' + esc(id) + '">Pin to the case chart</button>' : '') + '</div>';
     } else if (st.sel && st.sel.kind === 'edge') {
       var e = edgeById(st.sel.id);
       if (e) {
@@ -263,7 +261,7 @@
             }).join('') + '</ul>';
           } else h += '<ul class="plain">' + e.reportIds.map(function (rid) { return '<li>' + A.repLink(rid) + '</li>'; }).join('') + '</ul>';
         }
-        h += '<div class="stack"><button class="btn small" data-action="cv-raise-edge" data-id="' + esc(e.id) + '">Raise a lead about this</button>' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-string-case" data-id="' + esc(e.id) + '">Add to the case chart</button>' : '') + '</div>';
+        h += '<div class="stack">' + (CI.investigationFor(d, bank.id) ? '<button class="btn small" data-action="cv-string-case" data-id="' + esc(e.id) + '">Add to the case chart</button>' : '') + '</div>';
       }
     } else {
     }
@@ -417,11 +415,7 @@
   H['cv-path-pick'] = function (el) { st.path = st.results[Number(el.getAttribute('data-i'))]; st.fitPath = true; draw(); };
   H['cv-path-clear'] = function () { st.path = null; st.results = []; st.searched = false; draw(); };
 
-  /* leads from the chart */
-  function raiseFrom(question, about, rids) {
-    var bank = B(), ids = (rids || []).filter(function (r) { return A.idx().report[r]; });
-    CI.views.openLead({ bankId: bank.id, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
-  }
+  /* the case chart is the investigators' board */
   H['cv-pin-case'] = function (el) {
     var id = el.getAttribute('data-id'), r = CI.views.pinToCase(B().id, [id]);
     if (r.error) { A.toast(r.error, true); return; }
@@ -432,16 +426,6 @@
     var r = CI.views.stringToCase(B().id, e);
     if (r.error) { A.toast(r.error, true); return; }
     A.toast('Added to the case chart.');
-  };
-  H['cv-raise'] = function () { CI.views.openLead({ bankId: B().id }); };
-  H['cv-raise-node'] = function (el) {
-    var id = el.getAttribute('data-id'), e = A.idx().entity[id];
-    raiseFrom(e ? 'Who or what is ' + e.name + '?' : '', [id], (A.idx().reportsByEntity[id] || []).slice().sort());
-  };
-  H['cv-raise-edge'] = function (el) {
-    var e = edgeById(el.getAttribute('data-id')); if (!e) return;
-    var q = e.kind === 'mention' ? 'Is there a connection between ' + nodeName(e.source) + ' and ' + nodeName(e.target) + '?' : 'What is behind ' + nodeName(e.source) + ' ' + e.label + ' ' + nodeName(e.target) + '?';
-    raiseFrom(q, [e.source, e.target], (e.reportIds || []).slice().sort());
   };
 
   /* print for the wall */

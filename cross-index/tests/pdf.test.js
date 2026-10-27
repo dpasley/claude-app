@@ -40,23 +40,31 @@ t('placeholders exist for every type', () => {
 t('lead sheets and board produce real PDFs', async () => {});
 (async () => {
   const d = CI.sampleData();
-  const one = CI.pdf.leadSheets(d, d.leads.map(l => l.id));
+  const one = CI.pdf.leadSheets(d, d.leads.concat(d.requests).map(l => l.id));
   const buf = Buffer.from(await one.arrayBuffer());
   assert.equal(buf.slice(0, 4).toString(), '%PDF'); assert.ok((buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 4);
-  const board = Buffer.from(await CI.pdf.board(d, d.banks[0].id).arrayBuffer());
+  const board = Buffer.from(await CI.pdf.leadList(d, d.investigations[0].id, { kind: 'lead' }).arrayBuffer());
+  const rboard = Buffer.from(await CI.pdf.leadList(d, d.investigations[0].id, { kind: 'request', openOnly: true }).arrayBuffer()); assert.equal(rboard.slice(0, 4).toString(), '%PDF');
   assert.equal(board.slice(0, 4).toString(), '%PDF');
   const out = process.env.PDF_OUT; if (out) { fs.writeFileSync(path.join(out, 'sheets.pdf'), buf); fs.writeFileSync(path.join(out, 'board.pdf'), board); }
   console.log('ok - lead sheets (4 pages) and board are valid PDFs'); n++;
   // lead logic
-  assert.equal(CI.addLead(d, { bankId: d.banks[0].id, kind: 'INVESTIGATION', with: 'Investigations', question: ' ', raisedBy: 'R-0001' }).error, 'Write the question.');
-  assert.ok(CI.addLead(d, { bankId: 'B-9', kind: 'INVESTIGATION', with: 'Investigations', question: 'q', raisedBy: 'R-0001' }).error);
-  assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'X', with: 'Investigations', question: 'q', raisedBy: 'R-0001' }).error);
-  assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Nobody', question: 'q', raisedBy: 'R-0001' }).error);
-  assert.ok(CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Collection', question: 'q', raisedBy: 'R-9999' }).error);
-  const L = CI.addLead(d, { bankId: d.banks[0].id, kind: 'DATA_REQUEST', with: 'Collection', question: 'q?', raisedBy: 'R-0001', about: ['E-0001', 'E-0001'] }).lead;
-  assert.equal(L.id, 'L-0005'); assert.deepEqual(L.about, ['E-0001']); assert.equal(L.status, 'NOT_STARTED');
+  const inv0 = d.investigations[0], nL = d.leads.length, nQ = d.requests.length;
+  assert.equal(CI.addLead(d, { investigationId: inv0.id, question: ' ' }).error, 'Give the reason for the lead.');
+  assert.equal(CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: ' ' }).error, 'Say what is to be retrieved.');
+  assert.ok(CI.addLead(d, { investigationId: 'V-9', question: 'q' }).error);
+  assert.ok(CI.addLead(d, { investigationId: inv0.id, question: 'q', raisedBy: 'R-9999' }).error);
+  assert.ok(CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: 'q', forLead: 'L-9999' }).error);
+  const Lr = CI.addLead(d, { investigationId: inv0.id, question: 'No source report needed.', assigned: 'A. Smith' }).lead;
+  assert.equal(Lr.raisedBy, ''); assert.equal(Lr.kind, 'INVESTIGATION'); assert.equal(Lr.assigned, 'A. Smith'); assert.ok(Lr.id.startsWith('L-'));
+  const L = CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: 'q?', raisedBy: 'R-0001', forLead: Lr.id, about: ['E-0001', 'E-0001'] }).lead;
+  assert.ok(L.id.startsWith('Q-')); assert.equal(L.with, 'Collection'); assert.deepEqual(L.about, ['E-0001']); assert.equal(L.forLead, Lr.id); assert.equal(L.status, 'NOT_STARTED');
+  assert.equal(d.requests.length, nQ + 1); assert.equal(d.leads.length, nL + 1); assert.equal(CI.findLead(d, L.id), L);
+  assert.ok(CI.leadsOf(d, inv0.id).includes(Lr) && !CI.leadsOf(d, inv0.id).includes(L) && CI.requestsOf(d, inv0.id).includes(L));
   d.reports[0].leadId = L.id; assert.equal(CI.leadResults(d, L.id).length, 1);
-  CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.leads.length, 4);
+  CI.deleteLead(d, L.id); assert.equal(d.reports[0].leadId, ''); assert.equal(d.requests.length, nQ);
+  const Q2 = CI.addLead(d, { investigationId: inv0.id, kind: 'DATA_REQUEST', question: 'again', forLead: Lr.id }).lead;
+  CI.deleteLead(d, Lr.id); assert.equal(d.leads.length, nL); assert.equal(Q2.forLead, ''); CI.deleteLead(d, Q2.id);
   console.log('ok - lead creation rules, results and delete'); n++;
   // estimate
   const b = d.banks[0], cnt = CI.currentEstimate(b).items.length;
@@ -102,7 +110,7 @@ t('lead sheets and board produce real PDFs', async () => {});
   const quiet = CI.observe(CI.emptyData(), 14); assert.equal(quiet.files.length, 0); assert.equal(quiet.clusters.length, 0);
   console.log('ok - situation observation finds what moved (' + o.files.length + ' files, ' + o.clusters.length + ' clusters)'); n++;
   // case chart
-  const dd = CI.sampleData(), iv = dd.investigations[0], eid = k => dd.entities.find(e => e.name.startsWith(k)).id;
+  const dd = CI.sampleData(), iv = dd.investigations.find(v => dd.banks.find(b => b.id === v.bankId).name.startsWith('Depot')), eid = k => dd.entities.find(e => e.name.startsWith(k)).id;
   const cc = CI.caseChartOf(iv); const nPins = cc.pins.length, nStr = cc.strings.length;
   assert.equal(CI.addPin(dd, iv, 'E-9999').error, 'That file does not exist.');
   assert.ok(CI.addPin(dd, iv, eid('Grid')).error.includes('already'));
@@ -125,7 +133,7 @@ t('lead sheets and board produce real PDFs', async () => {});
   CI.mergeEntities(dd, m1.id, eid('Orrin Platt')); assert.equal(cc.pins.filter(p => p.entityId === eid('Orrin Platt')).length, 1); assert.ok(!cc.pins.some(p => p.entityId === m1.id));
   console.log('ok - case chart: pins, strings need reports, flags from open leads, cleanup on delete and merge'); n++;
   const olds = JSON.parse(JSON.stringify(CI.sampleData())); olds.schema = 3; olds.investigations[0].caseChart = { pins: [], strings: [] }; olds.leads = olds.leads.filter(l => l.bankId !== olds.investigations[0].bankId);
-  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 5); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2);
+  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 6); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2);
   const mid = JSON.parse(JSON.stringify(CI.sampleData())); mid.schema = 4; mid.investigations[0].caseChart.title = ''; mid.investigations[0].caseChart.notes = []; assert.equal(CI.normalize(mid).investigations[0].caseChart.notes.length, 2);
   console.log('ok - sample data saved before case charts gets its case chart on load'); n++;
   const d5 = CI.sampleData(), v5 = d5.investigations[0], c5 = CI.caseChartOf(v5);

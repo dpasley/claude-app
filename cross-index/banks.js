@@ -10,7 +10,7 @@
 
   /* ----- shared header: back link, name, tabs ----- */
   CI.views.bankTabs = function (b, active) {
-    var d = D(), nl = d.leads.filter(function (l) { return l.bankId === b.id; }).length;
+    var d = D();
     function tab(id, href, label, n) { return '<a class="tab' + (active === id ? ' on' : '') + '" href="' + href + '">' + label + (n != null ? ' <span class="n">' + n + '</span>' : '') + '</a>'; }
     return '<div class="tabs">' + tab('files', '#/bank/' + b.id, 'Files', (b.files || []).length) + tab('chart', '#/chart/' + b.id, 'Chart') +
       tab('estimates', '#/bank/' + b.id + '/estimates', 'Estimates', b.estimates.length) + '</div>';
@@ -18,7 +18,7 @@
   CI.views.bankHead = function (b, active) {
     var inv = CI.investigationFor(D(), b.id);
     return '<div class="chart-head"><a href="#/chart" class="back">‹ Special banks</a><h1>' + esc(b.name) + '</h1>' +
-      (b.handedOver ? '<span class="tag">handed over ' + esc(CI.fmtDate(b.handedOver)) + '</span>' : '') +
+      (b.outcome ? '<span class="tag">no situation ' + esc(CI.fmtDate(b.outcome.date)) + '</span>' : '') + (b.handedOver ? '<span class="tag">handed over ' + esc(CI.fmtDate(b.handedOver)) + '</span>' : '') +
       '<span class="spacer"></span>' + (inv ? '<a class="btn small" href="#/investigation/' + esc(inv.id) + '">Investigation</a>' : '') +
       '<button class="btn small" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button class="btn small" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button class="btn small danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div>' +
       (b.opened && b.opened.reason ? '<p class="bank-why"><span class="fl">Opened ' + esc(CI.fmtDate(b.opened.date)) + ' because</span> ' + esc(b.opened.reason) + '</p>' : '') +
@@ -118,12 +118,21 @@
       '<div class="row"><button class="btn" data-action="est-new" data-bank="' + esc(b.id) + '" data-copy="1">Redo from the latest</button><button class="btn primary" data-action="est-new" data-bank="' + esc(b.id) + '">New estimate</button></div></div></div>' +
       '<div class="card flush"><table class="fixed"><colgroup><col style="width:22%"><col style="width:11%"><col style="width:11%"><col style="width:10%"><col style="width:10%"><col style="width:36%"></colgroup>' +
       '<thead><tr><th>Estimate</th><th>Started</th><th>Updated</th><th class="num">Established</th><th class="num">Theories</th><th>Summary</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<div class="card"><h2>Hand over to Investigations</h2>' + (b.handedOver
-        ? '<p>Handed over on ' + esc(CI.fmtDate(b.handedOver)) + (b.handedOverEstimate ? ' with ' + esc(CI.estimateOf(b, b.handedOverEstimate).label) : '') + '. ' + (inv ? '<a href="#/investigation/' + esc(inv.id) + '">Investigation ' + esc(inv.id) + '</a>' : '') + '</p><p class="muted small">The chart now highlights what has changed since.</p>'
-        : '<p class="muted small">Sends the files, the chart and an estimate to Investigations and freezes the chart as it stands, so later findings show up as changes. ' + nl + ' lead' + (nl === 1 ? '' : 's') + ' so far.</p>') +
-      '<div class="row wrap">' + (b.handedOver ? '' : '<label class="row" style="margin:0">Estimate to send <select id="ho-est">' + A.options(b.estimates.slice().reverse().map(function (e) { return { value: e.id, label: e.label }; }), cur.id) + '</select></label><button class="btn primary" data-action="est-handover" data-bank="' + esc(b.id) + '">Hand over now</button>') +
-      '<button class="btn" data-action="lead-new-bank" data-bank="' + esc(b.id) + '">Raise a lead</button></div></div>';
+      (b.outcome ? '<div class="card"><h2>No situation <span class="tag">' + esc(CI.fmtDate(b.outcome.date)) + '</span></h2><p>' + esc(b.outcome.reason) + '</p><p class="muted small">This special bank ended without a hand over, so there is no investigation. It stays on record and can be reopened.</p>' +
+        '<div class="row"><button class="btn" data-action="bank-reopen" data-bank="' + esc(b.id) + '">Reopen</button></div></div>'
+      : '<div class="card"><h2>Where this ends</h2>' + (b.handedOver
+        ? '<p>Handed over to Investigations on ' + esc(CI.fmtDate(b.handedOver)) + (b.handedOverEstimate ? ' with ' + esc(CI.estimateOf(b, b.handedOverEstimate).label) : '') + '. ' + (inv ? '<a href="#/investigation/' + esc(inv.id) + '">Investigation ' + esc(inv.id) + '</a>' : '') + '</p><p class="muted small">The chart now highlights what has changed since. Leads and requests are made in the investigation.</p>'
+        : '<p class="muted small">Either the estimate shows a situation, and the bank is handed to Investigations (the files, the chart and the estimate go across and the chart is frozen as it stands), or it shows there is none and the bank is closed with the reason.</p>') +
+      '<div class="row wrap">' + (b.handedOver ? '' : '<label class="row" style="margin:0">Estimate to send <select id="ho-est">' + A.options(b.estimates.slice().reverse().map(function (e) { return { value: e.id, label: e.label }; }), cur.id) + '</select></label><button class="btn primary" data-action="est-handover" data-bank="' + esc(b.id) + '">Hand over now</button><button class="btn" data-action="bank-nosit" data-bank="' + esc(b.id) + '">No situation: close this bank</button>') + '</div></div>');
   }
+  H['bank-nosit'] = function (el) {
+    var b = bankOf(el); if (!b) return;
+    A.ask('Why is there no situation? One or two plain sentences.', '', function (reason) {
+      var msg = CI.closeBank(D(), b, reason); if (msg) { A.toast(msg, true); return; }
+      A.persist(); A.toast('Closed: no situation.'); estimatesTab(b);
+    }, { title: 'No situation', ok: 'Close the bank' });
+  };
+  H['bank-reopen'] = function (el) { var b = bankOf(el); if (!b) return; CI.reopenBank(b); A.persist(); estimatesTab(b); };
   H['est-new'] = function (el) {
     var b = bankOf(el); if (!b) return;
     var e = CI.newEstimate(b, !!el.getAttribute('data-copy')); A.persist(); A.go('#/estimate/' + b.id + '/' + e.id);

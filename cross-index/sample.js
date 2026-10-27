@@ -20,8 +20,8 @@
     }
     var E = { grid: ent('GridWatch'), tobias: ent('Tobias'), outage: ent('Depot 4 equipment'), depot4: ent('Northwind Depot 4'), keystone: ent('Keystone'), mara: ent('Mara'), harborst: ent('Harbor Street business') };
     if (Object.keys(E).some(function (k) { return !E[k]; })) return false;
-    if (!d.leads.some(function (l) { return l.bankId === b2.id; })) {
-      var cl = CI.addLead(d, { bankId: b2.id, kind: 'INVESTIGATION', with: 'Investigations', question: 'Who authorised the Keystone contractor\u2019s access to Depot 4 on the night before the outage?', raisedBy: 'R-0008', about: [E.keystone.id, E.depot4.id], issued: CI.today() }).lead;
+    if (!CI.leadsOf(d, inv.id).length) {
+      var cl = CI.addLead(d, { investigationId: inv.id, kind: 'INVESTIGATION', question: 'Who authorised the Keystone contractor\u2019s access to Depot 4 on the night before the outage?', raisedBy: 'R-0008', about: [E.keystone.id, E.depot4.id], issued: CI.today() }).lead;
       if (cl) cl.status = 'IN_PROGRESS';
     }
     [['grid', -240, -120], ['tobias', -240, 140], ['outage', 0, -120], ['depot4', 240, -120], ['keystone', 0, 60], ['mara', 240, 60], ['harborst', 0, 260]].forEach(function (p) { CI.addPin(d, inv, E[p[0]].id, { x: p[1], y: p[2] }); });
@@ -125,14 +125,6 @@
     CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Harborline forwarded Northwind\u2019s payment to Brightwater Holdings within a day.', reportIds: 'R-0005' });
     CI.addEstimateItem(d, bank, { kind: 'ESTABLISHED', text: 'Brightwater and Harborline have both been registered at the Harbor Street business park.', reportIds: 'R-0002, R-0003' });
     CI.addEstimateItem(d, bank, { kind: 'HYPOTHESIS', text: 'Harborline is a pass-through for payments that end at Brightwater.', reportIds: '' });
-    var lead = function (kind, who, question, rep, about, status) {
-      var r = CI.addLead(d, { bankId: bank.id, kind: kind, with: who, question: question, raisedBy: rep, about: about.map(function (k) { return ent[k].id; }), issued: CI.today() });
-      r.lead.status = status; return r.lead;
-    };
-    lead('INVESTIGATION', 'Investigations', 'Why did Harborline Supply forward Northwind\u2019s payment to Brightwater Holdings within a day, and who benefits?', 'R-0005', ['harbor', 'bright'], 'IN_PROGRESS');
-    lead('DATA_REQUEST', 'Collection', 'The current state business filing for Brightwater Holdings LLC, with all amendments and the agent and address history.', 'R-0002', ['bright'], 'IN_PROGRESS');
-    lead('DATA_REQUEST', 'Collection', 'Depot 4 badge and sign-in records for the 48 hours before the outage.', 'R-0008', ['depot4', 'keystone'], 'NOT_STARTED');
-    bank.handedOver = '';
     bank.opened = { date: ago(6), reason: 'Seven Harborline invoices paid in two weeks with no purchase orders, and a payment forwarded to Brightwater the next day.' };
     var b2 = CI.newBank(d, 'Depot 4 outage bank', [ent.outage.id], 2);
     b2.opened = { date: ago(3), reason: 'A public post predicted the outage, and then the cabling was found cut.' };
@@ -144,6 +136,15 @@
     inv.status = 'PLAN_WITH_LEGAL'; inv.investigator = 'Sample investigator';
     CI.savePlan(d, inv, { objective: 'Establish who cut the cabling and refer the matter.', outcome: 'REFERRAL', preparedBy: 'Sample investigator', actions: [{ text: 'Interview the Depot 4 night supervisor', owner: 'Investigator' }, { text: 'Prepare the badge and maintenance records for law enforcement', owner: 'Collection' }, { text: 'Brief the police liaison once legal clears the plan', owner: 'Security manager' }], legalStatus: 'WITH_LEGAL', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' });
     CI.seedSampleCaseChart(d);
+    CI.handOver(d, bank);
+    var invA = CI.investigationFor(d, bank.id); invA.investigator = 'Sample investigator'; invA.opened = ago(5);
+    var lead = function (kind, who, question, rep, about, status) {
+      var r = CI.addLead(d, { investigationId: invA.id, kind: kind, question: question, raisedBy: rep, about: about.map(function (k) { return ent[k].id; }), issued: CI.today() });
+      r.lead.status = status; return r.lead;
+    };
+    lead('INVESTIGATION', 'Investigations', 'Why did Harborline Supply forward Northwind\u2019s payment to Brightwater Holdings within a day, and who benefits?', 'R-0005', ['harbor', 'bright'], 'IN_PROGRESS');
+    lead('DATA_REQUEST', 'Collection', 'The current state business filing for Brightwater Holdings LLC, with all amendments and the agent and address history.', 'R-0002', ['bright'], 'IN_PROGRESS');
+    lead('DATA_REQUEST', 'Collection', 'Depot 4 badge and sign-in records for the 48 hours before the outage.', 'R-0008', ['depot4', 'keystone'], 'NOT_STARTED');
     d.banks.forEach(function (b) { if (!Array.isArray(b.files)) b.files = CI.computeGraph(d, b).nodes.map(function (n) { return n.id; }); });
     return d;
   };

@@ -236,9 +236,9 @@
   /* ---------- leads ---------- */
   function raise(question, about, rids) {
     var ids = (rids || []).filter(function (r) { return A.idx().report[r]; });
-    CI.views.openLead({ bankId: inv().bankId, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
+    CI.views.openLead({ investigationId: inv().id, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
   }
-  H['cc-raise'] = function () { CI.views.openLead({ bankId: inv().bankId }); };
+  H['cc-raise'] = function () { CI.views.openLead({ investigationId: inv().id }); };
   H['cc-raise-node'] = function (el) { var id = el.getAttribute('data-id'); raise('Who or what is ' + name(id) + '?', [id], (A.idx().reportsByEntity[id] || []).slice().sort()); };
   H['cc-raise-edge'] = function (el) {
     var t = CI.caseChartOf(inv()).strings.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!t) return;

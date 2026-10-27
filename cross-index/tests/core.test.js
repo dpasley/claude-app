@@ -404,7 +404,7 @@ t('special bank news: what arrived since staff last marked it seen', () => {
 
 t('several charts per special bank keep their own settings, arrangement and snapshots', () => {
   const d = CI.sampleData();
-  const b = d.banks.find(x => !x.quick); assert.equal(b.charts.length, 1);
+  const b = d.banks.find(x => !x.quick); assert.equal(b.charts.length, 1); b.snapshots = []; b.handedOver = '';
   b.positions = { a: { x: 1, y: 2 } }; b.minWeight = 2; b.snapshots.push({ id: 'N-X', label: 's', graph: { nodes: [], edges: [] } });
   const c2 = CI.addChart(b, 'Money', false);
   assert.equal(b.chartId, c2.id); assert.deepEqual(b.positions, {}); assert.equal(b.minWeight, 1); assert.equal(b.snapshots.length, 0);
@@ -418,4 +418,17 @@ t('several charts per special bank keep their own settings, arrangement and snap
   CI.deleteChart(b, c2.id); assert.equal(b.charts.length, 1); assert.equal(b.chartId, 'CH-1'); assert.ok(CI.deleteChart(b, 'CH-1'));
   const sn = CI.handOver(d, b, CI.currentEstimate(b).id); assert.equal(b.handedOverChart, 'CH-1');
   assert.ok(sn);
+});
+
+t('older leads move to their investigation; data requests become requests; a bank can close with no situation', () => {
+  const d = CI.sampleData(), old = JSON.parse(JSON.stringify(d));
+  old.schema = 5; old.leads = old.leads.concat(old.requests.map((q, i) => Object.assign({}, q, { id: 'L-90' + i }))); old.requests = [];
+  old.leads.forEach(l => { delete l.investigationId; delete l.assigned; }); old.reports[0].leadId = 'L-900';
+  const n = CI.normalize(old);
+  assert.equal(n.requests.length, d.requests.length); assert.ok(n.requests.every(q => q.id.startsWith('Q-') && q.investigationId && q.kind === 'DATA_REQUEST'));
+  assert.ok(n.leads.every(l => l.kind === 'INVESTIGATION' && l.investigationId)); assert.ok(n.reports[0].leadId.startsWith('Q-'));
+  const b = CI.newBank(d, 'x', [], 1); d.banks.push(b);
+  assert.ok(CI.closeBank(d, b, ' ')); assert.equal(CI.closeBank(d, b, 'Routine activity only.'), '');
+  assert.equal(b.outcome.kind, 'NO_SITUATION'); assert.equal(CI.handOver(d, b), null); assert.ok(!CI.investigationFor(d, b.id));
+  CI.reopenBank(b); assert.ok(CI.handOver(d, b)); assert.ok(CI.closeBank(d, b, 'x'));
 });
