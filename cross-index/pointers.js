@@ -104,7 +104,7 @@
     return out;
   };
 
-  var KIND_ORDER = ['individual', 'group', 'subject', 'area'];
+  var KIND_ORDER = ['individual', 'group', 'area', 'subject'];
   function kindOf(e) { return CI.isItem(e) ? 'item:' + (e.itemType || 'other') : e.type; }
   function kindLabel(k) {
     if (k.indexOf('item:') === 0) { var t = k.slice(5); return t.charAt(0).toUpperCase() + t.slice(1) + ' (item)'; }
@@ -131,6 +131,27 @@
     });
     return keys.map(function (k) {
       groups[k].sort(function (a, b) { return a.other.name.localeCompare(b.other.name); });
+      return { kind: k, label: kindLabel(k), rows: groups[k] };
+    });
+  };
+
+  /* The files that appear in the same reports as one file, grouped by what they are. A recorded connection is noted but not needed. */
+  CI.sharedReportIndex = function (d, id, idx) {
+    idx = idx || CI.buildIndex(d);
+    var by = {}, linked = {};
+    (idx.linksByEntity[id] || []).forEach(function (l) { linked[l.from === id ? l.to : l.from] = 1; });
+    (idx.reportsByEntity[id] || []).forEach(function (rid) {
+      var r = idx.report[rid]; if (!r) return;
+      r.entities.forEach(function (x) {
+        var o = idx.entity[x.entityId]; if (!o || o.id === id || CI.isItem(o)) return;
+        var e = by[o.id] || (by[o.id] = { other: o, reports: [], linked: !!linked[o.id] });
+        if (e.reports.indexOf(rid) === -1) e.reports.push(rid);
+      });
+    });
+    var groups = {};
+    Object.keys(by).forEach(function (k) { (groups[by[k].other.type] = groups[by[k].other.type] || []).push(by[k]); });
+    return KIND_ORDER.filter(function (k) { return groups[k]; }).map(function (k) {
+      groups[k].sort(function (a, b) { return b.reports.length - a.reports.length || a.other.name.localeCompare(b.other.name); });
       return { kind: k, label: kindLabel(k), rows: groups[k] };
     });
   };

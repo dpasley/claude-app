@@ -101,6 +101,8 @@ t('lead sheets and board produce real PDFs', async () => {});
   const nb = CI.newBank(d, 'Attach me', [d.entities[2].id], 1); nb.files = [d.entities[2].id]; d.banks.push(nb);
   assert.ok(CI.handOver(d, nb, CI.currentEstimate(nb).id, free) && free.bankId === nb.id && d.investigations.length === 3 && CI.handOver(d, nb, null, free) === null);
   assert.ok(CI.invFiles(d, free).some(x => x.sources.includes('Bank')));
+  const sid = d.reports.find(r => r.entities.length > 2).entities[0].entityId, sh = CI.sharedReportIndex(d, sid);
+  assert.ok(sh.length && sh.every(g => g.rows.every(x => x.other.id !== sid && x.reports.length >= 1)));
   console.log('ok - investigations: one per bank, one can be opened without a bank, plan kept as a file name only'); n++;
   // area rename migration
   const old = JSON.parse(JSON.stringify(d)); old.schema = 2; old.entities.find(e => e.type === 'area').type = 'location'; old.banks[0].entityTypes = ['individual', 'location'];
