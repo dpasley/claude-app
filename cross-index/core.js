@@ -165,6 +165,14 @@
       (d.leads || []).concat(d.requests || []).forEach(function (l) { var v = inv0(l.bankId); l.investigationId = v ? v.id : ''; if (l.assigned == null) l.assigned = ''; });
       d.schema = 6;
     }
+    if ((d.schema || 1) < 7) {
+      // Handling plans are written in Word outside the app: keep only the name and location of the file; status is active or closed.
+      (d.investigations || []).forEach(function (v) {
+        v.status = v.status === 'CLOSED' ? 'CLOSED' : 'ACTIVE'; delete v.plan;
+        if (v.title == null) v.title = ''; if (v.reason == null) v.reason = ''; if (!v.planFile) v.planFile = { name: '', location: '' };
+      });
+      d.schema = 7;
+    }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
     d.settings.linkTypes.forEach(function (t) { if (OLD_LINK[t.id]) { t.id = OLD_LINK[t.id]; t.label = t.id; } });
@@ -958,19 +966,10 @@
     return { item: it };
   };
   /* ---------- investigations and handling plans ---------- */
-  CI.INV_STATUS = [{ id: 'HANDED_OVER', label: 'Handed over' }, { id: 'INVESTIGATING', label: 'Investigating' }, { id: 'PLAN_WITH_LEGAL', label: 'Plan with legal' }, { id: 'EXECUTING', label: 'Executing plan' }, { id: 'CLOSED', label: 'Closed' }];
-  CI.PLAN_OUTCOMES = [{ id: 'REFERRAL', label: 'Referral to law enforcement' }, { id: 'LEGAL', label: 'Legal response' }, { id: 'OTHER', label: 'Other' }];
-  CI.LEGAL_STATUS = [{ id: 'NOT_SUBMITTED', label: 'Not submitted' }, { id: 'WITH_LEGAL', label: 'With legal' }, { id: 'CLEARED', label: 'Cleared' }, { id: 'CLEARED_WITH_CONDITIONS', label: 'Cleared with conditions' }, { id: 'RETURNED', label: 'Returned' }];
-  CI.EXEC_STATUS = [{ id: 'NOT_STARTED', label: 'Not started' }, { id: 'EXECUTING', label: 'Executing' }, { id: 'DONE', label: 'Done' }];
+  CI.INV_STATUS = [{ id: 'ACTIVE', label: 'Active' }, { id: 'CLOSED', label: 'Closed' }];
   var pick = function (list, id) { return list.filter(function (x) { return x.id === id; })[0] || list[0]; };
   CI.invStatus = function (id) { return pick(CI.INV_STATUS, id); };
-  CI.legalStatus = function (id) { return pick(CI.LEGAL_STATUS, id); };
-  CI.execStatus = function (id) { return pick(CI.EXEC_STATUS, id); };
-  CI.isCleared = function (plan) { return !!plan && (plan.legal.status === 'CLEARED' || plan.legal.status === 'CLEARED_WITH_CONDITIONS'); };
-  CI.newPlan = function () {
-    return { objective: '', outcome: 'REFERRAL', actions: [], preparedBy: '', updated: '', legal: { status: 'NOT_SUBMITTED', reviewer: '', date: '', comments: '' }, execution: { status: 'NOT_STARTED', outcome: '' } };
-  };
-  CI.investigationFor = function (d, bankId) { return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
+  CI.investigationFor = function (d, bankId) { if (!bankId) return null; return d.investigations.filter(function (v) { return v.bankId === bankId; })[0] || null; };
   /* A special bank may end with the finding that there is no situation: nothing is handed over and no investigation is needed. */
   CI.closeBank = function (d, bank, reason) {
     if (bank.handedOver) return 'This bank was handed over to Investigations.';
@@ -978,6 +977,13 @@
     bank.outcome = { kind: 'NO_SITUATION', reason: r, date: CI.today() }; return '';
   };
   CI.reopenBank = function (bank) { bank.outcome = null; };
+  var b0reason = function (bank) { return bank.opened && bank.opened.reason || ''; };
+  /* An investigation can also be opened without a special bank (a tip, a referral). */
+  CI.newInvestigation = function (d, o) {
+    var title = String(o.title || '').trim(); if (!title) return { error: 'Give the investigation a title.' };
+    var inv = { id: CI.nextId(d, 'investigation'), bankId: '', title: title, reason: String(o.reason || '').trim(), status: 'ACTIVE', investigator: String(o.investigator || '').trim(), opened: o.opened || CI.today(), closed: '', notes: '', planFile: { name: '', location: '' } };
+    d.investigations.push(inv); return { inv: inv };
+  };
   CI.handOver = function (d, bank, estId) {
     if (bank.outcome) return null;
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
@@ -986,26 +992,11 @@
     bank.snapshots.push(sn); bank.compareId = sn.id; bank.handedOver = CI.today(); bank.handedOverEstimate = CI.estimateOf(bank, estId).id;
     var inv = CI.investigationFor(d, bank.id);
     if (!inv) {
-      inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, status: 'HANDED_OVER', investigator: '', opened: CI.today(), closed: '', notes: '', plan: CI.newPlan() };
+      inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, title: '', reason: b0reason(bank), status: 'ACTIVE', investigator: '', opened: CI.today(), closed: '', notes: '', planFile: { name: '', location: '' } };
       d.investigations.push(inv);
     }
     return sn;
   };
-  /* Saves the plan fields; execution may only start once legal has cleared the whole plan. */
-  CI.savePlan = function (d, inv, o) {
-    var p = inv.plan;
-    var actions = (o.actions || []).map(function (a) { return { text: String(a.text || '').trim(), owner: String(a.owner || '').trim() }; }).filter(function (a) { return a.text; });
-    if (!pick(CI.LEGAL_STATUS, o.legalStatus) || !CI.LEGAL_STATUS.some(function (x) { return x.id === o.legalStatus; })) return { error: 'Choose a legal clearance status.' };
-    if (!CI.EXEC_STATUS.some(function (x) { return x.id === o.execStatus; })) return { error: 'Choose an execution status.' };
-    if (o.execStatus !== 'NOT_STARTED' && o.legalStatus !== 'CLEARED' && o.legalStatus !== 'CLEARED_WITH_CONDITIONS') return { error: 'The plan cannot be carried out until legal has cleared it.' };
-    if (o.legalStatus !== 'NOT_SUBMITTED' && !actions.length) return { error: 'Add at least one action before sending the plan to legal.' };
-    p.objective = String(o.objective || '').trim(); p.outcome = o.outcome || 'OTHER'; p.actions = actions; p.preparedBy = String(o.preparedBy || '').trim();
-    p.legal = { status: o.legalStatus, reviewer: String(o.reviewer || '').trim(), date: o.legalDate || '', comments: String(o.comments || '').trim() };
-    p.execution = { status: o.execStatus, outcome: String(o.execOutcome || '').trim() };
-    p.updated = CI.today();
-    return { plan: p };
-  };
-
   /* ---------- case chart (the investigators' board) ---------- */
   /* Pins are files from the main files; strings are drawn by hand and every string must cite at least one report that names one of its ends. */
   CI.caseChartOf = function (inv) {

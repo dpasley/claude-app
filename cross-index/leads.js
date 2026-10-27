@@ -69,7 +69,7 @@
     var results = CI.leadResults(d, l.id), raised = A.idx().report[l.raisedBy], word = req ? 'Request' : 'Lead';
     var forLead = req && l.forLead ? d.leads.filter(function (x) { return x.id === l.forLead; })[0] : null;
     var h = '<div class="page-head"><h1>' + word + ' ' + esc(l.id) + ' ' + statusTag(l) + '</h1><div class="row wrap"><button class="btn" data-action="lead-sheet-one" data-id="' + esc(l.id) + '">' + word + ' sheet (PDF)</button><a class="btn" href="' + backHref(l) + '">' + (inv ? 'Back to ' + esc(inv.id) : 'Investigations') + '</a></div></div>' +
-      '<p class="muted">' + (inv ? 'Investigation <a href="#/investigation/' + esc(inv.id) + '">' + esc(inv.id) + '</a>' + (bank ? ' · ' + esc(bank.name) : '') : 'Not attached to an investigation.') + '</p>' +
+      '<p class="muted">' + (inv ? 'Investigation <a href="#/investigation/' + esc(inv.id) + '">' + esc(inv.id) + '</a>' + (inv ? ' · ' + esc(CI.views.invName(inv)) : '') : 'Not attached to an investigation.') + '</p>' +
       '<form class="card form" onsubmit="return false"><div class="grid2"><label>Issued ' + A.dateInput('ld-f-issued', l.issued) + '</label>' +
       (req ? '<label>With<input type="text" value="Collection" disabled></label>' : '<label>Assigned to<input type="text" id="ld-f-who" value="' + esc(l.assigned || '') + '"></label>') + '</div>' +
       '<label>' + (req ? 'What is to be retrieved' : 'Reason for the lead') + '<textarea id="ld-f-q" rows="3">' + esc(l.question) + '</textarea></label>' +

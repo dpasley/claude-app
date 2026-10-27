@@ -133,8 +133,7 @@
     CI.addEstimateItem(d, b2, { kind: 'ESTABLISHED', text: 'GridWatch Now announced the outage before it happened.', reportIds: 'R-0006' });
     CI.handOver(d, b2);
     var inv = CI.investigationFor(d, b2.id);
-    inv.status = 'PLAN_WITH_LEGAL'; inv.investigator = 'Sample investigator';
-    CI.savePlan(d, inv, { objective: 'Establish who cut the cabling and refer the matter.', outcome: 'REFERRAL', preparedBy: 'Sample investigator', actions: [{ text: 'Interview the Depot 4 night supervisor', owner: 'Investigator' }, { text: 'Prepare the badge and maintenance records for law enforcement', owner: 'Collection' }, { text: 'Brief the police liaison once legal clears the plan', owner: 'Security manager' }], legalStatus: 'WITH_LEGAL', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' });
+    inv.investigator = 'Sample investigator'; inv.planFile = { name: 'Depot 4 handling plan.docx', location: 'Shared drive \\ Investigations \\ V-0002' };
     CI.seedSampleCaseChart(d);
     CI.handOver(d, bank);
     var invA = CI.investigationFor(d, bank.id); invA.investigator = 'Sample investigator'; invA.opened = ago(5);

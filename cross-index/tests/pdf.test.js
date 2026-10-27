@@ -87,16 +87,14 @@ t('lead sheets and board produce real PDFs', async () => {});
   console.log('ok - top-N keeps the heaviest files and the starting entity'); n++;
   // investigations and handling plans
   assert.equal(d.investigations.length, 2); // sample's Depot 4 bank was already handed over; the invoice bank was just handed over
-  const inv = CI.investigationFor(d, b.id); assert.ok(inv && inv.status === 'HANDED_OVER' && /^V-\d{4}$/.test(inv.id));
+  const inv = CI.investigationFor(d, b.id); assert.ok(inv && inv.status === 'ACTIVE' && /^V-\d{4}$/.test(inv.id) && inv.planFile.name === '');
   CI.handOver(d, b); assert.equal(d.investigations.length, 2); // one investigation per bank
-  const base = { objective: 'Stop it', outcome: 'LEGAL', preparedBy: 'P', actions: [{ text: 'Do a thing', owner: 'Me' }], legalStatus: 'NOT_SUBMITTED', reviewer: '', legalDate: '', comments: '', execStatus: 'NOT_STARTED', execOutcome: '' };
-  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { legalStatus: 'WITH_LEGAL', actions: [] })).error.includes('at least one action'));
-  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { execStatus: 'EXECUTING' })).error.includes('cleared'));
-  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { legalStatus: 'RETURNED', execStatus: 'EXECUTING' })).error);
-  assert.ok(CI.savePlan(d, inv, Object.assign({}, base, { legalStatus: 'CLEARED_WITH_CONDITIONS', reviewer: 'Counsel', legalDate: CI.today(), comments: 'Notify police first', execStatus: 'EXECUTING' })).plan);
-  assert.ok(CI.isCleared(inv.plan) && inv.plan.execution.status === 'EXECUTING');
-  const pb = CI.pdf.planSheet(d, inv.id); assert.ok(pb.size > 1500);
-  console.log('ok - investigations: one per bank, plan rules, legal clearance gates execution, plan sheet PDF'); n++;
+  assert.ok(CI.newInvestigation(d, { title: '  ' }).error);
+  const free = CI.newInvestigation(d, { title: 'Tip about the courier', reason: 'Phone call', investigator: 'Q' }).inv;
+  assert.ok(free.bankId === '' && free.status === 'ACTIVE' && !CI.investigationFor(d, '') && d.investigations.length === 3);
+  const fl = CI.addLead(d, { investigationId: free.id, kind: 'INVESTIGATION', question: 'Who called?' }).lead; assert.ok(fl.id);
+  assert.ok(CI.pdf.leadList(d, free.id, { kind: 'lead' }).size > 1000 && CI.pdf.leadSheets(d, [fl.id]).size > 1000);
+  console.log('ok - investigations: one per bank, one can be opened without a bank, plan kept as a file name only'); n++;
   // area rename migration
   const old = JSON.parse(JSON.stringify(d)); old.schema = 2; old.entities.find(e => e.type === 'area').type = 'location'; old.banks[0].entityTypes = ['individual', 'location'];
   old.banks[0].snapshots[0].graph.nodes.forEach(x => { if (x.type === 'area') x.type = 'location'; });
@@ -133,7 +131,7 @@ t('lead sheets and board produce real PDFs', async () => {});
   CI.mergeEntities(dd, m1.id, eid('Orrin Platt')); assert.equal(cc.pins.filter(p => p.entityId === eid('Orrin Platt')).length, 1); assert.ok(!cc.pins.some(p => p.entityId === m1.id));
   console.log('ok - case chart: pins, strings need reports, flags from open leads, cleanup on delete and merge'); n++;
   const olds = JSON.parse(JSON.stringify(CI.sampleData())); olds.schema = 3; olds.investigations[0].caseChart = { pins: [], strings: [] }; olds.leads = olds.leads.filter(l => l.bankId !== olds.investigations[0].bankId);
-  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 6); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2);
+  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 7); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2); const o6 = JSON.parse(JSON.stringify(CI.sampleData())); o6.schema = 6; o6.investigations[0].plan = { objective: "x" }; o6.investigations[0].status = "EXECUTING"; const m7 = CI.normalize(o6); assert.ok(m7.investigations[0].status === "ACTIVE" && !m7.investigations[0].plan && typeof m7.investigations[0].planFile.name === "string");
   const mid = JSON.parse(JSON.stringify(CI.sampleData())); mid.schema = 4; mid.investigations[0].caseChart.title = ''; mid.investigations[0].caseChart.notes = []; assert.equal(CI.normalize(mid).investigations[0].caseChart.notes.length, 2);
   console.log('ok - sample data saved before case charts gets its case chart on load'); n++;
   const d5 = CI.sampleData(), v5 = d5.investigations[0], c5 = CI.caseChartOf(v5);
