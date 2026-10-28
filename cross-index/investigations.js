@@ -10,27 +10,54 @@
   function invName(v) { var b = bank(v.bankId); return v.title || (b ? b.name : '') || '(untitled)'; }
   CI.views.invName = invName;
 
-  CI.views.investigations = function () {
+  function invPageTabs(active) {
+    var n = D().leads.concat(D().requests).filter(function (l) { return !CI.isClosed(l); }).length;
+    return '<div class="tabs"><a class="tab' + (active === 'list' ? ' on' : '') + '" href="#/investigations">Investigations</a><a class="tab' + (active === 'register' ? ' on' : '') + '" href="#/investigations/register">Lead register <span class="n">' + n + ' open</span></a></div>';
+  }
+  CI.views.investigations = function (tab) {
+    if (tab === 'register') return register();
     var d = D(), rows = d.investigations.slice().sort(function (a, b) { return b.opened.localeCompare(a.opened) || b.id.localeCompare(a.id); }).filter(function (v) { return iv.show === 'all' || v.status !== 'CLOSED'; });
     var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><button class="btn primary" data-action="inv-new">New investigation</button><select data-on-change="inv-filter" id="inv-show">' + A.options([{ value: 'open', label: 'Open investigations' }, { value: 'all', label: 'All investigations' }], iv.show) + '</select></div></div>' +
-      '<p class="muted">An investigation begins when a special bank and its estimate are handed over, or on its own (a tip or a referral) with New investigation.</p>';
+      '<p class="muted">An investigation begins when a special bank and its estimate are handed over, or on its own (a tip or a referral) with New investigation.</p>' + invPageTabs('list');
     if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Use New investigation, or hand over a special bank from its <a href="#/chart">Estimates tab</a>.</div>';
     else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Investigation</th><th>Status</th><th>Investigator</th><th>Opened</th><th class="num">Open leads</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (v) {
         var b = bank(v.bankId), open = CI.leadsOf(d, v.id).filter(function (l) { return !CI.isClosed(l); }).length;
         return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(invName(v)) + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td></tr>';
       }).join('') : '<tr><td colspan="6" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
-    var orphans = d.leads.concat(d.requests).filter(function (l) { return !l.investigationId || !d.investigations.some(function (v) { return v.id === l.investigationId; }); });
-    if (orphans.length) h += '<div class="card"><h2>Not attached to an investigation (' + orphans.length + ')</h2><p class="muted small">Leads and requests belong to an investigation. These were made before that rule. Attach each to one, or delete it.</p><table class="fixed"><colgroup><col style="width:10%"><col style="width:52%"><col style="width:38%"></colgroup><tbody>' +
-      orphans.map(function (l) {
-        return '<tr><td><a href="#/lead/' + esc(l.id) + '">' + esc(l.id) + '</a></td><td class="ellip">' + esc(l.question) + '</td><td class="right"><select id="at-' + esc(l.id) + '">' + A.options(d.investigations.map(function (v) { return { value: v.id, label: v.id + ' ' + invName(v) }; }), '', 'Choose…') + '</select> <button class="btn small" data-action="lead-attach" data-id="' + esc(l.id) + '">Attach</button></td></tr>';
-      }).join('') + '</tbody></table></div>';
     A.view.className = ''; A.view.innerHTML = h;
   };
-  H['lead-attach'] = function (el) {
-    var id = el.getAttribute('data-id'), l = CI.findLead(D(), id), vid = val('at-' + id), v = D().investigations.filter(function (x) { return x.id === vid; })[0];
-    if (!l || !v) { A.toast('Choose an investigation.', true); return; }
-    l.investigationId = v.id; l.bankId = v.bankId; A.persist(); CI.views.investigations();
+  /* ----- the lead register: every lead and request, with or without an investigation ----- */
+  var lr = { kind: 'lead', open: true, inv: '', who: '' };
+  function scopeText(d) {
+    var parts = [lr.open ? 'Open' : 'All', lr.kind === 'request' ? 'requests' : 'leads'];
+    var t = parts.join(' ');
+    if (lr.inv === 'none') t += ' with no investigation'; else if (lr.inv) t += ' in ' + lr.inv;
+    if (lr.who) t += ', assigned to ' + lr.who;
+    return t;
+  }
+  function register() {
+    var d = D(), req = lr.kind === 'request';
+    var all = CI.leadRegister(d, { kind: lr.kind }), rows = CI.leadRegister(d, { kind: lr.kind, open: lr.open, investigation: lr.inv, assigned: lr.who });
+    var people = {}; all.forEach(function (l) { if (l.assigned) people[l.assigned] = 1; });
+    var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><button class="btn primary" data-action="reg-new">' + (req ? 'New request' : 'New lead') + '</button><button class="btn" data-action="reg-print"' + (rows.length ? '' : ' disabled') + '>Print ' + (req ? 'request' : 'lead') + ' list</button></div></div>' + invPageTabs('register') +
+      '<div class="card"><div class="row wrap"><div class="row" style="gap:6px"><button class="btn small' + (req ? '' : ' primary') + '" data-action="reg-kind" data-kind="lead">Leads ' + d.leads.length + '</button><button class="btn small' + (req ? ' primary' : '') + '" data-action="reg-kind" data-kind="request">Requests ' + d.requests.length + '</button></div>' +
+      '<label class="row" style="margin:0">Show <select id="rg-open" data-on-change="reg-filter">' + A.options([{ value: 'open', label: 'Open only' }, { value: 'all', label: 'All' }], lr.open ? 'open' : 'all') + '</select></label>' +
+      '<label class="row" style="margin:0">Investigation <select id="rg-inv" data-on-change="reg-filter">' + A.options([{ value: '', label: 'All' }, { value: 'none', label: 'None' }].concat(d.investigations.map(function (v) { return { value: v.id, label: v.id + ' – ' + invName(v) }; })), lr.inv) + '</select></label>' +
+      '<label class="row" style="margin:0">Assigned to <select id="rg-who" data-on-change="reg-filter">' + A.options([{ value: '', label: 'Anyone' }].concat(Object.keys(people).sort().map(function (p) { return { value: p, label: p }; })), lr.who) + '</select></label></div>' +
+      '<p class="muted small" style="margin:8px 0 0">A lead or request can belong to an investigation or to none. The sheet prints where it belongs: an investigation\u2019s folder, or the register.</p></div>';
+    h += rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:7%"><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:13%"><col style="width:13%"><col style="width:12%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
+      var names = (l.about || []).map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ');
+      return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip" title="' + esc(names) + '">' + esc(names) + '</td><td>' + (l.investigationId ? esc(l.investigationId) : '<span class="muted">none</span>') + '</td><td class="ellip">' + esc(req ? l.with : (l.assigned || '')) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">' + (all.length ? 'Nothing matches those filters.' : 'No ' + (req ? 'requests' : 'leads') + ' yet. Raise one from a name\u2019s page, the indexing page, or here.') + '</p></div>';
+    A.view.className = ''; A.view.innerHTML = h;
+  }
+  H['reg-kind'] = function (el) { lr.kind = el.getAttribute('data-kind'); lr.who = ''; register(); };
+  H['reg-filter'] = function () { lr.open = val('rg-open') !== 'all'; lr.inv = val('rg-inv'); lr.who = val('rg-who'); register(); };
+  H['reg-new'] = function () { CI.views.openLead({ kind: lr.kind === 'request' ? 'DATA_REQUEST' : 'INVESTIGATION', investigationId: lr.inv && lr.inv !== 'none' ? lr.inv : '', origin: { kind: 'register', id: '' } }); };
+  H['reg-print'] = function () {
+    var d = D(), req = lr.kind === 'request';
+    A.saveBlob((req ? 'Request-register' : 'Lead-register') + '.pdf', function () { return CI.pdf.leadList(d, '', { kind: lr.kind, openOnly: lr.open, investigation: lr.inv, assigned: lr.who, scope: scopeText(d), scopeTitle: 'Lead register' }); });
   };
   H['inv-filter'] = function () { iv.show = val('inv-show'); CI.views.investigations(); };
 
@@ -148,13 +175,13 @@
       }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">No requests yet.</p></div>');
   }
   H['lead-open'] = function (el) { A.go('#/lead/' + el.getAttribute('data-id')); };
-  H['lead-new'] = function (el) { CI.views.openLead({ investigationId: el.getAttribute('data-id'), kind: el.getAttribute('data-kind') }); };
+  H['lead-new'] = function (el) { CI.views.openLead({ investigationId: el.getAttribute('data-id'), fixInvestigation: true, kind: el.getAttribute('data-kind') }); };
   H['lead-from-theory'] = function (el) {
     var d = D(), v = invOf(el), b = v && bank(v.bankId); if (!b) return;
     var est = CI.estimateOf(b, el.getAttribute('data-est')), it = est.items.filter(function (x) { return x.id === el.getAttribute('data-item'); })[0]; if (!it) return;
     var about = {}; it.reportIds.forEach(function (r) { var rep = A.idx().report[r]; if (rep) rep.entities.forEach(function (x) { if ((b.files || []).indexOf(x.entityId) !== -1) about[x.entityId] = 1; }); });
     CI.views._leadTheory = est.id + '|' + it.id;
-    CI.views.openLead({ investigationId: v.id, kind: 'INVESTIGATION', question: 'Is this so? ' + it.text, raisedBy: it.reportIds[0] || '', about: Object.keys(about) });
+    CI.views.openLead({ investigationId: v.id, fixInvestigation: true, kind: 'INVESTIGATION', question: 'Is this so? ' + it.text, raisedBy: it.reportIds[0] || '', about: Object.keys(about) });
   };
   H['ll-print'] = function (el) {
     var d = D(), v = invOf(el); if (!v) return;

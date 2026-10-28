@@ -192,10 +192,10 @@
     else if (name === 'chart') CI.views.chart(parts[1] || '');
     else if (name === 'bank') CI.views.bank(parts[1] || '', parts[2] || '');
     else if (name === 'observation') CI.views.observation();
-    else if (name === 'investigations') CI.views.investigations();
+    else if (name === 'investigations') CI.views.investigations(parts[1] || '');
     else if (name === 'investigation') CI.views.investigation(parts[1], parts[2]);
     else if (name === 'casechart') CI.views.casechart(parts[1]);
-    else if (name === 'leads') CI.views.investigations();
+    else if (name === 'leads') CI.views.investigations('register');
     else if (name === 'lead') CI.views.lead(parts[1]);
     else if (name === 'estimate') CI.views.estimate(parts[1], parts[2]);
     else if (name === 'review') viewReview();
@@ -365,7 +365,7 @@
       }).join('') + '</tbody></table>';
     } else if (r.entities.length >= 2) h += '<p class="muted">No connections recorded for this report yet.</p>';
     h += '</div>';
-    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
+    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row"><button class="btn" data-action="idx-lead" data-id="' + esc(r.id) + '">Raise a lead</button><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
   }
@@ -612,6 +612,11 @@
       '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'A to Z' }, { value: 'recent', label: 'Most recent report first' }], st.sort) + '</select></div>' +
       '<div class="card flush"><table class="fixed"><colgroup><col style="width:46%"><col style="width:10%"><col style="width:16%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th><th>ID</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
   }
+  handlers['idx-lead'] = function (el) {
+    var rid = el.getAttribute('data-id'), r = idx().report[rid]; if (!r) return;
+    var ids = r.entities.map(function (x) { return x.entityId; });
+    CI.views.openLead({ kind: 'INVESTIGATION', raisedBy: rid, aboutChoices: ids, about: [], origin: { kind: 'report', id: rid } });
+  };
   handlers['ent-filter'] = function () {
     var st = entS();
     st.q = val('ent-q'); st.sort = val('ent-sort');
@@ -635,8 +640,9 @@
       (spec ? '<div class="row wrap" style="margin-top:8px"><label class="btn small">' + (e.photo ? 'Replace ' : 'Add ') + spec.label.toLowerCase() + '<input type="file" accept="image/*" data-on-change="photo-file" data-id="' + esc(id) + '" hidden></label>' + (e.photo ? '<button class="btn small" data-action="photo-remove" data-id="' + esc(id) + '">Remove</button>' : '') + '<span class="muted small">Shown on the chart. Stored in this browser, shrunk to a small image.</span></div>' : '<div class="muted small" style="margin-top:6px">Pictures can be added to individuals (a photo) and groups (a logo).</div>') +
       '</div></div>';
     var nsum = d.summaries.filter(function (x) { return x.fileId === id; }).length, ntl = d.timeline.filter(function (x) { return x.fileId === id; }).length, nnew = CI.unsummarized(d, idx(), id).length;
-    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl]];
-    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length]];
+    var aboutL = CI.leadsAbout(d, id), nlead = aboutL.filter(function (l) { return !CI.isClosed(l); }).length;
+    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl], ['leads', 'Leads', nlead]];
+    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['leads', 'Leads', nlead]];
     if (!TABS.some(function (t) { return t[0] === tab; })) tab = 'profile';
     h += '<div class="tabs">' + TABS.map(function (t) {
       return '<a class="tab' + (tab === t[0] ? ' on' : '') + '" href="#/entity/' + esc(id) + (t[0] === 'profile' ? '' : '/' + t[0]) + '">' + t[1] + (t[2] != null ? ' <span class="n">' + t[2] + '</span>' : '') +
@@ -670,6 +676,7 @@
     }
     if (tab === 'summaries') h += CI.views.fileSummaries(e);
     if (tab === 'timeline') h += CI.views.fileTimeline(e);
+    if (tab === 'leads') h += CI.views.fileLeads(e, aboutL);
     if (tab === 'profile') {
     h += '<div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this name into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
       '<span class="muted small">Use when two entries turned out to be the same one. Merges are logged and can be undone from Review.</span></div>' +

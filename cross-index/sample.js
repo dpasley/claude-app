@@ -481,7 +481,7 @@
     ['marcus', 'tobias', 'dana', 'leak', 'harass', 'depot4'].forEach(function (k) { ok(CI.addInvFile(d, v3, ent[k].id), 'inv file ' + k); });
 
     function L(inv, kind, question, repKey, aboutKeys, status, extra) {
-      var res = ok(CI.addLead(d, { investigationId: inv.id, kind: kind, question: question, raisedBy: repKey ? rep[repKey].id : '', about: (aboutKeys || []).map(function (k) { return ent[k].id; }), issued: ago((extra && extra.issued) || 5), assigned: (extra && extra.assigned) || '', forLead: (extra && extra.forLead) || '' }), 'lead');
+      var res = ok(CI.addLead(d, { investigationId: inv ? inv.id : '', origin: extra && extra.originKey ? { kind: extra.originKind || 'file', id: ent[extra.originKey].id } : null, kind: kind, question: question, raisedBy: repKey ? rep[repKey].id : '', about: (aboutKeys || []).map(function (k) { return ent[k].id; }), issued: ago((extra && extra.issued) || 5), assigned: (extra && extra.assigned) || '', forLead: (extra && extra.forLead) || '' }), 'lead');
       var l = res.lead; l.status = status;
       if (status === 'DONE' || status === 'NO_RESULT') { l.response = extra.response; l.returnedBy = extra.by; l.returnedDate = ago(extra.back); }
       if (extra && extra.result) extra.result.forEach(function (k) { rep[k].leadId = l.id; });
@@ -506,6 +506,12 @@
     L(v3, 'INVESTIGATION', 'Is Tobias Crane being fed material by anyone besides Marcus Ellery?', 'reply', ['tobias', 'marcus'], 'NOT_STARTED', { issued: 2, assigned: 'Nadia Reyes' });
     L(v3, 'DATA_REQUEST', 'The login history for the Marcus Ellery account since his dismissal.', 'meta', ['marcus'], 'IN_PROGRESS', { issued: 3, forLead: n1.id });
     L(v3, 'DATA_REQUEST', 'All public posts of tcrane_speaks mentioning Northwind staff, preserved with timestamps.', 'attack', ['tobias', 'dana'], 'NOT_STARTED', { issued: 2 });
+
+    // Leads with no investigation: raised from a name's page, from indexing a report, or in the register
+    L(null, 'INVESTIGATION', 'Where does Orrin Platt live now, and does he still hold the Dunmore lease?', null, ['orrin'], 'NOT_STARTED', { issued: 3, assigned: 'Dev Patel', originKey: 'orrin' });
+    L(null, 'INVESTIGATION', 'Is Vera Lindqvist the same person who appears as agent for two other filings?', 'bw', ['vera'], 'IN_PROGRESS', { issued: 6, assigned: 'Analyst Rhee', originKey: 'vera' });
+    L(null, 'INVESTIGATION', 'Who runs the tcrane_speaks account outside working hours?', 'attack', ['tobias'], 'NOT_STARTED', { issued: 1 });
+    L(null, 'DATA_REQUEST', 'Property records for the Dunmore PO box address.', null, ['dunmore'], 'NOT_STARTED', { issued: 3, originKey: 'dunmore' });
 
     // Case charts (the investigators’ boards)
     function pins(inv, list) { list.forEach(function (p) { ok(CI.addPin(d, inv, ent[p[0]].id, { x: p[1], y: p[2] }), 'pin ' + p[0]); }); }

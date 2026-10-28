@@ -18,7 +18,7 @@ t('every reference points at something that exists', () => {
   d.links.forEach(l => { assert.ok(ent.has(l.from) && ent.has(l.to) && rep.has(l.reportId)); assert.ok(CI.linkType(d, l.type)); });
   d.summaries.concat(d.timeline).forEach(x => assert.ok(ent.has(x.fileId)));
   d.banks.forEach(b => (b.files || []).forEach(f => assert.ok(ent.has(f))));
-  d.leads.concat(d.requests).forEach(l => { assert.ok(d.investigations.some(v => v.id === l.investigationId)); if (l.raisedBy) assert.ok(rep.has(l.raisedBy)); });
+  d.leads.concat(d.requests).forEach(l => { assert.ok(!l.investigationId || d.investigations.some(v => v.id === l.investigationId)); if (l.raisedBy) assert.ok(rep.has(l.raisedBy)); });
 });
 t('dates fall in the last two months and there are plenty of reports and connections', () => {
   assert.ok(d.reports.length >= 50 && d.links.length >= 90);
@@ -48,6 +48,6 @@ t('summaries leave some reports unsummarised, and the documents print', () => {
 });
 t('it survives a save and load unchanged in shape', () => {
   const back = CI.normalize(JSON.parse(JSON.stringify(d)));
-  assert.equal(back.entities.length, d.entities.length); assert.equal(back.reports.length, d.reports.length); assert.equal(back.schema, 7);
+  assert.equal(back.entities.length, d.entities.length); assert.equal(back.reports.length, d.reports.length); assert.equal(back.schema, 8);
 });
 console.log(n + ' sample checks passed');

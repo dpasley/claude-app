@@ -173,6 +173,11 @@
       });
       d.schema = 7;
     }
+    if ((d.schema || 1) < 8) {
+      // A lead may belong to no investigation; every lead remembers where it was raised from.
+      (d.leads || []).concat(d.requests || []).forEach(function (l) { if (!l.origin) l.origin = l.investigationId ? { kind: 'investigation', id: l.investigationId } : (l.raisedBy ? { kind: 'report', id: l.raisedBy } : { kind: 'register', id: '' }); });
+      d.schema = 8;
+    }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
     d.settings.linkTypes.forEach(function (t) { if (OLD_LINK[t.id]) { t.id = OLD_LINK[t.id]; t.label = t.id; } });
@@ -529,7 +534,7 @@
     d.entities = d.entities.filter(function (e) { return e.id !== id; });
     CI.caseChartDropEntity(d, id);
     d.investigations.forEach(function (v) { v.files = (v.files || []).filter(function (x) { return x !== id; }); });
-    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
+    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); if (l.origin && l.origin.kind === 'file' && l.origin.id === id) l.origin = { kind: 'register', id: '' }; });
     d.banks.forEach(function (b) {
       b.seeds = b.seeds.filter(function (x) { return x !== id; });
       b.excluded = b.excluded.filter(function (x) { return x !== id; });
@@ -580,7 +585,7 @@
     CI.caseChartMerge(d, fromId, intoId);
     d.summaries.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
     d.timeline.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
-    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
+    d.leads.concat(d.requests).forEach(function (l) { if (l.origin && l.origin.kind === 'file' && l.origin.id === fromId) l.origin.id = intoId; l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
     d.entities.filter(function (e) { return e.id === fromId; }).forEach(function (e) { if (e.photo && !into.photo) into.photo = e.photo; });
     d.entities = d.entities.filter(function (e) { return e.id !== fromId; });
     d.merges.push(rec);
@@ -825,8 +830,8 @@
   /* A lead (a question the investigators follow up) or a request (a thing for Collection to retrieve and preserve) belongs to an investigation.
    * A lead needs only its reason; the report that prompted it is optional. */
   CI.addLead = function (d, o) {
-    var inv = d.investigations.filter(function (v) { return v.id === o.investigationId; })[0];
-    if (!inv) return { error: 'Leads and requests belong to an investigation.' };
+    var invId = String(o.investigationId || ''), inv = invId ? d.investigations.filter(function (v) { return v.id === invId; })[0] : null;
+    if (invId && !inv) return { error: 'No such investigation.' };
     var kind = o.kind === 'DATA_REQUEST' ? 'DATA_REQUEST' : 'INVESTIGATION';
     var q = String(o.question || '').trim();
     if (!q) return { error: kind === 'DATA_REQUEST' ? 'Say what is to be retrieved.' : 'Give the reason for the lead.' };
@@ -834,14 +839,54 @@
     if (raised && !d.reports.some(function (x) { return x.id === raised; })) return { error: 'No such report: ' + raised + '.' };
     var forLead = String(o.forLead || '');
     if (forLead && !d.leads.some(function (x) { return x.id === forLead; })) return { error: 'No such lead: ' + forLead + '.' };
+    // Where it was raised from decides which physical folder the printed sheet belongs in when there is no investigation.
+    var origin = o.origin && o.origin.kind ? { kind: o.origin.kind, id: o.origin.id || '' } : (inv ? { kind: 'investigation', id: inv.id } : (raised ? { kind: 'report', id: raised } : { kind: 'register', id: '' }));
     var lead = {
-      id: CI.nextId(d, kind === 'DATA_REQUEST' ? 'request' : 'lead'), investigationId: inv.id, bankId: inv.bankId, kind: kind,
-      with: kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations', assigned: String(o.assigned || '').trim(), question: q, raisedBy: raised,
+      id: CI.nextId(d, kind === 'DATA_REQUEST' ? 'request' : 'lead'), investigationId: inv ? inv.id : '', bankId: inv ? inv.bankId : '', kind: kind,
+      with: kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations', assigned: String(o.assigned || '').trim(), question: q, raisedBy: raised, origin: origin,
       about: (o.about || []).filter(function (x, i, a) { return a.indexOf(x) === i; }), issued: o.issued || CI.today(),
       status: 'NOT_STARTED', response: '', returnedBy: '', returnedDate: '', created: CI.today()
     };
     if (kind === 'DATA_REQUEST') { lead.forLead = forLead; d.requests.push(lead); } else d.leads.push(lead);
     return { lead: lead };
+  };
+  /* Attach a lead or request to an investigation, or take it off one (invId empty). Its origin is kept. */
+  CI.attachLead = function (d, id, invId) {
+    var l = CI.findLead(d, id); if (!l) return { error: 'No such lead.' };
+    var inv = invId ? d.investigations.filter(function (v) { return v.id === invId; })[0] : null;
+    if (invId && !inv) return { error: 'No such investigation.' };
+    l.investigationId = inv ? inv.id : ''; l.bankId = inv ? inv.bankId : '';
+    if (l.forLead) { var fl = d.leads.filter(function (x) { return x.id === l.forLead; })[0]; if (!fl || fl.investigationId !== l.investigationId) l.forLead = ''; }
+    return { lead: l };
+  };
+  /* Every lead and request about one name, whichever investigation holds it. */
+  CI.leadsAbout = function (d, entityId) {
+    return d.leads.concat(d.requests).filter(function (l) { return (l.about || []).indexOf(entityId) !== -1; })
+      .sort(function (a, b) { return CI.isClosed(a) - CI.isClosed(b) || b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); });
+  };
+  /* The register: all leads (or all requests), filtered. f: { kind: 'lead'|'request', open: bool, investigation: ''(all) | 'none' | id, assigned: ''(all) | text, about: entity id }. */
+  CI.leadRegister = function (d, f) {
+    f = f || {};
+    var list = f.kind === 'request' ? d.requests : d.leads;
+    return list.filter(function (l) {
+      if (f.open && CI.isClosed(l)) return false;
+      if (f.investigation === 'none' && l.investigationId) return false;
+      if (f.investigation && f.investigation !== 'none' && l.investigationId !== f.investigation) return false;
+      if (f.assigned && (l.assigned || '') !== f.assigned) return false;
+      if (f.about && (l.about || []).indexOf(f.about) === -1) return false;
+      return true;
+    }).sort(function (a, b) { return CI.isClosed(a) - CI.isClosed(b) || a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); });
+  };
+  /* Where a printed lead sheet belongs, in plain words. */
+  CI.leadHome = function (d, l) {
+    var inv = l.investigationId ? d.investigations.filter(function (v) { return v.id === l.investigationId; })[0] : null;
+    var o = l.origin || { kind: inv ? 'investigation' : 'register', id: '' };
+    var from;
+    if (o.kind === 'file') { var e = d.entities.filter(function (x) { return x.id === o.id; })[0]; from = e ? 'Raised from the page of ' + e.name + ' (' + CI.TYPE_LABEL[e.type].toLowerCase() + ')' : 'Raised from a name\u2019s page'; }
+    else if (o.kind === 'report') from = 'Raised while indexing report ' + o.id;
+    else if (o.kind === 'investigation') from = 'Raised inside investigation ' + (o.id || (inv && inv.id) || '');
+    else from = 'Raised in the lead register';
+    return { investigation: inv, belongs: inv ? 'Investigation ' + inv.id + (inv.title ? ' \u00b7 ' + inv.title : '') : 'No investigation', folder: inv ? 'File in the folder of investigation ' + inv.id : 'No investigation folder. Keep in the lead register', from: from };
   };
   CI.findLead = function (d, id) { return d.leads.concat(d.requests).filter(function (l) { return l.id === id; })[0]; };
   CI.leadsOf = function (d, invId) { return d.leads.filter(function (l) { return l.investigationId === invId; }); };

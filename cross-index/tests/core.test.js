@@ -432,3 +432,21 @@ t('older leads move to their investigation; data requests become requests; a ban
   assert.equal(b.outcome.kind, 'NO_SITUATION'); assert.equal(CI.handOver(d, b), null); assert.ok(!CI.investigationFor(d, b.id));
   CI.reopenBank(b); assert.ok(CI.handOver(d, b)); assert.ok(CI.closeBank(d, b, 'x'));
 });
+
+t('leads can sit outside an investigation; the register, a name\'s leads and the sheet home all follow', () => {
+  const d = CI.sampleData(), a = d.entities[0].id, b = d.entities[1].id;
+  const r = CI.addLead(d, { question: 'Who lives here?', about: [a], origin: { kind: 'file', id: a } });
+  assert.ok(!r.error); assert.equal(r.lead.investigationId, ''); assert.equal(r.lead.origin.kind, 'file');
+  assert.ok(CI.addLead(d, { investigationId: 'V-9999', question: 'x' }).error);
+  assert.ok(CI.leadsAbout(d, a).some(l => l.id === r.lead.id));
+  const reg = CI.leadRegister(d, { kind: 'lead', open: true, investigation: 'none' });
+  assert.ok(reg.some(l => l.id === r.lead.id) && reg.every(l => !l.investigationId));
+  assert.ok(/page of/.test(CI.leadHome(d, r.lead).from) && /register/i.test(CI.leadHome(d, r.lead).folder));
+  const v = d.investigations[0];
+  assert.ok(!CI.attachLead(d, r.lead.id, v.id).error); assert.equal(r.lead.investigationId, v.id);
+  assert.ok(/investigation/i.test(CI.leadHome(d, r.lead).folder));
+  CI.attachLead(d, r.lead.id, ''); assert.equal(r.lead.investigationId, '');
+  const old = JSON.parse(JSON.stringify(d)); old.schema = 7; old.leads.forEach(l => delete l.origin);
+  const n = CI.normalize(old); assert.equal(n.schema, 8); assert.ok(n.leads.every(l => l.origin && l.origin.kind));
+  CI.mergeEntities(d, a, b); assert.ok(d.leads.every(l => !l.origin || l.origin.id !== a));
+});
