@@ -112,6 +112,7 @@
 
   /* ----- tabs ----- */
   var TABS = [{ id: 'crossfiling', label: 'Cross-filing' }, { id: 'connections', label: 'Connections' }, { id: 'activity', label: 'Activity' }];
+  function idxHead() { return '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Names that moved recently</a></div>'; }
   function tabsBar(active, badge) {
     return '<div class="tabs" role="tablist">' + TABS.map(function (t) {
       return '<a role="tab" class="tab' + (t.id === active ? ' on' : '') + '" href="#/indexes/' + t.id + '">' + esc(t.label) +
@@ -135,7 +136,7 @@
     if (ix.tab !== arg) ix.lq = '';
     ix.tab = arg;
     var badge = CI.discoveries(d, idx, CI.daysAgo(ix.days)).length;
-    var h = '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Names that moved recently</a></div>' + tabsBar(arg, badge);
+    var h = idxHead() + tabsBar(arg, badge);
     if (arg === 'activity') h += lookPanel(idx);
     else { if (sub) ix.cf = decodeURIComponent(sub); h += crossFiling(idx, arg); }
     A.view.innerHTML = h;
@@ -188,7 +189,7 @@
   function connPage(id, idx) {
     var e = idx.entity[id], groups = CI.connectionIndex(D(), id, idx), n = 0;
     groups.forEach(function (g) { n += g.rows.length; });
-    var h = tabsBar('connections', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/connections/' + esc(e.type === 'item' ? 'individual' : e.type) + '">‹ All ' + esc(CI.isItem(e) ? 'individuals' : CI.TYPE_LABEL[e.type].toLowerCase() + 's') + '</a>' +
+    var h = idxHead() + tabsBar('connections', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/connections/' + esc(e.type === 'item' ? 'individual' : e.type) + '">‹ All ' + esc(CI.isItem(e) ? 'individuals' : CI.TYPE_LABEL[e.type].toLowerCase() + 's') + '</a>' +
       '<input type="search" id="ix-q" data-lookup="#ix-res" autocomplete="off" placeholder="Look up another name or item…" data-on-input="ix-find" style="flex:1;min-width:220px"><div id="ix-res" style="flex:0 0 100%"></div></div><div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">No connections recorded yet.</p></div>';
@@ -201,7 +202,7 @@
   function sharedPage(id, idx) {
     var e = idx.entity[id], groups = CI.sharedReportIndex(D(), id, idx), n = 0;
     groups.forEach(function (g) { n += g.rows.length; });
-    var h = tabsBar('crossfiling', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/crossfiling/' + esc(e.type) + '">\u2039 All ' + esc(CI.TYPE_LABEL[e.type].toLowerCase()) + 's</a></div>' +
+    var h = idxHead() + tabsBar('crossfiling', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/crossfiling/' + esc(e.type) + '">\u2039 All ' + esc(CI.TYPE_LABEL[e.type].toLowerCase()) + 's</a></div>' +
       '<div class="page-head"><h1>' + esc(e.name) + ' ' + A.tag(e.type) + '</h1><div class="row"><a class="btn" href="#/indexes/' + esc(id) + '">Connections</a><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">Not in any report together with another file yet.</p></div>';

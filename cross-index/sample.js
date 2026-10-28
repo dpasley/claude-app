@@ -507,7 +507,7 @@
     L(v3, 'DATA_REQUEST', 'The login history for the Marcus Ellery account since his dismissal.', 'meta', ['marcus'], 'IN_PROGRESS', { issued: 3, forLead: n1.id });
     L(v3, 'DATA_REQUEST', 'All public posts of tcrane_speaks mentioning Northwind staff, preserved with timestamps.', 'attack', ['tobias', 'dana'], 'NOT_STARTED', { issued: 2 });
 
-    // Leads with no investigation: raised from a name's page, from indexing a report, or in the register
+    // Leads with no investigation: raised from an individual's page, from indexing a report, or in the register
     L(null, 'INVESTIGATION', 'Where does Orrin Platt live now, and does he still hold the Dunmore lease?', null, ['orrin'], 'NOT_STARTED', { issued: 3, assigned: 'Dev Patel', originKey: 'orrin' });
     L(null, 'INVESTIGATION', 'Is Vera Lindqvist the same person who appears as agent for two other filings?', 'bw', ['vera'], 'IN_PROGRESS', { issued: 6, assigned: 'Analyst Rhee', originKey: 'vera' });
     L(null, 'INVESTIGATION', 'Who runs the tcrane_speaks account outside working hours?', 'attack', ['tobias'], 'NOT_STARTED', { issued: 1 });

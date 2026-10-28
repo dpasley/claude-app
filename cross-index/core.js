@@ -882,7 +882,7 @@
     var inv = l.investigationId ? d.investigations.filter(function (v) { return v.id === l.investigationId; })[0] : null;
     var o = l.origin || { kind: inv ? 'investigation' : 'register', id: '' };
     var from;
-    if (o.kind === 'file') { var e = d.entities.filter(function (x) { return x.id === o.id; })[0]; from = e ? 'Raised from the page of ' + e.name + ' (' + CI.TYPE_LABEL[e.type].toLowerCase() + ')' : 'Raised from a name\u2019s page'; }
+    if (o.kind === 'file') { var e = d.entities.filter(function (x) { return x.id === o.id; })[0]; from = e ? 'Raised from the page of ' + e.name + ' (' + CI.TYPE_LABEL[e.type].toLowerCase() + ')' : 'Raised from an individual\u2019s page'; }
     else if (o.kind === 'report') from = 'Raised while indexing report ' + o.id;
     else if (o.kind === 'investigation') from = 'Raised inside investigation ' + (o.id || (inv && inv.id) || '');
     else from = 'Raised in the lead register';

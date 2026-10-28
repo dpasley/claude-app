@@ -18,13 +18,14 @@
     if (tab === 'register') return register();
     var d = D(), rows = d.investigations.slice().sort(function (a, b) { return b.opened.localeCompare(a.opened) || b.id.localeCompare(a.id); }).filter(function (v) { return iv.show === 'all' || v.status !== 'CLOSED'; });
     var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><button class="btn primary" data-action="inv-new">New investigation</button><select data-on-change="inv-filter" id="inv-show">' + A.options([{ value: 'open', label: 'Open investigations' }, { value: 'all', label: 'All investigations' }], iv.show) + '</select></div></div>' +
-      '<p class="muted">An investigation begins when a special bank and its estimate are handed over, or on its own (a tip or a referral) with New investigation.</p>' + invPageTabs('list');
+      invPageTabs('list');
     if (!d.investigations.length) h += '<div class="card callout"><strong>None yet.</strong> Use New investigation, or hand over a special bank from its <a href="#/chart">Estimates tab</a>.</div>';
     else h += '<div class="card flush"><table><thead><tr><th>ID</th><th>Investigation</th><th>Status</th><th>Investigator</th><th>Opened</th><th class="num">Open leads</th></tr></thead><tbody>' +
       (rows.length ? rows.map(function (v) {
         var b = bank(v.bankId), open = CI.leadsOf(d, v.id).filter(function (l) { return !CI.isClosed(l); }).length;
         return '<tr><td><a href="#/investigation/' + esc(v.id) + '">' + esc(v.id) + '</a></td><td>' + esc(invName(v)) + '</td><td>' + invTag(v) + '</td><td>' + esc(v.investigator || '') + '</td><td>' + esc(CI.fmtShort(v.opened)) + '</td><td class="num">' + open + '</td></tr>';
       }).join('') : '<tr><td colspan="6" class="empty">No investigations match.</td></tr>') + '</tbody></table></div>';
+    h += '<p class="muted small">An investigation begins when a special bank and its estimate are handed over, or on its own (a tip or a referral) with New investigation.</p>';
     A.view.className = ''; A.view.innerHTML = h;
   };
   /* ----- the lead register: every lead and request, with or without an investigation ----- */
@@ -49,7 +50,7 @@
     h += rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:7%"><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:13%"><col style="width:13%"><col style="width:12%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
       var names = (l.about || []).map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ');
       return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip" title="' + esc(names) + '">' + esc(names) + '</td><td>' + (l.investigationId ? esc(l.investigationId) : '<span class="muted">none</span>') + '</td><td class="ellip">' + esc(req ? l.with : (l.assigned || '')) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
-    }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">' + (all.length ? 'Nothing matches those filters.' : 'No ' + (req ? 'requests' : 'leads') + ' yet. Raise one from a name\u2019s page, the indexing page, or here.') + '</p></div>';
+    }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">' + (all.length ? 'Nothing matches those filters.' : 'No ' + (req ? 'requests' : 'leads') + ' yet. Raise one from an individual\u2019s page, the indexing page, or here.') + '</p></div>';
     A.view.className = ''; A.view.innerHTML = h;
   }
   H['reg-kind'] = function (el) { lr.kind = el.getAttribute('data-kind'); lr.who = ''; register(); };
