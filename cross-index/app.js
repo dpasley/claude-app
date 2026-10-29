@@ -131,19 +131,20 @@
       });
       return order.map(function (k) { return by[k]; });
     }
-    return '<table class="conn"><colgroup><col style="width:29%"><col style="width:22%"><col style="width:25%"><col style="width:24%"></colgroup>' +
-      '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Reports</th></tr></thead>' +
+    return '<table class="conn"><colgroup><col style="width:26%"><col style="width:11%"><col style="width:19%"><col style="width:25%"><col style="width:19%"></colgroup>' +
+      '<thead><tr><th>Name</th><th>File type</th><th>Connection</th><th>What it is</th><th>Reports</th></tr></thead><tbody>' +
       groups.map(function (g) {
-        var rows = merge(g.rows), kind = String(g.kind).indexOf('item') === 0 ? 'item' : g.kind;
-        return '<tbody style="--k:var(--t-' + esc(kind) + ',var(--muted))"><tr class="band"><th colspan="4"><span class="dot"></span>' + esc(g.label) + ' <span class="n">' + rows.length + '</span></th></tr>' + rows.map(function (m) {
-          var arrow = /→$/.test(m.phrase) ? 'out' : /^←/.test(m.phrase) ? 'in' : 'both', txt = m.phrase.replace(/^← /, '').replace(/ →$/, '');
+        var kind = String(g.kind).indexOf('item') === 0 ? 'item' : g.kind;
+        return merge(g.rows).map(function (m) {
+          var arrow = /\u2192$/.test(m.phrase) ? 'out' : /^\u2190/.test(m.phrase) ? 'in' : 'both', txt = m.phrase.replace(/^\u2190 /, '').replace(/ \u2192$/, '');
           var reps = m.reports.sort(function (p, q) { return String(q.date).localeCompare(String(p.date)); });
           return '<tr><td class="who"><a href="#/entity/' + esc(m.other.id) + '">' + avatar(m.other, 26) + '<span class="nm">' + esc(m.other.name) + '</span></a></td>' +
+            '<td class="ftype" style="--k:var(--t-' + esc(kind) + ',var(--muted))"><span class="dot"></span>' + esc(g.label.replace(/s$/, '')) + '</td>' +
             '<td><span class="rel ' + arrow + '" title="' + esc(m.phrase) + '">' + (arrow === 'in' ? '<i>\u2190</i>' : '') + esc(txt) + (arrow === 'out' ? '<i>\u2192</i>' : arrow === 'both' ? '<i>\u2194</i>' : '') + '</span></td>' +
             '<td class="what" title="' + esc(m.notes.join(' \u00b7 ')) + '">' + esc(m.notes.join(' \u00b7 ')) + '</td>' +
             '<td class="srcs">' + reps.slice(0, 2).map(function (r) { return '<a class="src" href="#/report/' + esc(r.id) + '" title="' + esc(CI.fmtDate(r.date)) + '">' + esc(r.id) + '</a>'; }).join('') + (reps.length > 2 ? '<span class="more" title="' + esc(reps.slice(2).map(function (r) { return r.id; }).join(', ')) + '">+' + (reps.length - 2) + '</span>' : '') + (reps.length === 1 ? '<span class="when">' + esc(CI.fmtDate(reps[0].date)) + '</span>' : '') + '</td></tr>';
-        }).join('') + '</tbody>';
-      }).join('') + '</table>';
+        }).join('');
+      }).join('') + '</tbody></table>';
   }
   function linkPhrase(l) {
     var t = lt(l.type);
@@ -298,8 +299,8 @@
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
       '<label class="rf-wide">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
-      '<label class="rf-wide">Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
-      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
+      '<label class="rf-wide">Notes or summary <span class="hint">In your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
+      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">Path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '</div>' +
       (r.leadId ? '<input type="hidden" id="f-lead" value="' + esc(r.leadId) + '"><p class="muted small">This report was started from lead ' + esc(r.leadId) + ' and answers it.</p>' : '') +
       '<div id="form-errors" class="errors" role="alert"></div>' +
@@ -653,7 +654,7 @@
     var inc = graph.edges.filter(function (x) { return x.source === id || x.target === id; });
     var others = d.entities.filter(function (x) { return x.id !== id; }).sort(function (a, b) { return a.name.localeCompare(b.name); })
       .map(function (x) { return { value: x.id, label: x.name + ' (' + CI.TYPE_LABEL[x.type].toLowerCase() + ', ' + x.id + ')' }; });
-    var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1><div class="row"><a class="btn" href="#/indexes/shared/' + esc(id) + '">Cross-filing</a><a class="btn" href="#/indexes/' + esc(id) + '">Connections</a><button class="btn" data-action="chart-entity" data-id="' + esc(id) + '">Chart (1 hop)</button><button class="btn primary" data-action="bank-entity" data-id="' + esc(id) + '">Create bank from this</button></div></div>';
+    var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1></div>';
     var stt = CI.statsFor(CI.materialStats(d, idx()), id), spec = CI.PHOTO_TYPES[e.type];
     var nConn = (idx().linksByEntity[id] || []).length;
     h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + nConn + '</b> connection' + (nConn === 1 ? '' : 's') + ' to <b>' + stt.neighbors + '</b> name' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +

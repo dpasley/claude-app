@@ -546,7 +546,7 @@ tr.key td { font-weight: 600; }
 /* ---- connection index ---- */
 table.conn { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 14px; }
 table.conn thead th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--panel); }
-table.conn tr.band th { text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text); background: var(--panel-2); padding: 9px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+table.conn tr.bandx th { text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text); background: var(--panel-2); padding: 9px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 table.conn tbody:first-of-type tr.band th { border-top: 0; }
 table.conn tr.band .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--k); margin-right: 8px; }
 table.conn tr.band .n { margin-left: 6px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
@@ -583,3 +583,28 @@ table.conn .when { color: var(--muted); font-size: 12px; }
 .legend .sw-individual { border-radius: 50%; } .legend .sw-group { border-radius: 4px; } .legend .sw-area { clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); border-radius: 0; } .legend .sw-subject { transform: rotate(45deg) scale(.8); }
 .legend .lg-sep { flex: 0 0 1px; height: 14px; background: var(--border); }
 .legend .ln { display: inline-block; width: 18px; background: #aab1c4; border-radius: 2px; vertical-align: middle; margin-right: 3px; } .legend .ln.thin { height: 1px; } .legend .ln.thick { height: 4px; }
+
+/* File type column (replaces the grouping bars in connection and cross-filing tables) */
+td.ftype { white-space: nowrap; color: var(--text); font-size: 13px; }
+td.ftype .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--k); margin-right: 8px; }
+.rep-w { max-width: 860px; }
+
+/* Forms: one clear label, quiet helper text, calm fields */
+label, .big-lbl { color: var(--text); }
+.form label, .rf-grid > label, .big-lbl, .sentence label, .card label.form-inline { font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+label > .hint, .big-lbl > .hint { display: block; margin: 2px 0 0; font-size: 12px; font-weight: 400; color: var(--muted); line-height: 1.4; letter-spacing: 0; }
+.rf-grid .hint { margin-left: 0; }
+input[type=text], input[type=search], input[type=date], input[type=number], select, textarea {
+  margin-top: 6px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; font-weight: 400; line-height: 1.35; transition: border-color .12s, box-shadow .12s;
+}
+input::placeholder, textarea::placeholder { color: color-mix(in srgb, var(--muted) 55%, transparent); font-weight: 400; opacity: 1; }
+input:hover, select:hover, textarea:hover { border-color: color-mix(in srgb, var(--muted) 55%, var(--border)); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+td input[type=text], td input[type=search], td select { margin-top: 0; }
+.rf-grid { gap: 20px 18px; }
+.rep-form .form-intro { font-size: 13px; }
+.card.rep-w { padding: 20px 28px; }
+.rep-w .big-lbl { margin-bottom: 0; }
+.form .grid2 > label, .form .grid3 > label, .form .grid4 > label { display: flex; flex-direction: column; }
+.form .grid2 > label > :is(input, select, textarea, .datebox), .form .grid3 > label > :is(input, select, textarea, .datebox), .form .grid4 > label > :is(input, select, textarea, .datebox) { margin-top: auto; }
+.form .grid2 > label > .hint, .form .grid3 > label > .hint { margin-bottom: 6px; }

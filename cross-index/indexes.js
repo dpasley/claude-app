@@ -206,10 +206,11 @@
       '<div class="page-head"><h1>' + esc(e.name) + ' ' + A.tag(e.type) + '</h1><div class="row"><a class="btn" href="#/indexes/' + esc(id) + '">Connections</a><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">Not in any report together with another file yet.</p></div>';
-    else h += '<div class="card flush"><table class="fixed"><colgroup><col style="width:32%"><col style="width:12%"><col style="width:20%"><col style="width:36%"></colgroup><thead><tr><th>Name</th><th class="num">Shared reports</th><th>Recorded connection</th><th>Reports</th></tr></thead><tbody>' +
+    else h += '<div class="card flush"><table class="fixed"><colgroup><col style="width:30%"><col style="width:12%"><col style="width:11%"><col style="width:17%"><col style="width:30%"></colgroup><thead><tr><th>Name</th><th>File type</th><th class="num">Shared reports</th><th>Recorded connection</th><th>Reports</th></tr></thead><tbody>' +
       groups.map(function (g) {
-        return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
-          return '<tr><td>' + link(r.other.id) + '</td><td class="num">' + r.reports.length + '</td><td>' + (r.linked ? 'yes' : '<span class="muted">none</span>') + '</td><td class="ellip">' + r.reports.slice(0, 4).map(function (rid) { return A.repLink(rid); }).join(' ') + (r.reports.length > 4 ? ' <span class="muted small">+' + (r.reports.length - 4) + '</span>' : '') + '</td></tr>';
+        var kind = String(g.kind).indexOf('item') === 0 ? 'item' : g.kind;
+        return g.rows.map(function (r) {
+          return '<tr><td>' + link(r.other.id) + '</td><td class="ftype" style="--k:var(--t-' + esc(kind) + ',var(--muted))"><span class="dot"></span>' + esc(g.label.replace(/s$/, '')) + '</td><td class="num">' + r.reports.length + '</td><td>' + (r.linked ? 'yes' : '<span class="muted">none</span>') + '</td><td class="ellip">' + r.reports.slice(0, 4).map(function (rid) { return A.repLink(rid); }).join(' ') + (r.reports.length > 4 ? ' <span class="muted small">+' + (r.reports.length - 4) + '</span>' : '') + '</td></tr>';
         }).join('');
       }).join('') + '</tbody></table></div>';
     A.view.innerHTML = h;

@@ -15,15 +15,15 @@
   /* The bar at the top of New report and of the indexing page while a folder is being worked on. */
   CI.views.folderBar = function () {
     var fo = CI.folderOf(D()); if (!fo) return '';
-    return '<div class="folder-bar"><div class="fb-tag">Folder mode</div><div class="fb-main"><span class="fb-sub">Entering reports from the folder of</span><a class="fb-name" href="#/entity/' + esc(fo.entity.id) + '">' + esc(fo.entity.name) + '</a> ' + A.tag(fo.entity.type) + '</div>' +
+    return '<div class="folder-bar rep-w"><div class="fb-tag">Folder mode</div><div class="fb-main"><span class="fb-sub">Entering reports from the folder of</span><a class="fb-name" href="#/entity/' + esc(fo.entity.id) + '">' + esc(fo.entity.name) + '</a> ' + A.tag(fo.entity.type) + '</div>' +
       '<div class="fb-count"><b>' + fo.reports.length + '</b> report' + (fo.reports.length === 1 ? '' : 's') + ' entered</div><button class="btn primary" data-action="folder-finish">Finish folder</button></div>';
   };
   /* The box at the top of New report. */
   CI.views.folderCard = function () {
     var d = D();
     if (CI.folderOf(d)) return CI.views.folderBar();
-    return '<div class="card"><label class="big-lbl">Which folder are you holding? <span class="hint">optional: pick the individual, group, area or subject so every report you enter is put on that file</span>' +
-      '<input type="search" id="fd-q" data-lookup="#fd-res" data-on-input="folder-find" autocomplete="off" placeholder="Start typing a name…"></label><div id="fd-res"></div></div>';
+    return '<div class="card rep-w"><label class="big-lbl">Which folder are you holding? <span class="hint">Optional. Pick the individual, group, area or subject and every report you enter goes on that file.</span>' +
+      '<input type="search" id="fd-q" data-lookup="#fd-res" data-on-input="folder-find" autocomplete="off" placeholder="Name"></label><div id="fd-res"></div></div>';
   };
   H['folder-find'] = function (el) { var r = document.getElementById('fd-res'); r.innerHTML = el.value.trim() ? results(el.value) : ''; };
   H['folder-pick'] = function (el) {
