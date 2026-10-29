@@ -20,7 +20,7 @@
     return '<div class="chart-head"><a href="#/chart" class="back">‹ Special banks</a><h1>' + esc(b.name) + '</h1>' +
       (b.outcome ? '<span class="tag">no situation ' + esc(CI.fmtDate(b.outcome.date)) + '</span>' : '') + (b.handedOver ? '<span class="tag">handed over ' + esc(CI.fmtDate(b.handedOver)) + '</span>' : '') +
       '<span class="spacer"></span>' + (inv ? '<a class="btn small" href="#/investigation/' + esc(inv.id) + '">Investigation</a>' : '') +
-      '<button class="btn small" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button class="btn small" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button class="btn small danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div>' +
+      '<details class="more dots"><summary aria-label="More actions">\u22ef</summary><div class="menu"><button type="button" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button type="button" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button type="button" class="danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div></details></div>' +
       (b.opened && b.opened.reason ? '<p class="bank-why"><span class="fl">Opened ' + esc(CI.fmtDate(b.opened.date)) + ' because</span> ' + esc(b.opened.reason) + '</p>' : '') +
       newsBanner(b) + CI.views.bankTabs(b, active);
   };

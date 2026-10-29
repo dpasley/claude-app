@@ -6,7 +6,7 @@
   function D() { return A.data(); }
   function val(id) { var e = document.getElementById(id); return e ? e.value : ''; }
   function bank(id) { return D().banks.filter(function (b) { return b.id === id; })[0]; }
-  function invTag(v) { return '<span class="tag ' + (v.status === 'CLOSED' ? 'ok' : 'warn') + '">' + esc(CI.invStatus(v.status).label) + '</span>'; }
+  function invTag(v) { return '<span class="tag ' + (v.status === 'CLOSED' ? '' : 'ok') + '">' + esc(CI.invStatus(v.status).label) + '</span>'; }
   function invName(v) { var b = bank(v.bankId); return v.title || (b ? b.name : '') || '(untitled)'; }
   CI.views.invName = invName;
 

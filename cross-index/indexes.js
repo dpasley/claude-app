@@ -10,7 +10,7 @@
   function nm(ids) { return ids.map(link).join(', '); }
   function more(list, n) { return list.length > n ? '<div class="muted small">and ' + (list.length - n) + ' more</div>' : ''; }
   var KINDS = [
-    { id: 'heating', label: 'Heating up', help: 'Subjects and areas with more reports lately than before, or newly connected to other names. Tick the ones to look into and open a special bank.' },
+    { id: 'heating', label: 'Heating up', help: 'Subjects and areas with more reports lately than before, or newly connected to other names.' },
     { id: 'discoveries', label: 'New discoveries', help: 'A connection entered recently ties names together that no single report shows.' },
     { id: 'hidden', label: 'Linked through others', help: 'Two names share two or more connections but have none between them.' },
     { id: 'together', label: 'Named together, not connected', help: 'In two or more reports together, with no connection recorded.' },
@@ -79,14 +79,23 @@
     };
   }
 
+  function heatTable(list, idx) {
+    var max = 1; list.forEach(function (x) { max = Math.max(max, x.now, x.prev); });
+    return '<table class="fixed"><colgroup><col style="width:30%"><col style="width:10%"><col style="width:8%"><col style="width:24%"><col style="width:13%"><col style="width:15%"></colgroup><thead><tr><th>Name</th><th>File type</th><th class="num">Before</th><th>Last ' + ix.days + ' days</th><th class="num">Newly linked</th><th></th></tr></thead><tbody>' + list.map(function (x) {
+      var e = idx.entity[x.id]; if (!e) return '';
+      return '<tr><td class="who" title="' + esc(x.why.join('; ')) + '"><a href="#/entity/' + esc(x.id) + '" style="display:flex;align-items:center;gap:10px;color:var(--text)">' + A.avatar(e, 26) + '<b>' + esc(e.name) + '</b></a></td><td>' + A.tag(e.type) + '</td><td class="num">' + x.prev + '</td>' +
+        '<td><span class="bar inline"><span style="width:' + Math.round(100 * x.now / max) + '%"></span></span> <b>' + x.now + '</b></td><td class="num">' + (x.relatedTotal || 0) + '</td>' +
+        '<td class="num"><button class="btn small" data-action="ix-open" data-id="' + esc(x.id) + '" data-why="' + esc(x.why.join('; ')) + '">Open special bank</button></td></tr>';
+    }).join('') + '</tbody></table>';
+  }
   function lookPanel(idx) {
     var f = findings(idx);
     if (!ix.kind || !f[ix.kind] || !f[ix.kind].length) {
       ix.kind = ''; KINDS.some(function (k) { if (f[k.id].length) { ix.kind = k.id; return true; } });
     }
-    var h = '<div class="tiles">' + KINDS.map(function (k) {
+    var h = '<div class="tabs sub kinds" role="tablist">' + KINDS.map(function (k) {
       var n = f[k.id].length;
-      return '<button class="tile' + (k.id === ix.kind ? ' on' : '') + (n ? '' : ' zero') + (k.id === 'heating' && n ? ' lead' : '') + '" data-action="ix-kind" data-kind="' + k.id + '"' + (n ? '' : ' disabled') + '><span class="n">' + n + '</span><span class="l">' + esc(k.label) + '</span></button>';
+      return '<button role="tab" class="tab' + (k.id === ix.kind ? ' on' : '') + (n ? '' : ' zero') + '" data-action="ix-kind" data-kind="' + k.id + '"' + (n ? '' : ' disabled') + '>' + esc(k.label) + ' <span class="n">' + n + '</span></button>';
     }).join('') + '</div>';
     var kind = KINDS.filter(function (k) { return k.id === ix.kind; })[0];
     h += '<div class="card"><div class="row spread"><h2>' + (kind ? esc(kind.label) : 'Activity') + '</h2><label class="row" style="margin:0">Last ' +
@@ -102,8 +111,8 @@
     } else {
       var shown = list.slice(0, kind.id === 'heating' ? list.length : (ix.shown || PAGE));
       if (kind.id === 'heating' && !list.length) h += '<p class="muted">Nothing is heating up in the last ' + ix.days + ' days.</p>';
-      if (kind.id === 'heating' && list.length) h += '<p><button class="btn primary" id="ix-bank" disabled data-action="ix-bank">Tick subjects or areas to open a special bank</button></p>';
-      h += shown.map(function (x) { return renderers[kind.id](x, idx); }).join('');
+      if (kind.id === 'heating' && list.length) h += heatTable(list, idx);
+      else h += shown.map(function (x) { return renderers[kind.id](x, idx); }).join('');
       if (list.length > shown.length) h += '<p><button class="btn" data-action="ix-more">Show more (' + (list.length - shown.length) + ' left)</button></p>';
     }
     h += '</div>';
@@ -135,7 +144,7 @@
     if (arg !== 'connections' && arg !== 'activity') arg = 'crossfiling';
     if (ix.tab !== arg) ix.lq = '';
     ix.tab = arg;
-    var badge = CI.discoveries(d, idx, CI.daysAgo(ix.days)).length;
+    var badge = CI.heating(d, ix.days, idx).length;
     var h = idxHead() + tabsBar(arg, badge);
     if (arg === 'activity') h += lookPanel(idx);
     else { if (sub) ix.cf = decodeURIComponent(sub); h += crossFiling(idx, arg); }
@@ -230,6 +239,7 @@
     var why = t.map(function (c) { return A.idx().entity[c.getAttribute('data-id')].name + ': ' + c.getAttribute('data-why'); }).join('. ') + '.';
     CI.views.openBank(t.map(function (c) { return c.getAttribute('data-id'); }), '', why);
   };
+  H['ix-open'] = function (el) { var id = el.getAttribute('data-id'); CI.views.openBank([id], '', A.idx().entity[id].name + ': ' + el.getAttribute('data-why') + '.'); };
   H['ix-days'] = function () { ix.days = Number(val('ix-days')) || 14; ix.shown = 0; CI.views.indexes('activity'); };
   H['ix-kind'] = function (el) { ix.kind = el.getAttribute('data-kind'); ix.shown = 0; CI.views.indexes('activity'); };
   H['ix-more'] = function () { ix.shown = (ix.shown || PAGE) + PAGE; CI.views.indexes('activity'); };

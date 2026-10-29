@@ -157,16 +157,17 @@
   }
   function updateNav() {
     var h = '#/' + cur;
-    var back = document.getElementById('back-btn'); if (back) back.disabled = !hist.length;
-    var sb = document.getElementById('sample-banner');
+        var sb = document.getElementById('sample-banner');
     if (sb) sb.hidden = true;
-    document.querySelectorAll('#nav a').forEach(function (a) {
+    document.querySelectorAll('#nav a, #more a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
       a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && (h.indexOf('#/report') === 0 || h.indexOf('#/folder') === 0)) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'chart' && (h.indexOf('#/estimate') === 0 || h.indexOf('#/bank') === 0)) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/lead') === 0 || h.indexOf('#/casechart') === 0)));
       if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/observation') === 0)) a.classList.add('active');
     });
     var rc = document.getElementById('review-count'), n = openCount();
     rc.textContent = n ? n : ''; rc.style.display = n ? 'inline-block' : 'none';
+    var dot = document.getElementById('review-dot'); if (dot) dot.hidden = !n;
+    var more = document.getElementById('more'); if (more) more.open = false;
   }
   function download(name, text, type) {
     var a = document.createElement('a');
@@ -344,7 +345,7 @@
     if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '' };
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
-    var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
+    var h = '<div class="page-head"><div class="ph-t"><h1>' + esc(r.id) + '</h1><p class="lead" title="' + esc(repTitle(r)) + '">' + esc(repTitle(r)) + '</p></div><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
     var mine = d.links.filter(function (l) { return l.reportId === id; });
     h += '<div class="card rep-strip"><div class="facts">' +
       '<div><span class="fl">Date of report</span><span class="fv">' + esc(CI.fmtDate(r.received)) + '</span></div>' +
@@ -609,11 +610,11 @@
       if (st.sort === 'recent') return (b.last || '').localeCompare(a.last || '') || a.e.name.localeCompare(b.e.name);
       return a.e.name.localeCompare(b.e.name);
     });
-    if (!rows.length) return '<tr><td colspan="5" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No names match.' : 'Nothing in this drawer yet.')) + '</td></tr>';
+    if (!rows.length) return '<tr><td colspan="4" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No names match.' : 'Nothing in this drawer yet.')) + '</td></tr>';
     return rows.map(function (x) {
       return '<tr><td class="nm">' + avatar(x.e, 30) + '<span class="ell"><a href="#/entity/' + esc(x.e.id) + '">' + esc(x.e.name) + '</a>' +
         (x.e.details ? ' <span class="muted small">' + esc(x.e.details) + '</span>' : '') + (x.e.aliases.length ? ' <span class="muted small">also: ' + esc(x.e.aliases.join(', ')) + '</span>' : '') + '</span></td>' +
-        '<td class="num">' + x.reports + '</td><td>' + (x.last ? esc(CI.fmtDate(x.last)) : '') + '</td><td class="num">' + x.links + '</td><td class="muted small">' + esc(x.e.id) + '</td></tr>';
+        '<td class="num">' + x.reports + '</td><td>' + (x.last ? esc(CI.fmtDate(x.last)) : '') + '</td><td class="num">' + x.links + '</td></tr>';
     }).join('');
   }
   function viewEntities(scope) {
@@ -626,13 +627,13 @@
       ? [{ id: '', label: 'All items', n: total }].concat(Object.keys(counts).sort().map(function (k) { return { id: k, label: k.charAt(0).toUpperCase() + k.slice(1), n: counts[k] }; }))
       : CI.FILE_TYPES.map(function (t) { return { id: t, label: CI.TYPE_LABEL[t] + 's', n: counts[t] || 0 }; });
     var base = items ? '#/items/' : '#/entities/';
-    view.innerHTML = '<div class="page-head"><h1>' + (items ? 'Items <span class="muted">plates, phones, emails, accounts: indexed, not filed</span>' : 'Files <span class="muted">filed by type</span>') + '</h1></div>' +
+    view.innerHTML = '<div class="page-head"><h1>' + (items ? 'Items' : 'Files') + '</h1></div>' + (items ? '<p class="lead">Plates, phones, emails and accounts: indexed, not filed.</p>' : '') +
       '<div class="tabs" role="tablist">' + tabs.map(function (t) {
         return '<a role="tab" class="tab' + (t.id === st.type ? ' on' : '') + '" href="' + base + encodeURIComponent(t.id) + '">' + esc(t.label) + ' <span class="n">' + t.n + '</span></a>';
       }).join('') + '</div>' +
       '<div class="card row wrap"><input type="search" id="ent-q" placeholder="' + (items ? 'Search plates, numbers, addresses and handles…' : 'Search this drawer by name, alias or details…') + '" value="' + esc(st.q) + '" data-on-input="ent-filter">' +
       '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'A to Z' }, { value: 'recent', label: 'Most recent report first' }], st.sort) + '</select></div>' +
-      '<div class="card flush"><table class="fixed"><colgroup><col style="width:46%"><col style="width:10%"><col style="width:16%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th><th>ID</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
+      '<div class="card flush"><table class="fixed"><colgroup><col style="width:58%"><col style="width:12%"><col style="width:16%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
   }
   handlers['idx-lead'] = function (el) {
     var rid = el.getAttribute('data-id'), r = idx().report[rid]; if (!r) return;
@@ -711,13 +712,14 @@
   function profileFields(e) {
     var fs = CI.isItem(e) ? [] : CI.profileFields(e.type); if (!fs.length) return '';
     var p = e.profile || {};
-    return '<h3 class="pf-h">' + esc(CI.TYPE_LABEL[e.type]) + ' profile</h3><div class="pf-grid">' + fs.map(function (f) {
+    var filled = fs.filter(function (f) { return p[f.id]; }).length;
+    return '<details class="pf-more"><summary>' + esc(CI.TYPE_LABEL[e.type]) + ' profile <span class="muted small">' + filled + ' of ' + fs.length + ' filled in</span></summary><div class="pf-grid">' + fs.map(function (f) {
       var v = p[f.id] || '', id = 'pf-' + f.id, hint = f.hint ? ' <span class="hint">' + esc(f.hint) + '</span>' : '';
       if (f.kind === 'date') return '<label class="pf-f">' + esc(f.label) + hint + dateInput(id, v, 'date-fix') + '</label>';
       if (f.kind === 'select') return '<label class="pf-f">' + esc(f.label) + hint + '<select id="' + id + '">' + options([{ value: '', label: '' }].concat(f.options.map(function (o) { return { value: o, label: o }; })), v) + '</select></label>';
       if (f.kind === 'long') return '<label class="pf-f wide">' + esc(f.label) + hint + '<textarea id="' + id + '" rows="2">' + esc(v) + '</textarea></label>';
       return '<label class="pf-f">' + esc(f.label) + hint + '<input type="text" id="' + id + '" value="' + esc(v) + '"></label>';
-    }).join('') + '</div>';
+    }).join('') + '</div></details>';
   }
   handlers['photo-file'] = function (el) {
     var e = idx().entity[el.getAttribute('data-id')], f = el.files && el.files[0];
@@ -940,7 +942,7 @@
   CI.app.start = function () {
     if (!d.started && !d.reports.length && !d.entities.length) { d = CI.sampleData(); persist(); }
     if (!d.settings.suggestedTypes) { ensureSuggested(); persist(); }
-    document.getElementById('back-btn').addEventListener('click', function () { if (hist.length) { cur = hist.pop(); route(); } });
+    document.addEventListener('click', function (ev) { var m = document.getElementById('more'); if (m && m.open && !m.contains(ev.target)) m.open = false; });
     route();
     if (CI.views.backupBanner) CI.views.backupBanner();
   };
