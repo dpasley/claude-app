@@ -84,6 +84,23 @@
   document.addEventListener('keydown', function (ev) { if (cal.el && (ev.key === 'Escape' || ev.key === 'Tab')) calClose(); });
   function readDate(id) { return CI.parseDate(val(id)); }
   var DATE_HELP = 'Not a date I can read. Try 25 Oct. 2026.';
+  /* Every page opens the same way: title, one grey line, actions at the right, then a row of tabs. */
+  function pageHead(title, lead, actions, tabs) {
+    return '<div class="page-head"><div class="ph-t"><h1>' + title + '</h1>' + (lead ? '<p class="lead">' + lead + '</p>' : '') + '</div>' + (actions ? '<div class="row">' + actions + '</div>' : '') + '</div>' + (tabs ? tabRow(tabs) : '');
+  }
+  function tabRow(list) {
+    return '<div class="tabs" role="tablist">' + list.map(function (t) {
+      var n = t.n != null ? ' <span class="n">' + t.n + '</span>' : '';
+      if (t.off) return '<span role="tab" class="tab off" aria-disabled="true">' + esc(t.label) + n + '</span>';
+      if (t.action) return '<button type="button" role="tab" class="tab' + (t.on ? ' on' : '') + '" data-action="' + esc(t.action) + '" data-v="' + esc(t.v || '') + '">' + esc(t.label) + n + '</button>';
+      return '<a role="tab" class="tab' + (t.on ? ' on' : '') + '" href="' + esc(t.href) + '">' + esc(t.label) + n + (t.extra || '') + '</a>';
+    }).join('') + '</div>';
+  }
+  function A_head(t, l) { return '<div class="page-head"><div class="ph-t"><h1>' + t + '</h1><p class="lead">' + l + '</p></div></div>'; }
+  function reportTabs(id, on) {
+    return [{ label: 'Report details', on: on === 'details', href: id ? '#/report/' + id + '/edit' : '#/report-new' },
+      id ? { label: 'Names and connections', on: on === 'names', href: '#/report/' + id } : { label: 'Names and connections', off: true }];
+  }
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
   function ensureSuggested() {
     if (d.settings.suggestedTypes) return;
@@ -293,9 +310,8 @@
     if (id && !r) return notFound('Report');
     r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
     repDefaults = null;
-    view.innerHTML = '<div class="page-head"><h1>' + (id ? 'Edit report – ' + esc(id) : 'New report') + '</h1></div>' + (id ? '' : CI.views.folderCard()) +
+    view.innerHTML = pageHead(id ? esc(id) : 'New report', id ? esc(trunc(repTitle(r), 110)) : 'Record the report first, then add the names it mentions and the connections it shows.', '', reportTabs(id, 'details')) + (id ? '' : CI.views.folderCard()) +
       '<form class="card form rep-form" id="rep-form" onsubmit="return false">' +
-      '<p class="form-intro">Record the report first. Next you add the names it mentions and the connections it shows.</p>' +
       '<div class="rf-grid">' +
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
@@ -345,7 +361,7 @@
     if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '' };
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
-    var h = '<div class="page-head"><div class="ph-t"><h1>' + esc(r.id) + '</h1><p class="lead" title="' + esc(repTitle(r)) + '">' + esc(repTitle(r)) + '</p></div><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
+    var h = pageHead(esc(r.id), esc(repTitle(r)), '<button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button>', reportTabs(id, 'names'));
     var mine = d.links.filter(function (l) { return l.reportId === id; });
     h += '<div class="card rep-strip"><div class="facts">' +
       '<div><span class="fl">Date of report</span><span class="fv">' + esc(CI.fmtDate(r.received)) + '</span></div>' +
@@ -627,7 +643,7 @@
       ? [{ id: '', label: 'All items', n: total }].concat(Object.keys(counts).sort().map(function (k) { return { id: k, label: k.charAt(0).toUpperCase() + k.slice(1), n: counts[k] }; }))
       : CI.FILE_TYPES.map(function (t) { return { id: t, label: CI.TYPE_LABEL[t] + 's', n: counts[t] || 0 }; });
     var base = items ? '#/items/' : '#/entities/';
-    view.innerHTML = '<div class="page-head"><h1>' + (items ? 'Items' : 'Files') + '</h1></div>' + (items ? '<p class="lead">Plates, phones, emails and accounts: indexed, not filed.</p>' : '') +
+    view.innerHTML = A_head(items ? 'Items' : 'Files', items ? 'Plates, phones, emails and accounts: indexed, not filed.' : 'The main file of every individual, group, area and subject.')  +
       '<div class="tabs" role="tablist">' + tabs.map(function (t) {
         return '<a role="tab" class="tab' + (t.id === st.type ? ' on' : '') + '" href="' + base + encodeURIComponent(t.id) + '">' + esc(t.label) + ' <span class="n">' + t.n + '</span></a>';
       }).join('') + '</div>' +
@@ -655,10 +671,10 @@
     var inc = graph.edges.filter(function (x) { return x.source === id || x.target === id; });
     var others = d.entities.filter(function (x) { return x.id !== id; }).sort(function (a, b) { return a.name.localeCompare(b.name); })
       .map(function (x) { return { value: x.id, label: x.name + ' (' + CI.TYPE_LABEL[x.type].toLowerCase() + ', ' + x.id + ')' }; });
-    var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1></div>';
     var stt = CI.statsFor(CI.materialStats(d, idx()), id), spec = CI.PHOTO_TYPES[e.type];
     var nConn = (idx().linksByEntity[id] || []).length;
-    h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + nConn + '</b> connection' + (nConn === 1 ? '' : 's') + ' to <b>' + stt.neighbors + '</b> name' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +
+    var eLead = '<b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + nConn + '</b> connection' + (nConn === 1 ? '' : 's') + ' to <b>' + stt.neighbors + '</b> name' + (stt.neighbors === 1 ? '' : 's');
+    var picCard = '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow">' +
       (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention it in passing.</div>' : '') +
       (spec ? '<div class="row wrap" style="margin-top:8px"><label class="btn small">' + (e.photo ? 'Replace ' : 'Add ') + spec.label.toLowerCase() + '<input type="file" accept="image/*" data-on-change="photo-file" data-id="' + esc(id) + '" hidden></label>' + (e.photo ? '<button class="btn small" data-action="photo-remove" data-id="' + esc(id) + '">Remove</button>' : '') + '<span class="muted small">Shown on the chart. Stored in this browser, shrunk to a small image.</span></div>' : '<div class="muted small" style="margin-top:6px">Pictures can be added to individuals (a photo) and groups (a logo).</div>') +
       '</div></div>';
@@ -667,11 +683,12 @@
     var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl], ['leads', 'Leads', nlead], ['chart', 'Chart', null]];
     if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['leads', 'Leads', nlead], ['chart', 'Chart', null]];
     if (!TABS.some(function (t) { return t[0] === tab; })) tab = 'profile';
-    h += '<div class="tabs">' + TABS.map(function (t) {
-      return '<a class="tab' + (tab === t[0] ? ' on' : '') + '" href="#/entity/' + esc(id) + (t[0] === 'profile' ? '' : '/' + t[0]) + '">' + t[1] + (t[2] != null ? ' <span class="n">' + t[2] + '</span>' : '') +
-        (t[0] === 'summaries' && nnew && !CI.isItem(e) ? ' <span class="tag warn" title="Reports not yet covered by a summary">' + nnew + ' new</span>' : '') + '</a>';
-    }).join('') + '</div>';
+    var h = pageHead(esc(e.name) + ' ' + kindTag(e), eLead + (stt.hub ? ' <span class="tag warn">high-connection</span>' : ''), '', TABS.map(function (t) {
+      return { label: t[1], n: t[2], on: tab === t[0], href: '#/entity/' + id + (t[0] === 'profile' ? '' : '/' + t[0]),
+        extra: (t[0] === 'summaries' && nnew && !CI.isItem(e) ? ' <span class="tag warn" title="Reports not yet covered by a summary">' + nnew + ' new</span>' : '') };
+    }));
     if (tab === 'profile') {
+    h += picCard;
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
       (CI.isItem(e) ? '<label>Kind of item <span class="hint">plate, phone, email, account…</span><input type="text" id="en-itemtype" value="' + esc(e.itemType || '') + '"></label><p class="muted small">An item has no folder. This page is its index entry: the reports that mention it and its connections.</p>' : '') +
       (CI.isItem(e) ? '' : '<label>Identifying details <span class="hint">date of birth or age, address, nickname, description: what tells this one apart</span><input type="text" id="en-details" value="' + esc(e.details || '') + '"></label>') +
@@ -929,6 +946,7 @@
   /* ---------- exposed to chartview.js ---------- */
   CI.views = CI.views || {};
   CI.app = {
+    pageHead: pageHead, tabRow: tabRow,
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
     viewEntity: function (id, tab) { viewEntity(id, tab); }, dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, connTable: connTable, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
   };

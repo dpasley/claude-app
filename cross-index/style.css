@@ -673,3 +673,12 @@ td.id, .idcol { color: var(--muted); font-size: 12px; }
 .row.wrap > .muted.small { flex: 1; min-width: 200px; }
 .row select { min-width: 190px; }
 table.fixed td.nm .ell, table.fixed td.nm a .ell { max-width: none; }
+
+/* One header for every page: title, one grey line, actions, tab row. Tabs sit at the same height everywhere. */
+.page-head { min-height: 60px; margin-bottom: 6px; }
+.page-head h1 { line-height: 30px; }
+.page-head .lead { line-height: 22px; margin: 0; }
+.page-head .lead b { color: var(--text); font-weight: 600; }
+.tabs { margin-top: 0; }
+.tabs button.tab { background: none; border: 0; border-bottom: 2px solid transparent; font: inherit; font-weight: 600; cursor: pointer; }
+.tabs .tab.off { color: var(--muted); opacity: .5; cursor: default; padding: 8px 14px; font-weight: 600; }

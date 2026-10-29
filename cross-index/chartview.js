@@ -25,11 +25,13 @@
   };
 
   /* ---------- the list of all charts ---------- */
-  var cl = { q: '' };
+  var cl = { q: '', view: 'all' };
+  function bankState(b) { return b.handedOver ? 'handed' : (b.outcome ? 'nosit' : 'open'); }
   function listRows() {
     var d = D(), q = CI.norm(cl.q), idx = A.idx();
     var rows = d.banks.slice().reverse().filter(function (b) {
       if (b.quick) return false;
+      if (cl.view !== 'all' && bankState(b) !== cl.view) return false;
       var seeds = b.seeds.map(function (id) { return idx.entity[id] ? idx.entity[id].name : ''; }).join(' ');
       return !q || CI.norm([b.name, seeds, (b.opened && b.opened.reason) || ''].join(' ')).indexOf(q) !== -1;
     });
@@ -47,11 +49,15 @@
   }
   function renderList() {
     A.view.className = '';
-    A.view.innerHTML = '<div class="page-head"><h1>Special banks</h1><button class="btn primary" data-action="cv-bank-new">New special bank</button></div>' +
-      '<div class="card"><input type="search" id="cl-q" data-lookup="#cl-list" autocomplete="off" placeholder="Find a special bank by name or reason…" value="' + esc(cl.q) + '" data-on-input="cl-q">' +
-      '<p class="muted small" style="margin:8px 0 0">A special bank is opened when a staff member spots a potential situation in the main files. It holds the related files, fattest first, with their chart and estimates, and can be handed over to Investigations.</p></div>' +
+    var all = D().banks.filter(function (b) { return !b.quick; }), cnt = { all: all.length, open: 0, handed: 0, nosit: 0 };
+    all.forEach(function (b) { cnt[bankState(b)]++; });
+    A.view.innerHTML = A.pageHead('Special banks', 'Opened when staff spot a possible situation. Each holds the related files, a chart and estimates.',
+      '<button class="btn primary" data-action="cv-bank-new">New special bank</button>',
+      [['all', 'All'], ['open', 'Open'], ['handed', 'Handed over'], ['nosit', 'No situation']].map(function (t) { return { label: t[1], n: cnt[t[0]], on: cl.view === t[0], action: 'cl-view', v: t[0] }; })) +
+      '<div class="card row wrap"><input type="search" id="cl-q" data-lookup="#cl-list" autocomplete="off" placeholder="Search by name or reason" value="' + esc(cl.q) + '" data-on-input="cl-q"></div>' +
       '<div class="card flush" id="cl-list">' + listRows() + '</div>';
   }
+  H['cl-view'] = function (el) { cl.view = el.getAttribute('data-v') || 'all'; renderList(); };
   H['cl-q'] = function (el) { cl.q = el.value; var b = document.getElementById('cl-list'); if (b) b.innerHTML = listRows(); };
   function bankOf(el) { return D().banks.filter(function (b) { return b.id === el.getAttribute('data-id'); })[0]; }
   H['cl-rename'] = function (el) {

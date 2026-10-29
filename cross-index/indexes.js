@@ -113,7 +113,7 @@
 
   /* ----- tabs ----- */
   var TABS = [{ id: 'crossfiling', label: 'Cross-filing' }, { id: 'connections', label: 'Connections' }, { id: 'activity', label: 'Activity' }];
-  function idxHead() { return '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Names that moved recently</a></div>'; }
+  function idxHead() { return '<div class="page-head"><div class="ph-t"><h1>Indexes</h1><p class="lead">Who is connected to whom, and what is moving.</p></div><a class="small" href="#/observation">Names that moved recently</a></div>'; }
   function tabsBar(active, badge) {
     return '<div class="tabs" role="tablist">' + TABS.map(function (t) {
       return '<a role="tab" class="tab' + (t.id === active ? ' on' : '') + '" href="#/indexes/' + t.id + '">' + esc(t.label) +
