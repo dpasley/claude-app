@@ -19,29 +19,28 @@
     return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
   }
   CI.tile = function (type, color, photo) {
-    var light = mix(color, 0.22), deep = mix(color, -0.22);
-    var glyph = function (tx, ty, sc, fill) { return '<g fill="' + fill + '" transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, color) + '</g>'; };
-    var defs = '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + light + '"/><stop offset="1" stop-color="' + deep + '"/></linearGradient>';
-    var body;
+    var tint = mix(color, 0.86), ring = color;
+    var glyph = function (tx, ty, sc) { return '<g fill="' + color + '" transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, tint) + '</g>'; };
+    var defs = '<defs>', body;
     if (type === 'individual') {
-      defs += '<clipPath id="c"><circle cx="100" cy="100" r="88"/></clipPath></defs>';
-      body = '<circle cx="100" cy="100" r="100" fill="' + color + '"/>' + (photo
-        ? '<circle cx="100" cy="100" r="88" fill="#fff"/><image xlink:href="' + photo + '" x="12" y="12" width="176" height="176" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>'
-        : '<circle cx="100" cy="100" r="88" fill="url(#g)"/><g clip-path="url(#c)">' + glyph(9, 4, 1.9, 'rgba(255,255,255,.95)') + '</g>');
+      defs += '<clipPath id="c"><circle cx="100" cy="100" r="90"/></clipPath></defs>';
+      body = '<circle cx="100" cy="100" r="96" fill="#fff" stroke="' + ring + '" stroke-width="8"/>' + (photo
+        ? '<image xlink:href="' + photo + '" x="10" y="10" width="180" height="180" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>'
+        : '<circle cx="100" cy="100" r="90" fill="' + tint + '"/><g clip-path="url(#c)">' + glyph(9, 8, 1.9) + '</g>');
     } else if (type === 'group') {
-      defs += '<clipPath id="c"><rect x="10" y="10" width="180" height="180" rx="34"/></clipPath></defs>';
-      body = '<rect width="200" height="200" rx="44" fill="' + color + '"/>' + (photo
-        ? '<rect x="10" y="10" width="180" height="180" rx="34" fill="#fff"/><image xlink:href="' + photo + '" x="26" y="26" width="148" height="148" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
-        : '<rect x="10" y="10" width="180" height="180" rx="34" fill="url(#g)"/>' + glyph(26, 26, 1.5, '#fff'));
+      defs += '<clipPath id="c"><rect x="12" y="12" width="176" height="176" rx="32"/></clipPath></defs>';
+      body = '<rect x="4" y="4" width="192" height="192" rx="40" fill="#fff" stroke="' + ring + '" stroke-width="8"/>' + (photo
+        ? '<image xlink:href="' + photo + '" x="24" y="24" width="152" height="152" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
+        : '<rect x="12" y="12" width="176" height="176" rx="32" fill="' + tint + '"/>' + glyph(26, 26, 1.5));
     } else if (type === 'area') {
       defs += '</defs>';
-      body = '<polygon points="6,100 50,6 150,6 194,100 150,194 50,194" fill="url(#g)" stroke="' + color + '" stroke-width="12" stroke-linejoin="round"/>' + glyph(36, 34, 1.3, '#fff');
+      body = '<polygon points="8,100 52,10 148,10 192,100 148,190 52,190" fill="' + tint + '" stroke="' + ring + '" stroke-width="9" stroke-linejoin="round"/>' + glyph(36, 34, 1.3);
     } else if (type === 'item') {
       defs += '</defs>';
-      body = '<polygon points="40,8 160,8 192,40 192,160 160,192 40,192 8,160 8,40" fill="url(#g)" stroke="' + color + '" stroke-width="12" stroke-linejoin="round"/>' + glyph(36, 34, 1.3, '#fff');
+      body = '<polygon points="40,8 160,8 192,40 192,160 160,192 40,192 8,160 8,40" fill="' + tint + '" stroke="' + ring + '" stroke-width="9" stroke-linejoin="round"/>' + glyph(36, 34, 1.3);
     } else {
       defs += '</defs>';
-      body = '<polygon points="100,8 192,100 100,192 8,100" fill="url(#g)" stroke="' + color + '" stroke-width="16" stroke-linejoin="round"/>' + glyph(46, 44, 1.1, '#fff');
+      body = '<polygon points="100,6 194,100 100,194 6,100" fill="' + tint + '" stroke="' + ring + '" stroke-width="9" stroke-linejoin="round"/>' + glyph(46, 44, 1.1);
     }
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="200" viewBox="0 0 200 200">' + defs + body + '</svg>';
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);

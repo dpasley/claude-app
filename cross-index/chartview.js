@@ -100,7 +100,7 @@
     }
     h += '<div class="chart-layout nodetail" id="cl"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
       '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
-      '<button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
+      '<button class="btn small" data-action="cv-zoom" data-f="0.8" title="Zoom out" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" title="Zoom in" aria-label="Zoom in">+</button><button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
       '</div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
       '<div id="cmpnote" class="cmpnote" hidden></div><div id="cy"></div></section><aside class="panel" id="detail"></aside></div>';
@@ -144,9 +144,12 @@
     return h;
   }
 
-  function legendHtml() {
-    return '<div class="legend"><span>photo or logo tile = individual / group</span><span>arrow = direction</span><span>thicker line = more independent reports</span><span>dashed = mentioned together</span><span>orange = new or traced</span><span>black ring = starting entity</span><span>grey ring = high-connection</span><span>drag tiles to arrange; the arrangement is kept</span></div>';
-  }
+  function legendHtml() { return CI.views.chartLegend(); }
+  CI.views.chartLegend = function () {
+    var T = [['individual', 'Individual'], ['group', 'Group'], ['area', 'Area'], ['subject', 'Subject']];
+    return '<div class="legend lg2">' + T.map(function (t) { return '<span class="lg-i"><i class="sw sw-' + t[0] + '" style="--c:' + CI.TYPE_COLOR[t[0]] + '"></i>' + t[1] + '</span>'; }).join('') +
+      '<span class="lg-sep"></span><span><i class="ln thin"></i><i class="ln thick"></i> thicker line = more independent reports</span><span>arrow = direction</span><span>big name = many connections</span><span>shaded area = closely connected names</span><span>hover a name to follow its connections</span></div>';
+  };
 
   document.addEventListener('toggle', function (ev) { if (ev.target && ev.target.id === 'snap-panel') st.snapOpen = ev.target.open; }, true);
 
@@ -390,6 +393,7 @@
 
   /* toolbar */
   H['cv-fit'] = function () { CI.chart.fit(); };
+  H['cv-zoom'] = function (el) { CI.chart.zoomBy(Number(el.getAttribute('data-f')) || 1); };
   H['cv-relayout'] = function () { st.forceLayout = true; st.forceFit = true; draw(); };
   H['cv-png'] = function () {
     var uri = CI.chart.png(); if (!uri) return;
