@@ -115,7 +115,7 @@
   /* ---------- data container ---------- */
   CI.emptyData = function () {
     return {
-      version: 1, started: false, sampleLoaded: false,
+      version: 1, schema: 8, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
       counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0, summary: 0, timeline: 0, request: 0 },
       entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [], summaries: [], timeline: [], requests: [],
@@ -375,6 +375,45 @@
     return e;
   };
 
+  /* ----- the folder being worked on: a physical file whose reports are being entered ----- */
+  /* ----- backup record: when the data was last saved to a file, and how many saves since ----- */
+  CI.markBackup = function (d) { d.ui = d.ui || {}; d.ui.lastBackup = new Date().toISOString(); d.ui.changes = 0; d.ui.snooze = 0; };
+  CI.backupState = function (d, now) {
+    var u = d.ui || {}, n = u.changes || 0, has = d.reports.length + d.entities.length > 0;
+    var days = u.lastBackup ? Math.floor(((now || Date.now()) - Date.parse(u.lastBackup)) / 86400000) : null;
+    var due = has && n > (u.snooze || 0) && ((days === null && n >= 10) || n >= 25 || (days !== null && days >= 7));
+    return { changes: n, last: u.lastBackup || '', days: days, due: due };
+  };
+  CI.folderOf = function (d) {
+    var f = d.ui && d.ui.folder; if (!f) return null;
+    var e = d.entities.filter(function (x) { return x.id === f.entityId; })[0];
+    return e ? { entity: e, reports: (f.reports || []).filter(function (id) { return d.reports.some(function (r) { return r.id === id; }); }), since: f.since } : null;
+  };
+  CI.openFolder = function (d, entityId) {
+    if (!d.entities.some(function (x) { return x.id === entityId; })) return 'No such file.';
+    d.ui = d.ui || {}; d.ui.folder = { entityId: entityId, reports: [], since: CI.today() }; return null;
+  };
+  CI.closeFolder = function (d) { if (d.ui) d.ui.folder = null; };
+  /* A new report from this folder: the folder's name is put on it and the report is counted. */
+  CI.folderAdd = function (d, reportId) {
+    var f = d.ui && d.ui.folder; if (!f) return;
+    if (f.reports.indexOf(reportId) === -1) f.reports.push(reportId);
+    CI.addEntityToReport(d, reportId, f.entityId, '', false, '');
+  };
+  /* What was entered from this folder, and the leads still open that come out of it. */
+  CI.folderSummary = function (d) {
+    var fo = CI.folderOf(d); if (!fo) return null;
+    var ids = {}; fo.reports.forEach(function (id) { ids[id] = 1; });
+    var reports = d.reports.filter(function (r) { return ids[r.id]; }), names = {};
+    reports.forEach(function (r) { r.entities.forEach(function (x) { names[x.entityId] = (names[x.entityId] || 0) + 1; }); });
+    delete names[fo.entity.id];
+    var links = d.links.filter(function (l) { return ids[l.reportId]; });
+    var leads = d.leads.concat(d.requests).filter(function (l) {
+      return !CI.isClosed(l) && ((l.raisedBy && ids[l.raisedBy]) || (l.origin && ((l.origin.kind === 'report' && ids[l.origin.id]) || (l.origin.kind === 'file' && l.origin.id === fo.entity.id))) || (l.about || []).indexOf(fo.entity.id) !== -1);
+    });
+    return { entity: fo.entity, since: fo.since, reports: reports, names: Object.keys(names).map(function (id) { return { id: id, n: names[id] }; }), links: links, leads: leads };
+  };
+
   CI.addEntityToReport = function (d, reportId, entityId, role, flag, flagNote) {
     var r = d.reports.filter(function (x) { return x.id === reportId; })[0];
     if (!r) return 'Report not found.';
@@ -548,6 +587,7 @@
     var from = d.entities.filter(function (e) { return e.id === fromId; })[0];
     var into = d.entities.filter(function (e) { return e.id === intoId; })[0];
     if (!from || !into) return { error: 'Entity not found.' };
+    if (d.ui && d.ui.folder && d.ui.folder.entityId === fromId) d.ui.folder.entityId = intoId;
     var rec = {
       id: CI.nextId(d, 'merge'), t: CI.today(), fromId: fromId, intoId: intoId,
       fromEntity: clone(from), addedAliases: [], reportsBefore: [], linksBefore: [], linksRemoved: [], undone: false
@@ -630,7 +670,7 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
+      layout: 'cose', edgeLabels: 'auto', topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
       estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }],
       charts: [{ id: 'CH-1', name: 'Chart', state: null }], chartId: 'CH-1', chartSeq: 1
     };
@@ -917,7 +957,7 @@
    * into the chart being left and loads the other's, so the rest of the app keeps reading them straight off the bank. */
   CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId'];
   function chartDefaults() {
-    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: true, positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '' };
+    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: 'auto', positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '' };
   }
   CI.ensureCharts = function (b) {
     if (b.quick) return;

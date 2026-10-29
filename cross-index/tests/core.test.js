@@ -450,3 +450,26 @@ t('leads can sit outside an investigation; the register, a name\'s leads and the
   const n = CI.normalize(old); assert.equal(n.schema, 8); assert.ok(n.leads.every(l => l.origin && l.origin.kind));
   CI.mergeEntities(d, a, b); assert.ok(d.leads.every(l => !l.origin || l.origin.id !== a));
 });
+
+t('folder mode: reports get the folder name, the summary lists what came out of it', () => {
+  const d = CI.sampleData(), e = d.entities.find(x => x.type === 'individual');
+  assert.equal(CI.folderOf(d), null); assert.ok(CI.openFolder(d, 'E-nope'));
+  assert.equal(CI.openFolder(d, e.id), null);
+  const r = { id: 'R-9001', received: '2026-10-01', subject: 'x', entities: [], created: '', updated: '' }; d.reports.push(r);
+  CI.folderAdd(d, r.id); CI.folderAdd(d, r.id);
+  assert.deepEqual(r.entities.map(x => x.entityId), [e.id]); assert.equal(CI.folderOf(d).reports.length, 1);
+  const other = d.entities.find(x => x.id !== e.id); CI.addEntityToReport(d, r.id, other.id, '', false, '');
+  CI.addLead(d, { question: 'Follow up', raisedBy: r.id, about: [other.id] });
+  const s = CI.folderSummary(d); assert.equal(s.reports.length, 1); assert.equal(s.names.length, 1); assert.ok(s.leads.some(l => l.question === 'Follow up'));
+  const keep = d.entities.find(x => x.id !== e.id && x.id !== other.id); CI.mergeEntities(d, e.id, keep.id); assert.equal(d.ui.folder.entityId, keep.id);
+  CI.closeFolder(d); assert.equal(CI.folderOf(d), null);
+});
+
+t('backup reminder: due after many changes or a week, quiet right after a backup', () => {
+  const d = CI.sampleData(); d.ui.changes = 3; d.ui.lastBackup = ''; assert.ok(!CI.backupState(d).due);
+  d.ui.changes = 12; assert.ok(CI.backupState(d).due);
+  d.ui.snooze = 20; assert.ok(!CI.backupState(d).due);
+  CI.markBackup(d); assert.equal(d.ui.changes, 0); assert.ok(!CI.backupState(d).due);
+  d.ui.changes = 2; assert.ok(CI.backupState(d, Date.now() + 8 * 86400000).due);
+  assert.ok(!CI.backupState(CI.emptyData()).due);
+});

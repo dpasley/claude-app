@@ -79,3 +79,6 @@ Chart → *Print for the wall…* splits the chart across tabloid (11 × 17) or 
 
 ## Leads and the lead register
 A lead or request may belong to an investigation or to none. The Investigations page has an Investigations tab and a Lead register tab (all leads and requests, filterable and printable). An individual's page has a Leads tab; the indexing page has Raise a lead. Each lead records where it was raised and the printed sheet states it, so it is clear whether the sheet belongs in an investigation's physical folder or in the register. Data schema 8.
+
+## Folder mode, backups and pilot data
+New report has a folder box: pick the file you are holding and every report entered is put on it; Finish folder summarises and prints the open lead sheets. A banner asks for a backup after enough changes. Settings can load a pilot-sized fictional data set (300 reports) for testing at volume.

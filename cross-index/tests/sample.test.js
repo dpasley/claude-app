@@ -1,7 +1,7 @@
 // Run with: node tests/sample.test.js — the shipped sample data is rich enough and internally consistent.
 const assert = require('assert');
 globalThis.CI = {}; globalThis.jspdf = require('../vendor/jspdf.umd.min.js');
-require('../core.js'); require('../portraits.js'); require('../sample.js'); require('../images.js'); require('../chart.js'); require('../pdf.js'); require('../pointers.js');
+require('../core.js'); require('../portraits.js'); require('../sample.js'); require('../pilot.js'); require('../images.js'); require('../chart.js'); require('../pdf.js'); require('../pointers.js');
 const CI = globalThis.CI; let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 const d = CI.sampleData(), idx = CI.buildIndex(d);
 
@@ -51,3 +51,14 @@ t('it survives a save and load unchanged in shape', () => {
   assert.equal(back.entities.length, d.entities.length); assert.equal(back.reports.length, d.reports.length); assert.equal(back.schema, 8);
 });
 console.log(n + ' sample checks passed');
+
+t('pilot-sized data: about 300 reports, repeatable, consistent, with the untidy cases', () => {
+  const p = CI.pilotData(), q = CI.pilotData(), ids = new Set(p.entities.map(e => e.id)), rids = new Set(p.reports.map(r => r.id));
+  assert.equal(JSON.stringify(p.links), JSON.stringify(q.links));
+  assert.ok(p.reports.length >= 290 && p.entities.length >= 60 && p.links.length >= 350);
+  p.reports.forEach(r => { assert.ok(CI.validateReport(r).length === 0); r.entities.forEach(x => assert.ok(ids.has(x.entityId))); if (r.dupOf) assert.ok(rids.has(r.dupOf)); });
+  p.links.forEach(l => assert.ok(ids.has(l.from) && ids.has(l.to) && rids.has(l.reportId)));
+  assert.ok(p.reports.some(r => r.dupOf) && p.reports.some(r => r.entities.some(x => x.flag)) && p.reports.some(r => !p.links.some(l => l.reportId === r.id)));
+  assert.ok(p.banks.every(b => b.files.length > 3) && p.leads.some(l => !l.investigationId));
+  assert.ok(JSON.stringify(p).length < 600000);
+});

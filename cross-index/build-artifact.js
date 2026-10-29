@@ -5,7 +5,7 @@ const dir = __dirname, read = f => fs.readFileSync(path.join(dir, f), 'utf8');
 const safeJs = t => t.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
 const html = read('index.html');
 const body = html.slice(html.indexOf('<body>') + 6, html.indexOf('<script src='));
-const scripts = ['vendor/cytoscape.min.js', 'vendor/jspdf.umd.min.js', 'core.js', 'portraits.js', 'sample.js', 'images.js', 'chart.js', 'pdf.js', 'app.js', 'chartview.js', 'banks.js', 'documents.js', 'leads.js', 'pointers.js', 'observe.js', 'indexes.js', 'investigations.js', 'casechart.js'];
+const scripts = ['vendor/cytoscape.min.js', 'vendor/jspdf.umd.min.js', 'core.js', 'portraits.js', 'sample.js', 'pilot.js', 'images.js', 'chart.js', 'pdf.js', 'app.js', 'chartview.js', 'banks.js', 'documents.js', 'leads.js', 'pointers.js', 'observe.js', 'indexes.js', 'investigations.js', 'casechart.js', 'folder.js', 'backup.js'];
 const out = [
   '<title>Cross-Index</title>',
   '<meta name="claude:viewport-fit-sides" content="cover">',

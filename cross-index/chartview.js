@@ -73,6 +73,8 @@
     }, { title: 'Delete special bank', yes: 'Delete', danger: true });
   };
 
+  /* Labels default to automatic: on for small charts, off once there are more than 25 connections (they pile up). */
+  function labelsOn(bank, graph) { return bank.edgeLabels === true ? true : bank.edgeLabels === false ? false : (graph.edges || []).length <= 25; }
   function currentGraph(bank) {
     if (bank.viewMode === 'frozen') {
       var s = snapOf(bank, bank.frozenId);
@@ -120,7 +122,7 @@
       }).join('') + '</div>' +
       '<div class="grid2 tight-grid"><label>From ' + A.dateInput('cv-from', bank.dateFrom, 'cv-date', ' data-k="dateFrom"') + '</label><label>To ' + A.dateInput('cv-to', bank.dateTo, 'cv-date', ' data-k="dateTo"') + '</label></div>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
-      chk('l', bank.edgeLabels !== false, 'Label the connections', 'data-on-change="cv-labels"') + '</div>';
+      chk('l', labelsOn(bank, currentGraph(bank).graph), 'Label the connections' + (bank.edgeLabels === true || bank.edgeLabels === false ? '' : ' (automatic)'), 'data-on-change="cv-labels"') + '</div>';
     if (bank.excluded.length) {
       h += '<h3>Hidden</h3><div class="chips">' + bank.excluded.map(function (id) {
         var e = A.idx().entity[id];
@@ -177,7 +179,7 @@
       layout: bank.layout, positions: posMap, forceLayout: force, forceFit: forceFit, viewKey: bank.id + '|' + bank.chartId + '|' + (cur.frozen ? cur.frozen.id : 'live'),
       onLaidOut: function (all) { Object.keys(all).forEach(function (k) { posMap[k] = all[k]; }); A.persist(); }, photoOf: function (id) { var e = A.idx().entity[id]; return e && e.photo ? e.photo : ''; },
       onMoved: function (id, p) { posMap[id] = p; A.persist(); },
-      edgeLabels: bank.edgeLabels !== false, diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
+      edgeLabels: labelsOn(bank, graph), diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
       onNode: function (id) { st.sel = { kind: 'node', id: id }; renderDetail(); },
       onEdge: function (id) { st.sel = { kind: 'edge', id: id }; renderDetail(); },
       onBackground: function () { st.sel = null; renderDetail(); }

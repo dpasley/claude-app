@@ -538,3 +538,8 @@ tr.key td { font-weight: 600; }
 .ip-res { margin-top: 4px; }
 .ip-res .cand { padding: 2px 0; }
 .ip-wrap .ip-res { position: absolute; left: 0; right: 0; z-index: 5; background: var(--panel); box-shadow: 0 4px 14px rgba(0,0,0,.12); border-radius: 6px; }
+
+#backup-banner { background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--border); padding: 7px max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; }
+#backup-banner[hidden] { display: none !important; }
+#backup-banner .btn { margin-left: 8px; }
+.folder-bar { align-items: center; }
