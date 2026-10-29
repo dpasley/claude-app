@@ -31,13 +31,31 @@
     return '<input type="text" id="' + id + '" list="' + id + '-dl" autocomplete="off" value="' + esc(value || '') + '" placeholder="Optional: start typing a report number or subject"><datalist id="' + id + '-dl">' +
       reps.map(function (r) { return '<option value="' + esc(r.id + ' – ' + A.trunc(r.subject || r.summary || r.sourceRef || '', 60)) + '">'; }).join('') + '</datalist>';
   }
-  /* A type-to-search box for the investigation. Empty means no investigation. */
-  function invBox(id, list, selId) {
-    var sel = list.filter(function (v) { return v.id === selId; })[0];
-    return '<input type="text" id="' + id + '" list="' + id + '-dl" autocomplete="off" value="' + esc(sel ? sel.id + ' – ' + CI.views.invName(sel) : '') + '" placeholder="No investigation: start typing to search"><datalist id="' + id + '-dl">' +
-      list.map(function (v) { return '<option value="' + esc(v.id + ' – ' + CI.views.invName(v)) + '">'; }).join('') + '</datalist>';
+  /* A type-to-search box for the investigation. Nothing drops down until you type; arrow keys and Enter pick.
+     The chosen value is kept on the box (data-value). Empty text means no investigation (or all, on the register). */
+  var pickers = {};
+  function invBox(id, list, selId, extra, placeholder) {
+    var all = (extra || []).concat(list.map(function (v) { return { value: v.id, label: v.id + ' \u2013 ' + CI.views.invName(v) }; }));
+    pickers[id] = all;
+    var sel = all.filter(function (x) { return x.value === selId && selId; })[0];
+    return '<input type="search" id="' + id + '" class="ip-in" data-lookup="#' + id + '-res" data-on-input="ip-find" autocomplete="off" data-value="' + esc(sel ? sel.value : '') + '" value="' + esc(sel ? sel.label : '') + '" placeholder="' + esc(placeholder || 'No investigation: start typing to search') + '"><div id="' + id + '-res" class="ip-res"></div>';
   }
-  function readInv(id) { var t = val(id).trim(); if (!t) return ''; var m = t.match(/V-\d+/i); return m ? m[0].toUpperCase() : '?'; }
+  CI.views.invBox = invBox;
+  function readInv(id) { var e = document.getElementById(id); if (!e || !e.value.trim()) return ''; return e.getAttribute('data-value') || '?'; }
+  CI.views.readInv = readInv;
+  H['ip-find'] = function (el) {
+    var res = document.getElementById(el.id + '-res'), q = el.value.trim().toLowerCase();
+    el.setAttribute('data-value', '');
+    if (!q) { res.innerHTML = ''; if (el.getAttribute('data-on-pick')) { var f = H[el.getAttribute('data-on-pick')]; if (f) f(el, ''); } return; }
+    var hits = (pickers[el.id] || []).filter(function (x) { return x.label.toLowerCase().indexOf(q) !== -1; }).slice(0, 8);
+    res.innerHTML = hits.length ? hits.map(function (x) { return '<div class="cand pick"><button type="button" class="btn small" data-action="ip-pick" data-for="' + esc(el.id) + '" data-value="' + esc(x.value) + '" data-label="' + esc(x.label) + '">' + esc(x.label) + '</button></div>'; }).join('') : '<p class="muted small">No investigation matches.</p>';
+  };
+  H['ip-pick'] = function (el) {
+    var inp = document.getElementById(el.getAttribute('data-for')); if (!inp) return;
+    inp.value = el.getAttribute('data-label'); inp.setAttribute('data-value', el.getAttribute('data-value'));
+    document.getElementById(inp.id + '-res').innerHTML = '';
+    var f = inp.getAttribute('data-on-pick'); if (f && H[f]) H[f](inp, el.getAttribute('data-value'));
+  };
   function readReport(id) { var m = val(id).match(/R-\d+/i); return m ? m[0].toUpperCase() : (val(id).trim() ? '?' + val(id).trim() : ''); }
   function repLabel(rid) { var r = A.idx().report[rid]; return r ? rid + ' – ' + A.trunc(r.subject || r.summary || r.sourceRef || '', 60) : (rid || ''); }
 

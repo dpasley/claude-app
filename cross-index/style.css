@@ -533,3 +533,8 @@ tr.key td { font-weight: 600; }
 .chartbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .chartbar label { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .chartbar select { width: auto; margin: 0; }
+.ip-in { width: 100%; }
+.ip-wrap { position: relative; display: inline-block; min-width: 260px; }
+.ip-res { margin-top: 4px; }
+.ip-res .cand { padding: 2px 0; }
+.ip-wrap .ip-res { position: absolute; left: 0; right: 0; z-index: 5; background: var(--panel); box-shadow: 0 4px 14px rgba(0,0,0,.12); border-radius: 6px; }

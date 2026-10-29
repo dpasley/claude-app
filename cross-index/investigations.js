@@ -44,7 +44,7 @@
     var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><button class="btn primary" data-action="reg-new">' + (req ? 'New request' : 'New lead') + '</button><button class="btn" data-action="reg-print"' + (rows.length ? '' : ' disabled') + '>Print ' + (req ? 'request' : 'lead') + ' list</button></div></div>' + invPageTabs('register') +
       '<div class="card"><div class="row wrap"><div class="row" style="gap:6px"><button class="btn small' + (req ? '' : ' primary') + '" data-action="reg-kind" data-kind="lead">Leads ' + d.leads.length + '</button><button class="btn small' + (req ? ' primary' : '') + '" data-action="reg-kind" data-kind="request">Requests ' + d.requests.length + '</button></div>' +
       '<label class="row" style="margin:0">Show <select id="rg-open" data-on-change="reg-filter">' + A.options([{ value: 'open', label: 'Open only' }, { value: 'all', label: 'All' }], lr.open ? 'open' : 'all') + '</select></label>' +
-      '<label class="row" style="margin:0">Investigation <select id="rg-inv" data-on-change="reg-filter">' + A.options([{ value: '', label: 'All' }, { value: 'none', label: 'None' }].concat(d.investigations.map(function (v) { return { value: v.id, label: v.id + ' – ' + invName(v) }; })), lr.inv) + '</select></label>' +
+      '<div class="row" style="margin:0">Investigation <span class="ip-wrap">' + CI.views.invBox('rg-inv', d.investigations, lr.inv, [{ value: 'none', label: 'No investigation' }], 'All: type to search').replace('data-on-input="ip-find"', 'data-on-input="ip-find" data-on-pick="reg-inv"') + '</span></div>' +
       '<label class="row" style="margin:0">Assigned to <select id="rg-who" data-on-change="reg-filter">' + A.options([{ value: '', label: 'Anyone' }].concat(Object.keys(people).sort().map(function (p) { return { value: p, label: p }; })), lr.who) + '</select></label></div>' +
       '<p class="muted small" style="margin:8px 0 0">A lead or request can belong to an investigation or to none. The sheet prints where it belongs: an investigation\u2019s folder, or the register.</p></div>';
     h += rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:7%"><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:13%"><col style="width:13%"><col style="width:12%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
@@ -54,7 +54,8 @@
     A.view.className = ''; A.view.innerHTML = h;
   }
   H['reg-kind'] = function (el) { lr.kind = el.getAttribute('data-kind'); lr.who = ''; register(); };
-  H['reg-filter'] = function () { lr.open = val('rg-open') !== 'all'; lr.inv = val('rg-inv'); lr.who = val('rg-who'); register(); };
+  H['reg-filter'] = function () { lr.open = val('rg-open') !== 'all'; lr.who = val('rg-who'); register(); };
+  H['reg-inv'] = function (el, value) { if ((value || '') === lr.inv) return; lr.inv = value || ''; register(); };
   H['reg-new'] = function () { CI.views.openLead({ kind: lr.kind === 'request' ? 'DATA_REQUEST' : 'INVESTIGATION', investigationId: lr.inv && lr.inv !== 'none' ? lr.inv : '', origin: { kind: 'register', id: '' } }); };
   H['reg-print'] = function () {
     var d = D(), req = lr.kind === 'request';
