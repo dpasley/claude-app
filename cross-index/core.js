@@ -384,16 +384,18 @@
     var due = has && n > (u.snooze || 0) && ((days === null && n >= 10) || n >= 25 || (days !== null && days >= 7));
     return { changes: n, last: u.lastBackup || '', days: days, due: due };
   };
-  CI.folderOf = function (d) {
-    var f = d.ui && d.ui.folder; if (!f) return null;
+  CI.folderOf = function (d, finished) {
+    var f = d.ui && (finished ? d.ui.finished : d.ui.folder); if (!f) return null;
     var e = d.entities.filter(function (x) { return x.id === f.entityId; })[0];
     return e ? { entity: e, reports: (f.reports || []).filter(function (id) { return d.reports.some(function (r) { return r.id === id; }); }), since: f.since } : null;
   };
   CI.openFolder = function (d, entityId) {
     if (!d.entities.some(function (x) { return x.id === entityId; })) return 'No such file.';
-    d.ui = d.ui || {}; d.ui.folder = { entityId: entityId, reports: [], since: CI.today() }; return null;
+    d.ui = d.ui || {}; d.ui.folder = { entityId: entityId, reports: [], since: CI.today() }; d.ui.finished = null; return null;
   };
   CI.closeFolder = function (d) { if (d.ui) d.ui.folder = null; };
+  /* Finishing a folder puts it away and keeps its summary to look at and print from, until the next folder is started. */
+  CI.finishFolder = function (d) { if (!d.ui || !d.ui.folder) return; d.ui.finished = d.ui.folder; d.ui.folder = null; };
   /* A new report from this folder: the folder's name is put on it and the report is counted. */
   CI.folderAdd = function (d, reportId) {
     var f = d.ui && d.ui.folder; if (!f) return;
@@ -402,7 +404,7 @@
   };
   /* What was entered from this folder, and the leads still open that come out of it. */
   CI.folderSummary = function (d) {
-    var fo = CI.folderOf(d); if (!fo) return null;
+    var fo = CI.folderOf(d) || CI.folderOf(d, true); if (!fo) return null;
     var ids = {}; fo.reports.forEach(function (id) { ids[id] = 1; });
     var reports = d.reports.filter(function (r) { return ids[r.id]; }), names = {};
     reports.forEach(function (r) { r.entities.forEach(function (x) { names[x.entityId] = (names[x.entityId] || 0) + 1; }); });
@@ -587,7 +589,7 @@
     var from = d.entities.filter(function (e) { return e.id === fromId; })[0];
     var into = d.entities.filter(function (e) { return e.id === intoId; })[0];
     if (!from || !into) return { error: 'Entity not found.' };
-    if (d.ui && d.ui.folder && d.ui.folder.entityId === fromId) d.ui.folder.entityId = intoId;
+    ['folder', 'finished'].forEach(function (k) { if (d.ui && d.ui[k] && d.ui[k].entityId === fromId) d[ 'ui' ][k].entityId = intoId; });
     var rec = {
       id: CI.nextId(d, 'merge'), t: CI.today(), fromId: fromId, intoId: intoId,
       fromEntity: clone(from), addedAliases: [], reportsBefore: [], linksBefore: [], linksRemoved: [], undone: false

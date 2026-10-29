@@ -73,8 +73,8 @@
     }, { title: 'Delete special bank', yes: 'Delete', danger: true });
   };
 
-  /* Labels default to automatic: on for small charts, off once there are more than 25 connections (they pile up). */
-  function labelsOn(bank, graph) { return bank.edgeLabels === true ? true : bank.edgeLabels === false ? false : (graph.edges || []).length <= 25; }
+  /* Labels default to automatic: on for small charts, off once there are more than 15 connections (they pile up). */
+  function labelsOn(bank, graph) { return bank.edgeLabels === true ? true : bank.edgeLabels === false ? false : (graph.edges || []).length <= 15; }
   function currentGraph(bank) {
     if (bank.viewMode === 'frozen') {
       var s = snapOf(bank, bank.frozenId);

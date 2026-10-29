@@ -12,14 +12,16 @@
     }).join('') : '<p class="muted small">No file with that name yet. Add it as a name on a report first, or from Files.</p>';
   }
 
+  /* The bar at the top of New report and of the indexing page while a folder is being worked on. */
+  CI.views.folderBar = function () {
+    var fo = CI.folderOf(D()); if (!fo) return '';
+    return '<div class="folder-bar"><div class="fb-tag">Folder mode</div><div class="fb-main"><span class="fb-sub">Entering reports from the folder of</span><a class="fb-name" href="#/entity/' + esc(fo.entity.id) + '">' + esc(fo.entity.name) + '</a> ' + A.tag(fo.entity.type) + '</div>' +
+      '<div class="fb-count"><b>' + fo.reports.length + '</b> report' + (fo.reports.length === 1 ? '' : 's') + ' entered</div><button class="btn primary" data-action="folder-finish">Finish folder</button></div>';
+  };
   /* The box at the top of New report. */
   CI.views.folderCard = function () {
-    var d = D(), fo = CI.folderOf(d);
-    if (fo) {
-      return '<div class="card row spread folder-bar"><div>Working on the folder of <a href="#/entity/' + esc(fo.entity.id) + '"><strong>' + esc(fo.entity.name) + '</strong></a> ' + A.tag(fo.entity.type) +
-        ' <span class="muted small">' + fo.reports.length + ' report' + (fo.reports.length === 1 ? '' : 's') + ' entered. Each new report gets this name automatically.</span></div>' +
-        '<div class="row"><a class="btn" href="#/folder">Finish folder</a></div></div>';
-    }
+    var d = D();
+    if (CI.folderOf(d)) return CI.views.folderBar();
     return '<div class="card"><label class="big-lbl">Which folder are you holding? <span class="hint">optional: pick the individual, group, area or subject so every report you enter is put on that file</span>' +
       '<input type="search" id="fd-q" data-lookup="#fd-res" data-on-input="folder-find" autocomplete="off" placeholder="Start typing a name…"></label><div id="fd-res"></div></div>';
   };
@@ -34,7 +36,7 @@
     var d = D(), s = CI.folderSummary(d);
     if (!s) { A.go('#/report-new'); return; }
     var byId = A.idx().entity, openL = s.leads;
-    var h = '<div class="page-head"><h1>Finish folder <span class="muted">' + esc(s.entity.name) + '</span></h1><div class="row"><button class="btn" data-action="folder-more">Keep adding reports</button><button class="btn primary" data-action="folder-close">Close this folder</button></div></div>' +
+    var h = '<div class="page-head"><h1>Folder finished <span class="muted">' + esc(s.entity.name) + '</span></h1><div class="row"><a class="btn primary" href="#/report-new">Start the next folder</a></div></div>' +
       '<div class="card"><p>Entered from this folder: <b>' + s.reports.length + '</b> report' + (s.reports.length === 1 ? '' : 's') + ', <b>' + s.names.length + '</b> other name' + (s.names.length === 1 ? '' : 's') + ' and <b>' + s.links.length + '</b> connection' + (s.links.length === 1 ? '' : 's') + '.</p></div>';
     h += '<div class="card flush"><div class="row spread" style="padding:14px 16px 6px"><h2 style="margin:0">Open leads from this folder</h2><div class="row"><button class="btn small primary" data-action="folder-print"' + (openL.length ? '' : ' disabled') + '>Print lead sheets</button></div></div>' +
       (openL.length ? '<table class="fixed"><colgroup><col style="width:9%"><col style="width:51%"><col style="width:22%"><col style="width:18%"></colgroup><thead><tr><th>Lead</th><th>Reason</th><th>Investigation</th><th>Assigned to</th></tr></thead><tbody>' + openL.map(function (l) {
@@ -46,9 +48,8 @@
     if (s.names.length) h += '<div class="card"><h2>Other names in these reports</h2><p>' + s.names.sort(function (a, b) { return b.n - a.n; }).map(function (x) { var e = byId[x.id]; return e ? '<a href="#/entity/' + esc(x.id) + '">' + esc(e.name) + '</a> <span class="muted small">' + x.n + '</span>' : ''; }).join(' · ') + '</p></div>';
     A.view.className = ''; A.view.innerHTML = h;
   };
-  H['folder-more'] = function () { A.go('#/report-new'); };
+  H['folder-finish'] = function () { CI.finishFolder(D()); A.persist(); A.go('#/folder'); };
   H['folder-rep'] = function (el) { A.go('#/report/' + el.getAttribute('data-id')); };
-  H['folder-close'] = function () { CI.closeFolder(D()); A.persist(); A.toast('Folder closed.'); A.go('#/report-new'); };
   H['folder-print'] = function () {
     var s = CI.folderSummary(D()); if (!s || !s.leads.length) return;
     A.saveBlob('Leads-' + s.entity.id + '-folder.pdf', function () { return CI.pdf.leadSheets(D(), s.leads.map(function (l) { return l.id; })); });

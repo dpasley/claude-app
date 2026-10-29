@@ -55,7 +55,7 @@
       if (hl.edges[e.id]) cls.push('hl');
       var label = '';
       if (opts.edgeLabels !== false) {
-        label = e.kind === 'mention' ? (e.weight > 1 ? '×' + e.weight : '') : e.label + (e.weight > 1 ? ' ×' + e.weight : '');
+        label = e.kind === 'mention' ? (e.weight > 1 ? '×' + e.weight : '') : (CI.humanLabel ? CI.humanLabel(e.label) : e.label) + (e.weight > 1 ? ' ×' + e.weight : '');
       }
       els.push({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, w: CI.edgeWidth(e.weight), arrow: e.directed ? 'triangle' : 'none', elabel: label }, classes: cls.join(' ') });
     }

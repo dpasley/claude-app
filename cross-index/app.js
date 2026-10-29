@@ -119,14 +119,31 @@
   }
   function lt(id) { return CI.linkType(d, id); }
   /* Connections as one table with aligned columns, grouped by what is at the other end (used on name pages and the connection index). */
+  /* The connection index: one row per name and kind of connection, the reports it rests on gathered at the end. */
   function connTable(groups) {
-    return '<table class="fixed"><colgroup><col style="width:27%"><col style="width:21%"><col style="width:28%"><col style="width:24%"></colgroup>' +
-      '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Source report</th></tr></thead><tbody>' +
+    function merge(rows) {
+      var order = [], by = {};
+      rows.forEach(function (r) {
+        var k = r.other.id + '|' + r.phrase;
+        if (!by[k]) { by[k] = { other: r.other, phrase: r.phrase, notes: [], reports: [] }; order.push(k); }
+        var m = by[k]; if (r.note && m.notes.indexOf(r.note) === -1) m.notes.push(r.note);
+        if (!m.reports.some(function (x) { return x.id === r.reportId; })) m.reports.push({ id: r.reportId, date: r.date });
+      });
+      return order.map(function (k) { return by[k]; });
+    }
+    return '<table class="conn"><colgroup><col style="width:29%"><col style="width:22%"><col style="width:25%"><col style="width:24%"></colgroup>' +
+      '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Reports</th></tr></thead>' +
       groups.map(function (g) {
-        return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
-          return '<tr><td>' + entLink(r.other.id) + '</td><td title="' + esc(r.phrase) + '">' + esc(r.phrase) + '</td><td title="' + esc(r.note) + '">' + esc(r.note) + '</td><td>' + repLink(r.reportId) + ' <span class="muted small">' + esc(CI.fmtDate(r.date)) + '</span></td></tr>';
-        }).join('');
-      }).join('') + '</tbody></table>';
+        var rows = merge(g.rows), kind = String(g.kind).indexOf('item') === 0 ? 'item' : g.kind;
+        return '<tbody style="--k:var(--t-' + esc(kind) + ',var(--muted))"><tr class="band"><th colspan="4"><span class="dot"></span>' + esc(g.label) + ' <span class="n">' + rows.length + '</span></th></tr>' + rows.map(function (m) {
+          var arrow = /→$/.test(m.phrase) ? 'out' : /^←/.test(m.phrase) ? 'in' : 'both', txt = m.phrase.replace(/^← /, '').replace(/ →$/, '');
+          var reps = m.reports.sort(function (p, q) { return String(q.date).localeCompare(String(p.date)); });
+          return '<tr><td class="who"><a href="#/entity/' + esc(m.other.id) + '">' + avatar(m.other, 26) + '<span class="nm">' + esc(m.other.name) + '</span></a></td>' +
+            '<td><span class="rel ' + arrow + '" title="' + esc(m.phrase) + '">' + (arrow === 'in' ? '<i>\u2190</i>' : '') + esc(txt) + (arrow === 'out' ? '<i>\u2192</i>' : arrow === 'both' ? '<i>\u2194</i>' : '') + '</span></td>' +
+            '<td class="what" title="' + esc(m.notes.join(' \u00b7 ')) + '">' + esc(m.notes.join(' \u00b7 ')) + '</td>' +
+            '<td class="srcs">' + reps.slice(0, 2).map(function (r) { return '<a class="src" href="#/report/' + esc(r.id) + '" title="' + esc(CI.fmtDate(r.date)) + '">' + esc(r.id) + '</a>'; }).join('') + (reps.length > 2 ? '<span class="more" title="' + esc(reps.slice(2).map(function (r) { return r.id; }).join(', ')) + '">+' + (reps.length - 2) + '</span>' : '') + (reps.length === 1 ? '<span class="when">' + esc(CI.fmtDate(reps[0].date)) + '</span>' : '') + '</td></tr>';
+        }).join('') + '</tbody>';
+      }).join('') + '</table>';
   }
   function linkPhrase(l) {
     var t = lt(l.type);
@@ -281,8 +298,8 @@
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
       '<label class="rf-wide">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
-      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '<label class="rf-wide">Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
+      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '</div>' +
       (r.leadId ? '<input type="hidden" id="f-lead" value="' + esc(r.leadId) + '"><p class="muted small">This report was started from lead ' + esc(r.leadId) + ' and answers it.</p>' : '') +
       '<div id="form-errors" class="errors" role="alert"></div>' +
@@ -335,6 +352,7 @@
       (r.summary ? '<p class="rs-notes">' + esc(r.summary) + '</p>' : '') +
       ((dupInfo || r.leadId || reposts.length || r.basis) ? '<p class="rs-extra muted small">' + (r.basis ? 'Intake basis: ' + esc(r.basis) + ' ' : '') + (dupInfo ? dupInfo + ' ' : '') + (r.leadId ? 'Answers lead <a href="#/lead/' + esc(r.leadId) + '">' + esc(r.leadId) + '</a> ' : '') + (reposts.length ? 'Reposts: ' + reposts.map(function (x) { return repLink(x.id); }).join(', ') : '') + '</p>' : '') + '</div>';
 
+    h = h.replace('<div class="card rep-strip">', CI.views.folderBar() + '<div class="card rep-strip">');
     h += '<div class="card sec" id="sec-names"><h2>Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one. If it does not exist yet, press Enter to create it.</p>';
     h += '<label class="big-lbl">Add a name<input type="text" id="ae-q" class="big-in" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
       '<label class="chk"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label>' +
@@ -368,7 +386,7 @@
       }).join('') + '</tbody></table>';
     } else if (r.entities.length >= 2) h += '<p class="muted">No connections recorded for this report yet.</p>';
     h += '</div>';
-    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row">' + (CI.folderOf(d) ? '<a class="btn" href="#/folder">Finish folder</a>' : '') + '<button class="btn" data-action="idx-lead" data-id="' + esc(r.id) + '">Raise a lead</button><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
+    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row">' + (CI.folderOf(d) ? '<button class="btn" data-action="folder-finish">Finish folder</button>' : '') + '<button class="btn" data-action="idx-lead" data-id="' + esc(r.id) + '">Raise a lead</button><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
   }
@@ -644,8 +662,8 @@
       '</div></div>';
     var nsum = d.summaries.filter(function (x) { return x.fileId === id; }).length, ntl = d.timeline.filter(function (x) { return x.fileId === id; }).length, nnew = CI.unsummarized(d, idx(), id).length;
     var aboutL = CI.leadsAbout(d, id), nlead = aboutL.filter(function (l) { return !CI.isClosed(l); }).length;
-    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl], ['leads', 'Leads', nlead]];
-    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['leads', 'Leads', nlead]];
+    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl], ['leads', 'Leads', nlead], ['chart', 'Chart', null]];
+    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['leads', 'Leads', nlead], ['chart', 'Chart', null]];
     if (!TABS.some(function (t) { return t[0] === tab; })) tab = 'profile';
     h += '<div class="tabs">' + TABS.map(function (t) {
       return '<a class="tab' + (tab === t[0] ? ' on' : '') + '" href="#/entity/' + esc(id) + (t[0] === 'profile' ? '' : '/' + t[0]) + '">' + t[1] + (t[2] != null ? ' <span class="n">' + t[2] + '</span>' : '') +
@@ -680,12 +698,14 @@
     if (tab === 'summaries') h += CI.views.fileSummaries(e);
     if (tab === 'timeline') h += CI.views.fileTimeline(e);
     if (tab === 'leads') h += CI.views.fileLeads(e, aboutL);
+    if (tab === 'chart') h += CI.views.fileChart(e);
     if (tab === 'profile') {
     h += '<div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this name into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
       '<span class="muted small">Use when two entries turned out to be the same one. Merges are logged and can be undone from Review.</span></div>' +
       '<div class="row" style="margin-top:10px"><button class="btn danger" data-action="del-entity" data-id="' + esc(id) + '">Delete this name</button><span class="muted small">Only possible while no report or connection uses it.</span></div></div>';
     }
     view.innerHTML = h;
+    if (tab === 'chart') CI.views.fileChartDraw(e);
   }
   function profileFields(e) {
     var fs = CI.isItem(e) ? [] : CI.profileFields(e.type); if (!fs.length) return '';

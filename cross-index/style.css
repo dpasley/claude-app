@@ -542,4 +542,37 @@ tr.key td { font-weight: 600; }
 #backup-banner { background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--border); padding: 7px max(16px, env(safe-area-inset-left, 0px)); font-size: 13px; }
 #backup-banner[hidden] { display: none !important; }
 #backup-banner .btn { margin-left: 8px; }
-.folder-bar { align-items: center; }
+
+/* ---- connection index ---- */
+table.conn { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 14px; }
+table.conn thead th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--panel); }
+table.conn tr.band th { text-align: left; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text); background: var(--panel-2); padding: 9px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+table.conn tbody:first-of-type tr.band th { border-top: 0; }
+table.conn tr.band .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--k); margin-right: 8px; }
+table.conn tr.band .n { margin-left: 6px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
+table.conn td { padding: 9px 12px; border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent); vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.conn tbody tr:not(.band):hover td { background: var(--panel-2); }
+table.conn td.who a { display: flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; min-width: 0; }
+table.conn td.who a:hover .nm { color: var(--accent); text-decoration: underline; }
+table.conn td.who .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+table.conn td.who img.avatar { flex: none; }
+table.conn .rel { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 2px 10px; border-radius: 12px; font-size: 13px; background: var(--accent-bg); color: var(--accent); }
+table.conn .rel.both { background: var(--hover); color: var(--text); }
+table.conn .rel i { font-style: normal; margin: 0 4px; opacity: .75; }
+table.conn td.what { color: var(--muted); }
+table.conn td.srcs { font-size: 13px; }
+table.conn .src { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 4px; background: var(--hover); color: var(--text); text-decoration: none; font-variant-numeric: tabular-nums; }
+table.conn .src:hover { background: var(--accent-bg); color: var(--accent); }
+table.conn .more { color: var(--muted); margin-right: 8px; font-size: 12px; }
+table.conn .when { color: var(--muted); font-size: 12px; }
+
+/* ---- folder mode bar ---- */
+.folder-bar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; padding: 12px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 2px 8px rgba(53,82,209,.25); }
+.folder-bar .fb-tag { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 6px; background: rgba(255,255,255,.2); }
+.folder-bar .fb-main { flex: 1; min-width: 220px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.folder-bar .fb-sub { font-size: 12px; opacity: .85; flex-basis: 100%; }
+.folder-bar .fb-name { color: #fff; font-size: 20px; font-weight: 700; text-decoration: none; }
+.folder-bar .fb-name:hover { text-decoration: underline; }
+.folder-bar .fb-count { font-size: 13px; opacity: .95; }
+.folder-bar .btn.primary { background: #fff; color: var(--accent); border-color: #fff; }
+.folder-bar .tag { background: rgba(255,255,255,.22); color: #fff; }

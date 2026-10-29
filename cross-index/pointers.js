@@ -113,6 +113,8 @@
   CI.kindLabel = kindLabel;
 
   /* Every connection of one file or item, grouped by what is at the other end. */
+  /* EMPLOYED_BY shows as Employed by; labels a person already wrote are left alone. */
+  CI.humanLabel = function (s) { s = String(s || ''); if (!/^[A-Z0-9_]+$/.test(s)) return s; s = s.toLowerCase().replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); };
   CI.connectionIndex = function (d, id, idx) {
     idx = idx || CI.buildIndex(d);
     var groups = {};
@@ -120,6 +122,7 @@
       var otherId = l.from === id ? l.to : l.from, other = idx.entity[otherId];
       if (!other) return;
       var lt = CI.linkType(d, l.type), r = idx.report[l.reportId];
+      lt = { label: CI.humanLabel(lt.label), directed: lt.directed };
       var phrase = !lt.directed ? lt.label : (l.from === id ? lt.label + ' →' : '← ' + lt.label);
       var k = kindOf(other);
       (groups[k] = groups[k] || []).push({ other: other, type: lt.label, phrase: phrase, note: l.note || '', reportId: l.reportId, date: r ? CI.reportDate(r) : '', linkId: l.id });

@@ -462,7 +462,7 @@ t('folder mode: reports get the folder name, the summary lists what came out of 
   CI.addLead(d, { question: 'Follow up', raisedBy: r.id, about: [other.id] });
   const s = CI.folderSummary(d); assert.equal(s.reports.length, 1); assert.equal(s.names.length, 1); assert.ok(s.leads.some(l => l.question === 'Follow up'));
   const keep = d.entities.find(x => x.id !== e.id && x.id !== other.id); CI.mergeEntities(d, e.id, keep.id); assert.equal(d.ui.folder.entityId, keep.id);
-  CI.closeFolder(d); assert.equal(CI.folderOf(d), null);
+  CI.finishFolder(d); assert.equal(CI.folderOf(d), null); assert.ok(CI.folderSummary(d)); assert.equal(CI.openFolder(d, keep.id), null); assert.equal(d.ui.finished, null); CI.closeFolder(d); assert.equal(CI.folderSummary(d), null);
 });
 
 t('backup reminder: due after many changes or a week, quiet right after a backup', () => {
