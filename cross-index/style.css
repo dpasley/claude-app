@@ -668,3 +668,8 @@ td.id, .idcol { color: var(--muted); font-size: 12px; }
 
 .more.dots summary { font-size: 18px; line-height: 1; padding: 5px 10px; border: 1px solid var(--border); background: var(--panel); }
 .more .menu .danger { color: var(--bad); }
+
+.rep-form, .rep-w { max-width: none; }
+.row.wrap > .muted.small { flex: 1; min-width: 200px; }
+.row select { min-width: 190px; }
+table.fixed td.nm .ell, table.fixed td.nm a .ell { max-width: none; }

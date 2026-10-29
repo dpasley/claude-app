@@ -17,11 +17,10 @@
   };
   CI.views.bankHead = function (b, active) {
     var inv = CI.investigationFor(D(), b.id);
-    return '<div class="chart-head"><a href="#/chart" class="back">‹ Special banks</a><h1>' + esc(b.name) + '</h1>' +
-      (b.outcome ? '<span class="tag">no situation ' + esc(CI.fmtDate(b.outcome.date)) + '</span>' : '') + (b.handedOver ? '<span class="tag">handed over ' + esc(CI.fmtDate(b.handedOver)) + '</span>' : '') +
-      '<span class="spacer"></span>' + (inv ? '<a class="btn small" href="#/investigation/' + esc(inv.id) + '">Investigation</a>' : '') +
-      '<details class="more dots"><summary aria-label="More actions">\u22ef</summary><div class="menu"><button type="button" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button type="button" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button type="button" class="danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div></details></div>' +
-      (b.opened && b.opened.reason ? '<p class="bank-why"><span class="fl">Opened ' + esc(CI.fmtDate(b.opened.date)) + ' because</span> ' + esc(b.opened.reason) + '</p>' : '') +
+    return '<div class="page-head"><div class="ph-t"><h1>' + esc(b.name) + (b.outcome ? ' <span class="tag">no situation ' + esc(CI.fmtDate(b.outcome.date)) + '</span>' : '') + (b.handedOver ? ' <span class="tag">handed over ' + esc(CI.fmtDate(b.handedOver)) + '</span>' : '') + '</h1>' +
+      (b.opened && b.opened.reason ? '<p class="lead" title="' + esc(b.opened.reason) + '">Opened ' + esc(CI.fmtDate(b.opened.date)) + ' : ' + esc(b.opened.reason) + '</p>' : '') + '</div>' +
+      '<div class="row">' + (inv ? '<a class="btn" href="#/investigation/' + esc(inv.id) + '">Investigation</a>' : '') +
+      '<details class="more dots"><summary aria-label="More actions">\u22ef</summary><div class="menu"><button type="button" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button type="button" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button type="button" class="danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div></details></div></div>' +
       newsBanner(b) + CI.views.bankTabs(b, active);
   };
   /* What arrived on this bank's files since staff last marked it seen. */
@@ -72,9 +71,8 @@
   function filesTab(b) {
     A.view.className = '';
     A.view.innerHTML = CI.views.bankHead(b, 'files') +
-      '<div class="card"><div class="row spread"><h2 style="margin:0">Files in this special bank <span class="muted small">' + (b.files || []).length + '</span></h2><button class="btn small" data-action="bank-tl-print" data-bank="' + esc(b.id) + '">Print time line of these files\u2026</button></div>' +
-      '<p class="muted small">These are main files, not copies. The chart and the estimate work from this list.</p>' +
-      '<label class="big-lbl">Add a file<input type="search" id="bf-q" class="big-in" data-lookup="#bf-res" data-bank="' + esc(b.id) + '" autocomplete="off" placeholder="Start typing a name…" value="' + esc(fq) + '" data-on-input="bf-q"></label><div id="bf-res"></div></div>' +
+      '<div class="card"><div class="row wrap"><input type="search" id="bf-q" data-lookup="#bf-res" data-bank="' + esc(b.id) + '" autocomplete="off" placeholder="Add a file by name" value="' + esc(fq) + '" data-on-input="bf-q" aria-label="Add a file">' +
+      '<span class="muted small">' + (b.files || []).length + ' main files, not copies. The chart and the estimate work from this list.</span><button class="btn" data-action="bank-tl-print" data-bank="' + esc(b.id) + '">Print time line\u2026</button></div><div id="bf-res"></div></div>' +
       '<div class="card flush" id="bf-list">' + fileRows(b) + '</div>' + suggestHtml(b);
     bfResults(b);
   }

@@ -93,29 +93,21 @@
     if (!ix.kind || !f[ix.kind] || !f[ix.kind].length) {
       ix.kind = ''; KINDS.some(function (k) { if (f[k.id].length) { ix.kind = k.id; return true; } });
     }
-    var h = '<div class="tabs sub kinds" role="tablist">' + KINDS.map(function (k) {
-      var n = f[k.id].length;
-      return '<button role="tab" class="tab' + (k.id === ix.kind ? ' on' : '') + (n ? '' : ' zero') + '" data-action="ix-kind" data-kind="' + k.id + '"' + (n ? '' : ' disabled') + '>' + esc(k.label) + ' <span class="n">' + n + '</span></button>';
-    }).join('') + '</div>';
     var kind = KINDS.filter(function (k) { return k.id === ix.kind; })[0];
-    h += '<div class="card"><div class="row spread"><h2>' + (kind ? esc(kind.label) : 'Activity') + '</h2><label class="row" style="margin:0">Last ' +
-      '<select id="ix-days" data-on-change="ix-days">' + A.options([7, 14, 30, 60, 90].map(function (n) { return { value: String(n), label: n + ' days' }; }), String(ix.days)) + '</select></label></div>';
-    if (!kind) {
-      h += '<p class="muted">Nothing stands out yet. Findings appear as reports and connections are entered. They point at where to look; what matters is the staff member’s call.</p></div>';
-      return h;
-    }
-    h += '<p class="muted small">' + esc(kind.help) + ' These point at where to look; what matters is the staff member’s call.</p>';
+    var h = '<div class="card row wrap"><select id="ix-kindsel" data-on-change="ix-kindsel" aria-label="What to look at">' + A.options(KINDS.map(function (k) { return { value: k.id, label: k.label + ' (' + f[k.id].length + ')' }; }), ix.kind) + '</select>' +
+      '<select id="ix-days" data-on-change="ix-days" aria-label="Period">' + A.options([7, 14, 30, 60, 90].map(function (n) { return { value: String(n), label: 'Last ' + n + ' days' }; }), String(ix.days)) + '</select>' +
+      '<span class="muted small">' + (kind ? esc(kind.help) : 'Nothing stands out yet.') + ' These point at where to look; the staff member decides.</span></div>';
+    if (!kind) return h + '<div class="card"><p class="muted">Findings appear as reports and connections are entered.</p></div>';
     var list = f[kind.id];
     if (kind.id === 'loose') {
-      h += '<div class="chips">' + list.map(function (x) { return box(x.id, 'small'); }).join('') + '</div>';
+      h += '<div class="card"><div class="chips">' + list.map(function (x) { return box(x.id, 'small'); }).join('') + '</div></div>';
+    } else if (kind.id === 'heating') {
+      h += list.length ? '<div class="card flush">' + heatTable(list, idx) + '</div>' : '<div class="card"><p class="muted">Nothing is heating up in the last ' + ix.days + ' days.</p></div>';
     } else {
-      var shown = list.slice(0, kind.id === 'heating' ? list.length : (ix.shown || PAGE));
-      if (kind.id === 'heating' && !list.length) h += '<p class="muted">Nothing is heating up in the last ' + ix.days + ' days.</p>';
-      if (kind.id === 'heating' && list.length) h += heatTable(list, idx);
-      else h += shown.map(function (x) { return renderers[kind.id](x, idx); }).join('');
-      if (list.length > shown.length) h += '<p><button class="btn" data-action="ix-more">Show more (' + (list.length - shown.length) + ' left)</button></p>';
+      var shown = list.slice(0, ix.shown || PAGE);
+      h += '<div class="card">' + shown.map(function (x) { return renderers[kind.id](x, idx); }).join('') +
+        (list.length > shown.length ? '<p><button class="btn" data-action="ix-more">Show more (' + (list.length - shown.length) + ' left)</button></p>' : '') + '</div>';
     }
-    h += '</div>';
     return h;
   }
 
@@ -170,16 +162,18 @@
       .sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (e) {
         var others = {}; (mode === 'connections' ? CI.connectionIndex(d, e.id, idx) : CI.sharedReportIndex(d, e.id, idx)).forEach(function (g) { g.rows.forEach(function (r) { others[r.other.id] = 1; }); });
         var n = Object.keys(others).length;
-        return '<a class="lrow pick" href="#/indexes/' + (mode === 'connections' ? '' : 'shared/') + esc(e.id) + '"><span>' + A.avatar(e, 28) + '<b>' + esc(e.name) + '</b>' + (e.details ? ' <span class="muted small">' + esc(A.trunc(e.details, 60)) + '</span>' : '') + '</span>' +
-          '<span class="' + (n ? '' : 'muted ') + 'small">' + (n ? n + (mode === 'connections' ? ' connected' : ' shared-report') + ' name' + (n === 1 ? '' : 's') : (mode === 'connections' ? 'nothing connected yet' : 'no shared reports yet')) + ' ›</span></a>';
-      }).join('') || '<p class="muted">Nothing here yet.</p>';
+        return '<tr class="pick"><td class="nm"><a href="#/indexes/' + (mode === 'connections' ? '' : 'shared/') + esc(e.id) + '" style="display:flex;align-items:center;gap:10px;color:var(--text)">' + A.avatar(e, 30) + '<span class="ell"><b>' + esc(e.name) + '</b>' + (e.details ? ' <span class="muted small">' + esc(A.trunc(e.details, 70)) + '</span>' : '') + '</span></a></td>' +
+          '<td class="num' + (n ? '' : ' muted') + '">' + (n || 'none yet') + '</td></tr>';
+      }).join('') || '<tr><td colspan="2" class="empty">Nothing here yet.</td></tr>';
   }
   function crossFiling(idx, mode) {
     var d = D(), counts = {};
     d.entities.forEach(function (e) { if (!CI.isItem(e)) counts[e.type] = (counts[e.type] || 0) + 1; });
     if (!CF.some(function (c) { return c.id === ix.cf; })) ix.cf = 'individual';
-    return '<div class="card"><h2>' + (mode === 'connections' ? 'Connections <span class="muted small">choose a name to see everything it is connected to</span>' : 'Cross-filing <span class="muted small">choose a name to see every file that shares a report with it</span>') + '</h2>' + subTabs('#/indexes/' + mode, CF.map(function (c) { return { id: c.id, label: c.label, n: counts[c.id] || 0 }; }), ix.cf) +
-      '<input type="search" id="ix-lq" data-lookup="#ix-list" placeholder="Type a name, then arrow down and press Enter…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq" autocomplete="off"><div id="ix-list">' + cfEntries(idx, mode) + '</div></div>';
+    return '<div class="card row wrap"><input type="search" id="ix-lq" data-lookup="#ix-list" placeholder="Search by name" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq" autocomplete="off">' +
+      '<select id="ix-type" data-on-change="ix-type" aria-label="File type">' + A.options(CF.map(function (c) { return { value: c.id, label: c.label + ' (' + (counts[c.id] || 0) + ')' }; }), ix.cf) + '</select>' +
+      '<span class="muted small">' + (mode === 'connections' ? 'Choose a name to see everything it is connected to.' : 'Choose a name to see every file that shares a report with it.') + '</span></div>' +
+      '<div class="card flush"><table class="fixed"><colgroup><col style="width:70%"><col style="width:30%"></colgroup><thead><tr><th>Name</th><th class="num">' + (mode === 'connections' ? 'Connected names' : 'Names in shared reports') + '</th></tr></thead><tbody id="ix-list">' + cfEntries(idx, mode) + '</tbody></table></div>';
   }
 
   CI.views.wordsCard = function () {
@@ -225,6 +219,7 @@
     A.view.innerHTML = h;
   }
 
+  H['ix-type'] = function (el) { ix.cf = el.value; CI.views.indexes(ix.tab); };
   H['ix-lq'] = function (el) {
     ix.lq = el.value; var box = document.getElementById('ix-list'); if (!box) return;
     box.innerHTML = cfEntries(A.idx(), ix.tab);
@@ -239,6 +234,7 @@
     var why = t.map(function (c) { return A.idx().entity[c.getAttribute('data-id')].name + ': ' + c.getAttribute('data-why'); }).join('. ') + '.';
     CI.views.openBank(t.map(function (c) { return c.getAttribute('data-id'); }), '', why);
   };
+  H['ix-kindsel'] = function (el) { ix.kind = el.value; ix.shown = 0; CI.views.indexes('activity'); };
   H['ix-open'] = function (el) { var id = el.getAttribute('data-id'); CI.views.openBank([id], '', A.idx().entity[id].name + ': ' + el.getAttribute('data-why') + '.'); };
   H['ix-days'] = function () { ix.days = Number(val('ix-days')) || 14; ix.shown = 0; CI.views.indexes('activity'); };
   H['ix-kind'] = function (el) { ix.kind = el.getAttribute('data-kind'); ix.shown = 0; CI.views.indexes('activity'); };
