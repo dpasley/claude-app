@@ -14,9 +14,10 @@
   function idx() { return _idx || (_idx = CI.buildIndex(d)); }
   function persist() {
     _idx = null;
-    d.ui = d.ui || {}; d.ui.changes = (d.ui.changes || 0) + 1;
+    d.ui = d.ui || {}; d.ui.changes = (d.ui.changes || 0) + 1; d.ui.savedAt = new Date().toISOString();
     if (!CI.save(d) && !saveWarned) { saveWarned = true; toast('This browser is not keeping a saved copy (storage may be full or blocked). Export your data from Settings.', true); }
     updateNav();
+    if (CI.dataFile) CI.dataFile.changed();
     if (CI.views.backupBanner) CI.views.backupBanner();
   }
   function toast(msg, bad) {
@@ -856,7 +857,8 @@
       '<h2>Chart and heat</h2><div class="grid3"><label>Heat window (days)<input type="number" min="1" id="s-hw" value="' + s.heatWindowDays + '"></label><label>Hot at this many reports<input type="number" min="1" id="s-ht" value="' + s.heatThreshold + '"></label>' +
       '<label>High-connection node at this many connections<input type="number" min="3" id="s-hub" value="' + s.hubDegree + '"></label></div>' +
       '<div class="row"><button class="btn primary" data-action="save-settings">Save settings</button></div></form>' +
-      '<div class="card"><h2>Data</h2><p class="muted">' + (CI.views.backupLine ? CI.views.backupLine() : '') + ' Everything is stored in this browser only. Back up regularly. <strong>Export files contain report data about real people – keep them out of the GitHub repository.</strong> The repository should hold the app and fictional sample data only.</p>' +
+      (CI.views.dataFileCard ? CI.views.dataFileCard() : '') + '<p class="muted small" style="margin:-6px 4px 10px">App version: ' + esc(CI.BUILD || 'development copy') + '</p>' +
+      '<div class="card"><h2>Backup and import</h2><p class="muted">' + (CI.views.backupLine ? CI.views.backupLine() : '') + ' A copy is also kept in this browser. Back up regularly. <strong>Export files contain report data about real people – keep them out of the GitHub repository.</strong> The repository should hold the app and fictional sample data only.</p>' +
       '<div class="row wrap"><button class="btn" data-action="export">Export\u2026</button><label class="btn">Import from file<input type="file" accept="application/json,.json" id="import-file" data-on-change="import" hidden></label>' +
       '<button class="btn" data-action="load-sample">Load fictional sample data</button><button class="btn" data-action="load-pilot">Load pilot-sized fictional data (300 reports)</button>' + (d.sampleLoaded ? '<button class="btn" data-action="start-fresh">Start fresh (remove the sample data)</button>' : '') + '<button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
       '<label class="form-inline">Or paste exported JSON here<textarea id="import-text" class="mono" rows="3" placeholder="{ &quot;version&quot;: 1, ... }"></textarea></label><div class="row"><button class="btn small" data-action="import-paste">Import pasted JSON</button></div>' +

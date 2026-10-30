@@ -701,3 +701,6 @@ canvas.minimap { position: absolute; left: 12px; bottom: 12px; z-index: 5; backg
 .cfind input { width: 160px; }
 
 .legend .sw-individual, .legend .sw-group, .legend .sw-area, .legend .sw-subject, .legend .sw-item { border-radius: 50%; clip-path: none; transform: none; }
+
+.more .menu .menu-note { padding: 6px 10px 4px; border-top: 1px solid var(--border); margin-top: 4px; font-size: 11.5px; color: var(--muted); max-width: 230px; }
+.bad-t { color: var(--bad); font-size: 13px; }
