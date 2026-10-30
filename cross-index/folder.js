@@ -22,7 +22,7 @@
   CI.views.folderCard = function () {
     var d = D();
     if (CI.folderOf(d)) return CI.views.folderBar();
-    return '<div class="card rep-w"><label class="big-lbl">Which folder are you holding? <span class="hint">Optional. Pick the individual, group, area or subject and every report you enter goes on that file.</span>' +
+    return '<div class="card rep-w"><label class="big-lbl">Select a file <span class="hint">Optional. Pick the individual, group, area or subject whose folder you are holding. Every report you enter goes on that file.</span>' +
       '<input type="search" id="fd-q" data-lookup="#fd-res" data-on-input="folder-find" autocomplete="off" placeholder="Name"></label><div id="fd-res"></div></div>';
   };
   H['folder-find'] = function (el) { var r = document.getElementById('fd-res'); r.innerHTML = el.value.trim() ? results(el.value) : ''; };

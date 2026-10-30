@@ -21,26 +21,17 @@
   CI.tile = function (type, color, photo) {
     var tint = mix(color, 0.86), ring = color;
     var glyph = function (tx, ty, sc) { return '<g fill="' + color + '" transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, tint) + '</g>'; };
-    var defs = '<defs>', body;
-    if (type === 'individual') {
-      defs += '<clipPath id="c"><circle cx="100" cy="100" r="90"/></clipPath></defs>';
-      body = '<circle cx="100" cy="100" r="96" fill="#fff" stroke="' + ring + '" stroke-width="8"/>' + (photo
-        ? '<image xlink:href="' + photo + '" x="10" y="10" width="180" height="180" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>'
-        : '<circle cx="100" cy="100" r="90" fill="' + tint + '"/><g clip-path="url(#c)">' + glyph(9, 8, 1.9) + '</g>');
-    } else if (type === 'group') {
-      defs += '<clipPath id="c"><rect x="12" y="12" width="176" height="176" rx="32"/></clipPath></defs>';
-      body = '<rect x="4" y="4" width="192" height="192" rx="40" fill="#fff" stroke="' + ring + '" stroke-width="8"/>' + (photo
-        ? '<image xlink:href="' + photo + '" x="24" y="24" width="152" height="152" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
-        : '<rect x="12" y="12" width="176" height="176" rx="32" fill="' + tint + '"/>' + glyph(26, 26, 1.5));
-    } else if (type === 'area') {
-      defs += '</defs>';
-      body = '<polygon points="8,100 52,10 148,10 192,100 148,190 52,190" fill="' + tint + '" stroke="' + ring + '" stroke-width="9" stroke-linejoin="round"/>' + glyph(36, 34, 1.3);
-    } else if (type === 'item') {
-      defs += '</defs>';
-      body = '<polygon points="40,8 160,8 192,40 192,160 160,192 40,192 8,160 8,40" fill="' + tint + '" stroke="' + ring + '" stroke-width="9" stroke-linejoin="round"/>' + glyph(36, 34, 1.3);
+    /* Every file is a round medallion: a ring in the type colour, the picture or a drawn symbol inside. A pictured file also
+     * carries a small badge with its type symbol, so type never depends on shape. */
+    var defs = '<defs><clipPath id="c"><circle cx="100" cy="100" r="90"/></clipPath></defs>', body;
+    if (photo) {
+      body = '<circle cx="100" cy="100" r="96" fill="#fff" stroke="' + ring + '" stroke-width="8"/>' + (type === 'group'
+        ? '<image xlink:href="' + photo + '" x="30" y="30" width="140" height="140" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
+        : '<image xlink:href="' + photo + '" x="10" y="10" width="180" height="180" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>') +
+        '<circle cx="160" cy="160" r="30" fill="' + ring + '" stroke="#fff" stroke-width="5"/><g fill="#fff" transform="translate(' + (160 - 48 * 0.56) + ' ' + (160 - 48 * 0.56) + ') scale(0.56)">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, ring) + '</g>';
     } else {
-      defs += '</defs>';
-      body = '<polygon points="100,6 194,100 100,194 6,100" fill="' + tint + '" stroke="' + ring + '" stroke-width="9" stroke-linejoin="round"/>' + glyph(46, 44, 1.1);
+      body = '<circle cx="100" cy="100" r="96" fill="#fff" stroke="' + ring + '" stroke-width="8"/><circle cx="100" cy="100" r="90" fill="' + tint + '"/>' +
+        (type === 'individual' ? '<g clip-path="url(#c)">' + glyph(9, 8, 1.9) + '</g>' : glyph(42, 42, 1.2));
     }
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="200" viewBox="0 0 200 200">' + defs + body + '</svg>';
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);

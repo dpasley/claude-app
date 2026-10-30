@@ -9,7 +9,7 @@
 
   // Okabe-Ito colours (colour-blind safe); shape and the placeholder icon also encode type.
   CI.TYPE_COLOR = { individual: '#0072B2', group: '#D55E00', subject: '#009E73', area: '#CC79A7', item: '#6B7280' };
-  CI.TYPE_SHAPE = { individual: 'ellipse', group: 'round-rectangle', subject: 'diamond', area: 'hexagon', item: 'cut-rectangle' };
+  CI.TYPE_SHAPE = { individual: 'ellipse', group: 'ellipse', subject: 'ellipse', area: 'ellipse', item: 'ellipse' };
 
   CI.PAPER = {
     text: '#1d2230', bg: '#fafbfc', edge: '#aab1c4', edgeHot: '#2c3550', edgeText: '#2c3142', chip: '#c3c8d6', seed: '#1d2230', hub: '#6f7589',
