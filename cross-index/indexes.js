@@ -10,7 +10,7 @@
   function nm(ids) { return ids.map(link).join(', '); }
   function more(list, n) { return list.length > n ? '<div class="muted small">and ' + (list.length - n) + ' more</div>' : ''; }
   var KINDS = [
-    { id: 'heating', label: 'Heating up', help: 'Subjects and areas with more reports lately than before, or newly connected to other names. Tick the ones to look into and open a special bank.' },
+    { id: 'heating', label: 'Heating up', help: 'Subjects and areas with more reports lately than before, or newly connected to other names.' },
     { id: 'discoveries', label: 'New discoveries', help: 'A connection entered recently ties names together that no single report shows.' },
     { id: 'hidden', label: 'Linked through others', help: 'Two names share two or more connections but have none between them.' },
     { id: 'together', label: 'Named together, not connected', help: 'In two or more reports together, with no connection recorded.' },
@@ -79,39 +79,41 @@
     };
   }
 
+  function heatTable(list, idx) {
+    var max = 1; list.forEach(function (x) { max = Math.max(max, x.now, x.prev); });
+    return '<table class="fixed"><colgroup><col style="width:30%"><col style="width:10%"><col style="width:8%"><col style="width:24%"><col style="width:13%"><col style="width:15%"></colgroup><thead><tr><th>Name</th><th>File type</th><th class="num">Before</th><th>Last ' + ix.days + ' days</th><th class="num">Newly linked</th><th></th></tr></thead><tbody>' + list.map(function (x) {
+      var e = idx.entity[x.id]; if (!e) return '';
+      return '<tr><td class="who" title="' + esc(x.why.join('; ')) + '"><a href="#/entity/' + esc(x.id) + '" style="display:flex;align-items:center;gap:10px;color:var(--text)">' + A.avatar(e, 26) + '<b>' + esc(e.name) + '</b></a></td><td>' + A.tag(e.type) + '</td><td class="num">' + x.prev + '</td>' +
+        '<td><span class="bar inline"><span style="width:' + Math.round(100 * x.now / max) + '%"></span></span> <b>' + x.now + '</b></td><td class="num">' + (x.relatedTotal || 0) + '</td>' +
+        '<td class="num"><button class="btn small" data-action="ix-open" data-id="' + esc(x.id) + '" data-why="' + esc(x.why.join('; ')) + '">Open special bank</button></td></tr>';
+    }).join('') + '</tbody></table>';
+  }
   function lookPanel(idx) {
     var f = findings(idx);
     if (!ix.kind || !f[ix.kind] || !f[ix.kind].length) {
       ix.kind = ''; KINDS.some(function (k) { if (f[k.id].length) { ix.kind = k.id; return true; } });
     }
-    var h = '<div class="tiles">' + KINDS.map(function (k) {
-      var n = f[k.id].length;
-      return '<button class="tile' + (k.id === ix.kind ? ' on' : '') + (n ? '' : ' zero') + (k.id === 'heating' && n ? ' lead' : '') + '" data-action="ix-kind" data-kind="' + k.id + '"' + (n ? '' : ' disabled') + '><span class="n">' + n + '</span><span class="l">' + esc(k.label) + '</span></button>';
-    }).join('') + '</div>';
     var kind = KINDS.filter(function (k) { return k.id === ix.kind; })[0];
-    h += '<div class="card"><div class="row spread"><h2>' + (kind ? esc(kind.label) : 'Activity') + '</h2><label class="row" style="margin:0">Last ' +
-      '<select id="ix-days" data-on-change="ix-days">' + A.options([7, 14, 30, 60, 90].map(function (n) { return { value: String(n), label: n + ' days' }; }), String(ix.days)) + '</select></label></div>';
-    if (!kind) {
-      h += '<p class="muted">Nothing stands out yet. Findings appear as reports and connections are entered. They point at where to look; what matters is the staff member’s call.</p></div>';
-      return h;
-    }
-    h += '<p class="muted small">' + esc(kind.help) + ' These point at where to look; what matters is the staff member’s call.</p>';
+    var h = '<div class="card row wrap"><select id="ix-kindsel" data-on-change="ix-kindsel" aria-label="What to look at">' + A.options(KINDS.map(function (k) { return { value: k.id, label: k.label + ' (' + f[k.id].length + ')' }; }), ix.kind) + '</select>' +
+      '<select id="ix-days" data-on-change="ix-days" aria-label="Period">' + A.options([7, 14, 30, 60, 90].map(function (n) { return { value: String(n), label: 'Last ' + n + ' days' }; }), String(ix.days)) + '</select>' +
+      '<span class="muted small">' + (kind ? esc(kind.help) : 'Nothing stands out yet.') + ' These point at where to look; the staff member decides.</span></div>';
+    if (!kind) return h + '<div class="card"><p class="muted">Findings appear as reports and connections are entered.</p></div>';
     var list = f[kind.id];
     if (kind.id === 'loose') {
-      h += '<div class="chips">' + list.map(function (x) { return box(x.id, 'small'); }).join('') + '</div>';
+      h += '<div class="card"><div class="chips">' + list.map(function (x) { return box(x.id, 'small'); }).join('') + '</div></div>';
+    } else if (kind.id === 'heating') {
+      h += list.length ? '<div class="card flush">' + heatTable(list, idx) + '</div>' : '<div class="card"><p class="muted">Nothing is heating up in the last ' + ix.days + ' days.</p></div>';
     } else {
-      var shown = list.slice(0, kind.id === 'heating' ? list.length : (ix.shown || PAGE));
-      if (kind.id === 'heating' && !list.length) h += '<p class="muted">Nothing is heating up in the last ' + ix.days + ' days.</p>';
-      if (kind.id === 'heating' && list.length) h += '<p><button class="btn primary" id="ix-bank" disabled data-action="ix-bank">Tick subjects or areas to open a special bank</button></p>';
-      h += shown.map(function (x) { return renderers[kind.id](x, idx); }).join('');
-      if (list.length > shown.length) h += '<p><button class="btn" data-action="ix-more">Show more (' + (list.length - shown.length) + ' left)</button></p>';
+      var shown = list.slice(0, ix.shown || PAGE);
+      h += '<div class="card">' + shown.map(function (x) { return renderers[kind.id](x, idx); }).join('') +
+        (list.length > shown.length ? '<p><button class="btn" data-action="ix-more">Show more (' + (list.length - shown.length) + ' left)</button></p>' : '') + '</div>';
     }
-    h += '</div>';
     return h;
   }
 
   /* ----- tabs ----- */
   var TABS = [{ id: 'crossfiling', label: 'Cross-filing' }, { id: 'connections', label: 'Connections' }, { id: 'activity', label: 'Activity' }];
+  function idxHead() { return '<div class="page-head"><div class="ph-t"><h1>Indexes</h1><p class="lead">Who is connected to whom, and what is moving.</p></div><a class="small" href="#/observation">Names that moved recently</a></div>'; }
   function tabsBar(active, badge) {
     return '<div class="tabs" role="tablist">' + TABS.map(function (t) {
       return '<a role="tab" class="tab' + (t.id === active ? ' on' : '') + '" href="#/indexes/' + t.id + '">' + esc(t.label) +
@@ -134,8 +136,8 @@
     if (arg !== 'connections' && arg !== 'activity') arg = 'crossfiling';
     if (ix.tab !== arg) ix.lq = '';
     ix.tab = arg;
-    var badge = CI.discoveries(d, idx, CI.daysAgo(ix.days)).length;
-    var h = '<div class="page-head"><h1>Indexes</h1><a class="small" href="#/observation">Names that moved recently</a></div>' + tabsBar(arg, badge);
+    var badge = CI.heating(d, ix.days, idx).length;
+    var h = idxHead() + tabsBar(arg, badge);
     if (arg === 'activity') h += lookPanel(idx);
     else { if (sub) ix.cf = decodeURIComponent(sub); h += crossFiling(idx, arg); }
     A.view.innerHTML = h;
@@ -160,16 +162,18 @@
       .sort(function (a, b) { return a.name.localeCompare(b.name); }).map(function (e) {
         var others = {}; (mode === 'connections' ? CI.connectionIndex(d, e.id, idx) : CI.sharedReportIndex(d, e.id, idx)).forEach(function (g) { g.rows.forEach(function (r) { others[r.other.id] = 1; }); });
         var n = Object.keys(others).length;
-        return '<a class="lrow pick" href="#/indexes/' + (mode === 'connections' ? '' : 'shared/') + esc(e.id) + '"><span>' + A.avatar(e, 28) + '<b>' + esc(e.name) + '</b>' + (e.details ? ' <span class="muted small">' + esc(A.trunc(e.details, 60)) + '</span>' : '') + '</span>' +
-          '<span class="' + (n ? '' : 'muted ') + 'small">' + (n ? n + (mode === 'connections' ? ' connected' : ' shared-report') + ' name' + (n === 1 ? '' : 's') : (mode === 'connections' ? 'nothing connected yet' : 'no shared reports yet')) + ' ›</span></a>';
-      }).join('') || '<p class="muted">Nothing here yet.</p>';
+        return '<tr class="pick"><td class="nm"><a href="#/indexes/' + (mode === 'connections' ? '' : 'shared/') + esc(e.id) + '" style="display:flex;align-items:center;gap:10px;color:var(--text)">' + A.avatar(e, 30) + '<span class="ell"><b>' + esc(e.name) + '</b>' + (e.details ? ' <span class="muted small">' + esc(A.trunc(e.details, 70)) + '</span>' : '') + '</span></a></td>' +
+          '<td class="num' + (n ? '' : ' muted') + '">' + (n || 'none yet') + '</td></tr>';
+      }).join('') || '<tr><td colspan="2" class="empty">Nothing here yet.</td></tr>';
   }
   function crossFiling(idx, mode) {
     var d = D(), counts = {};
     d.entities.forEach(function (e) { if (!CI.isItem(e)) counts[e.type] = (counts[e.type] || 0) + 1; });
     if (!CF.some(function (c) { return c.id === ix.cf; })) ix.cf = 'individual';
-    return '<div class="card"><h2>' + (mode === 'connections' ? 'Connections <span class="muted small">choose a name to see everything it is connected to</span>' : 'Cross-filing <span class="muted small">choose a name to see every file that shares a report with it</span>') + '</h2>' + subTabs('#/indexes/' + mode, CF.map(function (c) { return { id: c.id, label: c.label, n: counts[c.id] || 0 }; }), ix.cf) +
-      '<input type="search" id="ix-lq" data-lookup="#ix-list" placeholder="Type a name, then arrow down and press Enter…" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq" autocomplete="off"><div id="ix-list">' + cfEntries(idx, mode) + '</div></div>';
+    return '<div class="card row wrap"><input type="search" id="ix-lq" data-lookup="#ix-list" placeholder="Search by name" value="' + esc(ix.lq || '') + '" data-on-input="ix-lq" autocomplete="off">' +
+      '<select id="ix-type" data-on-change="ix-type" aria-label="File type">' + A.options(CF.map(function (c) { return { value: c.id, label: c.label + ' (' + (counts[c.id] || 0) + ')' }; }), ix.cf) + '</select>' +
+      '<span class="muted small">' + (mode === 'connections' ? 'Choose a name to see everything it is connected to.' : 'Choose a name to see every file that shares a report with it.') + '</span></div>' +
+      '<div class="card flush"><table class="fixed"><colgroup><col style="width:70%"><col style="width:30%"></colgroup><thead><tr><th>Name</th><th class="num">' + (mode === 'connections' ? 'Connected names' : 'Names in shared reports') + '</th></tr></thead><tbody id="ix-list">' + cfEntries(idx, mode) + '</tbody></table></div>';
   }
 
   CI.views.wordsCard = function () {
@@ -188,7 +192,7 @@
   function connPage(id, idx) {
     var e = idx.entity[id], groups = CI.connectionIndex(D(), id, idx), n = 0;
     groups.forEach(function (g) { n += g.rows.length; });
-    var h = tabsBar('connections', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/connections/' + esc(e.type === 'item' ? 'individual' : e.type) + '">‹ All ' + esc(CI.isItem(e) ? 'individuals' : CI.TYPE_LABEL[e.type].toLowerCase() + 's') + '</a>' +
+    var h = idxHead() + tabsBar('connections', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/connections/' + esc(e.type === 'item' ? 'individual' : e.type) + '">‹ All ' + esc(CI.isItem(e) ? 'individuals' : CI.TYPE_LABEL[e.type].toLowerCase() + 's') + '</a>' +
       '<input type="search" id="ix-q" data-lookup="#ix-res" autocomplete="off" placeholder="Look up another name or item…" data-on-input="ix-find" style="flex:1;min-width:220px"><div id="ix-res" style="flex:0 0 100%"></div></div><div class="page-head"><h1>Connection index: ' + esc(e.name) + ' ' + A.tag(CI.isItem(e) ? 'item' : e.type) + '</h1><div class="row"><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">No connections recorded yet.</p></div>';
@@ -201,19 +205,21 @@
   function sharedPage(id, idx) {
     var e = idx.entity[id], groups = CI.sharedReportIndex(D(), id, idx), n = 0;
     groups.forEach(function (g) { n += g.rows.length; });
-    var h = tabsBar('crossfiling', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/crossfiling/' + esc(e.type) + '">\u2039 All ' + esc(CI.TYPE_LABEL[e.type].toLowerCase()) + 's</a></div>' +
+    var h = idxHead() + tabsBar('crossfiling', 0) + '<div class="card row wrap"><a class="btn" href="#/indexes/crossfiling/' + esc(e.type) + '">\u2039 All ' + esc(CI.TYPE_LABEL[e.type].toLowerCase()) + 's</a></div>' +
       '<div class="page-head"><h1>' + esc(e.name) + ' ' + A.tag(e.type) + '</h1><div class="row"><a class="btn" href="#/indexes/' + esc(id) + '">Connections</a><a class="btn" href="#/entity/' + esc(id) + '">Open the file</a></div></div>';
     if (e.details) h += '<p class="muted">' + esc(e.details) + '</p>';
     if (!n) h += '<div class="card"><p class="muted">Not in any report together with another file yet.</p></div>';
-    else h += '<div class="card flush"><table class="fixed"><colgroup><col style="width:32%"><col style="width:12%"><col style="width:20%"><col style="width:36%"></colgroup><thead><tr><th>Name</th><th class="num">Shared reports</th><th>Recorded connection</th><th>Reports</th></tr></thead><tbody>' +
+    else h += '<div class="card flush"><table class="fixed"><colgroup><col style="width:30%"><col style="width:12%"><col style="width:11%"><col style="width:17%"><col style="width:30%"></colgroup><thead><tr><th>Name</th><th>File type</th><th class="num">Shared reports</th><th>Recorded connection</th><th>Reports</th></tr></thead><tbody>' +
       groups.map(function (g) {
-        return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
-          return '<tr><td>' + link(r.other.id) + '</td><td class="num">' + r.reports.length + '</td><td>' + (r.linked ? 'yes' : '<span class="muted">none</span>') + '</td><td class="ellip">' + r.reports.slice(0, 4).map(function (rid) { return A.repLink(rid); }).join(' ') + (r.reports.length > 4 ? ' <span class="muted small">+' + (r.reports.length - 4) + '</span>' : '') + '</td></tr>';
+        var kind = String(g.kind).indexOf('item') === 0 ? 'item' : g.kind;
+        return g.rows.map(function (r) {
+          return '<tr><td>' + link(r.other.id) + '</td><td class="ftype" style="--k:var(--t-' + esc(kind) + ',var(--muted))"><span class="dot"></span>' + esc(g.label.replace(/s$/, '')) + '</td><td class="num">' + r.reports.length + '</td><td>' + (r.linked ? 'yes' : '<span class="muted">none</span>') + '</td><td class="ellip">' + r.reports.slice(0, 4).map(function (rid) { return A.repLink(rid); }).join(' ') + (r.reports.length > 4 ? ' <span class="muted small">+' + (r.reports.length - 4) + '</span>' : '') + '</td></tr>';
         }).join('');
       }).join('') + '</tbody></table></div>';
     A.view.innerHTML = h;
   }
 
+  H['ix-type'] = function (el) { ix.cf = el.value; CI.views.indexes(ix.tab); };
   H['ix-lq'] = function (el) {
     ix.lq = el.value; var box = document.getElementById('ix-list'); if (!box) return;
     box.innerHTML = cfEntries(A.idx(), ix.tab);
@@ -228,6 +234,8 @@
     var why = t.map(function (c) { return A.idx().entity[c.getAttribute('data-id')].name + ': ' + c.getAttribute('data-why'); }).join('. ') + '.';
     CI.views.openBank(t.map(function (c) { return c.getAttribute('data-id'); }), '', why);
   };
+  H['ix-kindsel'] = function (el) { ix.kind = el.value; ix.shown = 0; CI.views.indexes('activity'); };
+  H['ix-open'] = function (el) { var id = el.getAttribute('data-id'); CI.views.openBank([id], '', A.idx().entity[id].name + ': ' + el.getAttribute('data-why') + '.'); };
   H['ix-days'] = function () { ix.days = Number(val('ix-days')) || 14; ix.shown = 0; CI.views.indexes('activity'); };
   H['ix-kind'] = function (el) { ix.kind = el.getAttribute('data-kind'); ix.shown = 0; CI.views.indexes('activity'); };
   H['ix-more'] = function () { ix.shown = (ix.shown || PAGE) + PAGE; CI.views.indexes('activity'); };

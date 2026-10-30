@@ -19,29 +19,19 @@
     return '#' + c.map(function (v) { return ('0' + v.toString(16)).slice(-2); }).join('');
   }
   CI.tile = function (type, color, photo) {
-    var light = mix(color, 0.22), deep = mix(color, -0.22);
-    var glyph = function (tx, ty, sc, fill) { return '<g fill="' + fill + '" transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, color) + '</g>'; };
-    var defs = '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + light + '"/><stop offset="1" stop-color="' + deep + '"/></linearGradient>';
-    var body;
-    if (type === 'individual') {
-      defs += '<clipPath id="c"><circle cx="100" cy="100" r="88"/></clipPath></defs>';
-      body = '<circle cx="100" cy="100" r="100" fill="' + color + '"/>' + (photo
-        ? '<circle cx="100" cy="100" r="88" fill="#fff"/><image xlink:href="' + photo + '" x="12" y="12" width="176" height="176" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>'
-        : '<circle cx="100" cy="100" r="88" fill="url(#g)"/><g clip-path="url(#c)">' + glyph(9, 4, 1.9, 'rgba(255,255,255,.95)') + '</g>');
-    } else if (type === 'group') {
-      defs += '<clipPath id="c"><rect x="10" y="10" width="180" height="180" rx="34"/></clipPath></defs>';
-      body = '<rect width="200" height="200" rx="44" fill="' + color + '"/>' + (photo
-        ? '<rect x="10" y="10" width="180" height="180" rx="34" fill="#fff"/><image xlink:href="' + photo + '" x="26" y="26" width="148" height="148" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
-        : '<rect x="10" y="10" width="180" height="180" rx="34" fill="url(#g)"/>' + glyph(26, 26, 1.5, '#fff'));
-    } else if (type === 'area') {
-      defs += '</defs>';
-      body = '<polygon points="6,100 50,6 150,6 194,100 150,194 50,194" fill="url(#g)" stroke="' + color + '" stroke-width="12" stroke-linejoin="round"/>' + glyph(36, 34, 1.3, '#fff');
-    } else if (type === 'item') {
-      defs += '</defs>';
-      body = '<polygon points="40,8 160,8 192,40 192,160 160,192 40,192 8,160 8,40" fill="url(#g)" stroke="' + color + '" stroke-width="12" stroke-linejoin="round"/>' + glyph(36, 34, 1.3, '#fff');
+    var tint = mix(color, 0.86), ring = color;
+    var glyph = function (tx, ty, sc) { return '<g fill="' + color + '" transform="translate(' + tx + ' ' + ty + ') scale(' + sc + ')">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, tint) + '</g>'; };
+    /* Every file is a round medallion: a ring in the type colour, the picture or a drawn symbol inside. A pictured file also
+     * carries a small badge with its type symbol, so type never depends on shape. */
+    var defs = '<defs><clipPath id="c"><circle cx="100" cy="100" r="90"/></clipPath></defs>', body;
+    if (photo) {
+      body = '<circle cx="100" cy="100" r="96" fill="#fff" stroke="' + ring + '" stroke-width="8"/>' + (type === 'group'
+        ? '<image xlink:href="' + photo + '" x="30" y="30" width="140" height="140" preserveAspectRatio="xMidYMid meet" clip-path="url(#c)"/>'
+        : '<image xlink:href="' + photo + '" x="10" y="10" width="180" height="180" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>') +
+        '<circle cx="160" cy="160" r="30" fill="' + ring + '" stroke="#fff" stroke-width="5"/><g fill="#fff" transform="translate(' + (160 - 48 * 0.56) + ' ' + (160 - 48 * 0.56) + ') scale(0.56)">' + (GLYPH[type] || GLYPH.subject).replace(/CUT/g, ring) + '</g>';
     } else {
-      defs += '</defs>';
-      body = '<polygon points="100,8 192,100 100,192 8,100" fill="url(#g)" stroke="' + color + '" stroke-width="16" stroke-linejoin="round"/>' + glyph(46, 44, 1.1, '#fff');
+      body = '<circle cx="100" cy="100" r="96" fill="#fff" stroke="' + ring + '" stroke-width="8"/><circle cx="100" cy="100" r="90" fill="' + tint + '"/>' +
+        (type === 'individual' ? '<g clip-path="url(#c)">' + glyph(9, 8, 1.9) + '</g>' : glyph(42, 42, 1.2));
     }
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="200" viewBox="0 0 200 200">' + defs + body + '</svg>';
     return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);

@@ -90,7 +90,7 @@
   function tlRows(file) {
     var d = D(), rows = CI.timelineFor(d, file, tl.level);
     if (!rows.length) return '<p class="muted pad">' + (d.timeline.some(function (x) { return x.fileId === file; }) ? 'Nothing at this level of detail.' : 'No entries yet. Type the first one above.') + '</p>';
-    return '<table class="fixed"><colgroup><col style="width:13%"><col style="width:50%"><col style="width:11%"><col style="width:16%"><col style="width:10%"></colgroup>' +
+    return '<table class="fixed"><colgroup><col style="width:12%"><col style="width:58%"><col style="width:9%"><col style="width:12%"><col style="width:9%"></colgroup>' +
       '<thead><tr><th>Date of event</th><th>What happened</th><th>Detail</th><th>Reports</th><th></th></tr></thead><tbody>' + rows.map(function (t) {
         return '<tr' + (t.level === 1 ? ' class="key"' : '') + '><td>' + esc(CI.fmtDate(t.date)) + '</td><td class="ellip" title="' + esc(t.text) + '">' + esc(t.text) + '</td><td class="muted">' + esc(lvLabel(t.level)) + '</td>' +
           '<td class="ellip">' + t.reportIds.map(function (r) { return A.repLink(r); }).join(', ') + '</td><td class="right"><button class="btn small" data-action="tl-edit" data-id="' + esc(t.id) + '">Edit</button></td></tr>';

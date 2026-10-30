@@ -7,22 +7,26 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="top">
-  <div class="brand">Cross-Index <span class="muted">prototype</span></div>
-  <button id="back-btn" class="btn small" disabled>Back</button>
-  <div class="gs"><input type="search" id="gs" data-lookup="#gs-results" placeholder="Search files, reports…" autocomplete="off" data-on-input="gs-input"><div id="gs-results"></div></div>
+<header class="top"><div class="top-in">
+  <div class="brand">Cross-Index</div>
   <nav id="nav">
     <a href="#/report-new" data-nav="report-new">New report</a>
     <a href="#/entities" data-nav="entities">Files</a>
     <a href="#/indexes" data-nav="indexes">Indexes</a>
     <a href="#/chart" data-nav="chart">Special banks</a>
     <a href="#/investigations" data-nav="investigations">Investigations</a>
-    <a href="#/review" data-nav="review" class="aux">Review <span id="review-count" class="count" style="display:none"></span></a>
-    <a href="#/settings" data-nav="settings" class="aux">Settings</a>
   </nav>
-  <button id="snag-btn" class="btn small" title="Note anything that was unclear or slow">Log a snag</button>
-</header>
+  <div class="gs"><input type="search" id="gs" data-lookup="#gs-results" placeholder="Search files and reports" autocomplete="off" data-on-input="gs-input"><div id="gs-results"></div></div>
+  <details id="more" class="more"><summary aria-label="More">More<span id="review-dot" class="dot" hidden></span></summary>
+    <div class="menu">
+      <a href="#/review" data-nav="review">Review <span id="review-count" class="count" style="display:none"></span></a>
+      <a href="#/settings" data-nav="settings">Settings</a>
+      <button id="snag-btn" type="button" title="Note anything that was unclear or slow">Log a snag</button>
+    </div>
+  </details>
+</div></header>
 <div id="sample-banner" hidden></div>
+<div id="backup-banner" hidden></div>
 <main id="view"></main>
 <div id="modal-root"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -31,6 +35,7 @@
 <script src="core.js"></script>
 <script src="portraits.js"></script>
 <script src="sample.js"></script>
+<script src="pilot.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
 <script src="images.js"></script>
 <script src="chart.js"></script>
@@ -45,6 +50,9 @@
 <script src="indexes.js"></script>
 <script src="investigations.js"></script>
 <script src="casechart.js"></script>
+<script src="folder.js"></script>
+<script src="filechart.js"></script>
+<script src="backup.js"></script>
 <script>CI.app.start();</script>
 </body>
 </html>

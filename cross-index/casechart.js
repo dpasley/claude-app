@@ -89,7 +89,7 @@
       el.innerHTML = '<p class="empty" style="padding:40px;text-align:center">The board is empty. Add the major players from the panel on the left, then draw how they are connected.</p>';
     } else {
       CI.chart.render(el, g.graph, {
-        layout: 'cose', positions: g.positions, edgeLabels: true, hl: hl,
+        layout: 'cose', positions: g.positions, edgeLabels: true, hulls: false, hl: hl,
         photoOf: function (id) { var e = ent(id); return e && e.photo ? e.photo : ''; },
         onMoved: function (id, p) {
           var cc = CI.caseChartOf(v), t = isNote(id) ? cc.notes.filter(function (x) { return x.id === id; })[0] : cc.pins.filter(function (x) { return x.entityId === id; })[0];
@@ -236,9 +236,9 @@
   /* ---------- leads ---------- */
   function raise(question, about, rids) {
     var ids = (rids || []).filter(function (r) { return A.idx().report[r]; });
-    CI.views.openLead({ investigationId: inv().id, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
+    CI.views.openLead({ investigationId: inv().id, fixInvestigation: true, question: question, about: about, raisedBy: ids[ids.length - 1] || '' });
   }
-  H['cc-raise'] = function () { CI.views.openLead({ investigationId: inv().id }); };
+  H['cc-raise'] = function () { CI.views.openLead({ investigationId: inv().id, fixInvestigation: true }); };
   H['cc-raise-node'] = function (el) { var id = el.getAttribute('data-id'); raise('Who or what is ' + name(id) + '?', [id], (A.idx().reportsByEntity[id] || []).slice().sort()); };
   H['cc-raise-edge'] = function (el) {
     var t = CI.caseChartOf(inv()).strings.filter(function (x) { return x.id === el.getAttribute('data-id'); })[0]; if (!t) return;

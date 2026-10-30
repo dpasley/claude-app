@@ -115,7 +115,7 @@
   /* ---------- data container ---------- */
   CI.emptyData = function () {
     return {
-      version: 1, started: false, sampleLoaded: false,
+      version: 1, schema: 8, started: false, sampleLoaded: false,
       settings: clone(CI.DEFAULT_SETTINGS),
       counters: { report: 0, entity: 0, link: 0, bank: 0, snag: 0, merge: 0, snapshot: 0, lead: 0, item: 0, investigation: 0, caseString: 0, caseNote: 0, summary: 0, timeline: 0, request: 0 },
       entities: [], reports: [], links: [], banks: [], leads: [], investigations: [], log: [], merges: [], summaries: [], timeline: [], requests: [],
@@ -172,6 +172,11 @@
         if (v.title == null) v.title = ''; if (v.reason == null) v.reason = ''; if (!v.planFile) v.planFile = { name: '', location: '' };
       });
       d.schema = 7;
+    }
+    if ((d.schema || 1) < 8) {
+      // A lead may belong to no investigation; every lead remembers where it was raised from.
+      (d.leads || []).concat(d.requests || []).forEach(function (l) { if (!l.origin) l.origin = l.investigationId ? { kind: 'investigation', id: l.investigationId } : (l.raisedBy ? { kind: 'report', id: l.raisedBy } : { kind: 'register', id: '' }); });
+      d.schema = 8;
     }
     var nl = function (t) { return OLD_LINK[t] || t; };
     d.links.forEach(function (l) { l.type = nl(l.type); });
@@ -370,6 +375,47 @@
     return e;
   };
 
+  /* ----- the folder being worked on: a physical file whose reports are being entered ----- */
+  /* ----- backup record: when the data was last saved to a file, and how many saves since ----- */
+  CI.markBackup = function (d) { d.ui = d.ui || {}; d.ui.lastBackup = new Date().toISOString(); d.ui.changes = 0; d.ui.snooze = 0; };
+  CI.backupState = function (d, now) {
+    var u = d.ui || {}, n = u.changes || 0, has = d.reports.length + d.entities.length > 0;
+    var days = u.lastBackup ? Math.floor(((now || Date.now()) - Date.parse(u.lastBackup)) / 86400000) : null;
+    var due = has && n > (u.snooze || 0) && ((days === null && n >= 10) || n >= 25 || (days !== null && days >= 7));
+    return { changes: n, last: u.lastBackup || '', days: days, due: due };
+  };
+  CI.folderOf = function (d, finished) {
+    var f = d.ui && (finished ? d.ui.finished : d.ui.folder); if (!f) return null;
+    var e = d.entities.filter(function (x) { return x.id === f.entityId; })[0];
+    return e ? { entity: e, reports: (f.reports || []).filter(function (id) { return d.reports.some(function (r) { return r.id === id; }); }), since: f.since } : null;
+  };
+  CI.openFolder = function (d, entityId) {
+    if (!d.entities.some(function (x) { return x.id === entityId; })) return 'No such file.';
+    d.ui = d.ui || {}; d.ui.folder = { entityId: entityId, reports: [], since: CI.today() }; d.ui.finished = null; return null;
+  };
+  CI.closeFolder = function (d) { if (d.ui) d.ui.folder = null; };
+  /* Finishing a folder puts it away and keeps its summary to look at and print from, until the next folder is started. */
+  CI.finishFolder = function (d) { if (!d.ui || !d.ui.folder) return; d.ui.finished = d.ui.folder; d.ui.folder = null; };
+  /* A new report from this folder: the folder's name is put on it and the report is counted. */
+  CI.folderAdd = function (d, reportId) {
+    var f = d.ui && d.ui.folder; if (!f) return;
+    if (f.reports.indexOf(reportId) === -1) f.reports.push(reportId);
+    CI.addEntityToReport(d, reportId, f.entityId, '', false, '');
+  };
+  /* What was entered from this folder, and the leads still open that come out of it. */
+  CI.folderSummary = function (d) {
+    var fo = CI.folderOf(d) || CI.folderOf(d, true); if (!fo) return null;
+    var ids = {}; fo.reports.forEach(function (id) { ids[id] = 1; });
+    var reports = d.reports.filter(function (r) { return ids[r.id]; }), names = {};
+    reports.forEach(function (r) { r.entities.forEach(function (x) { names[x.entityId] = (names[x.entityId] || 0) + 1; }); });
+    delete names[fo.entity.id];
+    var links = d.links.filter(function (l) { return ids[l.reportId]; });
+    var leads = d.leads.concat(d.requests).filter(function (l) {
+      return !CI.isClosed(l) && ((l.raisedBy && ids[l.raisedBy]) || (l.origin && ((l.origin.kind === 'report' && ids[l.origin.id]) || (l.origin.kind === 'file' && l.origin.id === fo.entity.id))) || (l.about || []).indexOf(fo.entity.id) !== -1);
+    });
+    return { entity: fo.entity, since: fo.since, reports: reports, names: Object.keys(names).map(function (id) { return { id: id, n: names[id] }; }), links: links, leads: leads };
+  };
+
   CI.addEntityToReport = function (d, reportId, entityId, role, flag, flagNote) {
     var r = d.reports.filter(function (x) { return x.id === reportId; })[0];
     if (!r) return 'Report not found.';
@@ -529,7 +575,7 @@
     d.entities = d.entities.filter(function (e) { return e.id !== id; });
     CI.caseChartDropEntity(d, id);
     d.investigations.forEach(function (v) { v.files = (v.files || []).filter(function (x) { return x !== id; }); });
-    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); });
+    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).filter(function (x) { return x !== id; }); if (l.origin && l.origin.kind === 'file' && l.origin.id === id) l.origin = { kind: 'register', id: '' }; });
     d.banks.forEach(function (b) {
       b.seeds = b.seeds.filter(function (x) { return x !== id; });
       b.excluded = b.excluded.filter(function (x) { return x !== id; });
@@ -543,6 +589,7 @@
     var from = d.entities.filter(function (e) { return e.id === fromId; })[0];
     var into = d.entities.filter(function (e) { return e.id === intoId; })[0];
     if (!from || !into) return { error: 'Entity not found.' };
+    ['folder', 'finished'].forEach(function (k) { if (d.ui && d.ui[k] && d.ui[k].entityId === fromId) d[ 'ui' ][k].entityId = intoId; });
     var rec = {
       id: CI.nextId(d, 'merge'), t: CI.today(), fromId: fromId, intoId: intoId,
       fromEntity: clone(from), addedAliases: [], reportsBefore: [], linksBefore: [], linksRemoved: [], undone: false
@@ -580,7 +627,7 @@
     CI.caseChartMerge(d, fromId, intoId);
     d.summaries.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
     d.timeline.forEach(function (x) { if (x.fileId === fromId) x.fileId = intoId; });
-    d.leads.concat(d.requests).forEach(function (l) { l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
+    d.leads.concat(d.requests).forEach(function (l) { if (l.origin && l.origin.kind === 'file' && l.origin.id === fromId) l.origin.id = intoId; l.about = (l.about || []).map(function (x) { return x === fromId ? intoId : x; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); });
     d.entities.filter(function (e) { return e.id === fromId; }).forEach(function (e) { if (e.photo && !into.photo) into.photo = e.photo; });
     d.entities = d.entities.filter(function (e) { return e.id !== fromId; });
     d.merges.push(rec);
@@ -625,7 +672,7 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
+      layout: 'cose', edgeLabels: 'auto', topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
       estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }],
       charts: [{ id: 'CH-1', name: 'Chart', state: null }], chartId: 'CH-1', chartSeq: 1
     };
@@ -825,8 +872,8 @@
   /* A lead (a question the investigators follow up) or a request (a thing for Collection to retrieve and preserve) belongs to an investigation.
    * A lead needs only its reason; the report that prompted it is optional. */
   CI.addLead = function (d, o) {
-    var inv = d.investigations.filter(function (v) { return v.id === o.investigationId; })[0];
-    if (!inv) return { error: 'Leads and requests belong to an investigation.' };
+    var invId = String(o.investigationId || ''), inv = invId ? d.investigations.filter(function (v) { return v.id === invId; })[0] : null;
+    if (invId && !inv) return { error: 'No such investigation.' };
     var kind = o.kind === 'DATA_REQUEST' ? 'DATA_REQUEST' : 'INVESTIGATION';
     var q = String(o.question || '').trim();
     if (!q) return { error: kind === 'DATA_REQUEST' ? 'Say what is to be retrieved.' : 'Give the reason for the lead.' };
@@ -834,14 +881,54 @@
     if (raised && !d.reports.some(function (x) { return x.id === raised; })) return { error: 'No such report: ' + raised + '.' };
     var forLead = String(o.forLead || '');
     if (forLead && !d.leads.some(function (x) { return x.id === forLead; })) return { error: 'No such lead: ' + forLead + '.' };
+    // Where it was raised from decides which physical folder the printed sheet belongs in when there is no investigation.
+    var origin = o.origin && o.origin.kind ? { kind: o.origin.kind, id: o.origin.id || '' } : (inv ? { kind: 'investigation', id: inv.id } : (raised ? { kind: 'report', id: raised } : { kind: 'register', id: '' }));
     var lead = {
-      id: CI.nextId(d, kind === 'DATA_REQUEST' ? 'request' : 'lead'), investigationId: inv.id, bankId: inv.bankId, kind: kind,
-      with: kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations', assigned: String(o.assigned || '').trim(), question: q, raisedBy: raised,
+      id: CI.nextId(d, kind === 'DATA_REQUEST' ? 'request' : 'lead'), investigationId: inv ? inv.id : '', bankId: inv ? inv.bankId : '', kind: kind,
+      with: kind === 'DATA_REQUEST' ? 'Collection' : 'Investigations', assigned: String(o.assigned || '').trim(), question: q, raisedBy: raised, origin: origin,
       about: (o.about || []).filter(function (x, i, a) { return a.indexOf(x) === i; }), issued: o.issued || CI.today(),
       status: 'NOT_STARTED', response: '', returnedBy: '', returnedDate: '', created: CI.today()
     };
     if (kind === 'DATA_REQUEST') { lead.forLead = forLead; d.requests.push(lead); } else d.leads.push(lead);
     return { lead: lead };
+  };
+  /* Attach a lead or request to an investigation, or take it off one (invId empty). Its origin is kept. */
+  CI.attachLead = function (d, id, invId) {
+    var l = CI.findLead(d, id); if (!l) return { error: 'No such lead.' };
+    var inv = invId ? d.investigations.filter(function (v) { return v.id === invId; })[0] : null;
+    if (invId && !inv) return { error: 'No such investigation.' };
+    l.investigationId = inv ? inv.id : ''; l.bankId = inv ? inv.bankId : '';
+    if (l.forLead) { var fl = d.leads.filter(function (x) { return x.id === l.forLead; })[0]; if (!fl || fl.investigationId !== l.investigationId) l.forLead = ''; }
+    return { lead: l };
+  };
+  /* Every lead and request about one name, whichever investigation holds it. */
+  CI.leadsAbout = function (d, entityId) {
+    return d.leads.concat(d.requests).filter(function (l) { return (l.about || []).indexOf(entityId) !== -1; })
+      .sort(function (a, b) { return CI.isClosed(a) - CI.isClosed(b) || b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); });
+  };
+  /* The register: all leads (or all requests), filtered. f: { kind: 'lead'|'request', open: bool, investigation: ''(all) | 'none' | id, assigned: ''(all) | text, about: entity id }. */
+  CI.leadRegister = function (d, f) {
+    f = f || {};
+    var list = f.kind === 'request' ? d.requests : d.leads;
+    return list.filter(function (l) {
+      if (f.open && CI.isClosed(l)) return false;
+      if (f.investigation === 'none' && l.investigationId) return false;
+      if (f.investigation && f.investigation !== 'none' && l.investigationId !== f.investigation) return false;
+      if (f.assigned && (l.assigned || '') !== f.assigned) return false;
+      if (f.about && (l.about || []).indexOf(f.about) === -1) return false;
+      return true;
+    }).sort(function (a, b) { return CI.isClosed(a) - CI.isClosed(b) || a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); });
+  };
+  /* Where a printed lead sheet belongs, in plain words. */
+  CI.leadHome = function (d, l) {
+    var inv = l.investigationId ? d.investigations.filter(function (v) { return v.id === l.investigationId; })[0] : null;
+    var o = l.origin || { kind: inv ? 'investigation' : 'register', id: '' };
+    var from;
+    if (o.kind === 'file') { var e = d.entities.filter(function (x) { return x.id === o.id; })[0]; from = e ? 'Raised from the page of ' + e.name + ' (' + CI.TYPE_LABEL[e.type].toLowerCase() + ')' : 'Raised from an individual\u2019s page'; }
+    else if (o.kind === 'report') from = 'Raised while indexing report ' + o.id;
+    else if (o.kind === 'investigation') from = 'Raised inside investigation ' + (o.id || (inv && inv.id) || '');
+    else from = 'Raised in the lead register';
+    return { investigation: inv, belongs: inv ? 'Investigation ' + inv.id + (inv.title ? ' \u00b7 ' + inv.title : '') : 'No investigation', folder: inv ? 'File in the folder of investigation ' + inv.id : 'No investigation folder. Keep in the lead register', from: from };
   };
   CI.findLead = function (d, id) { return d.leads.concat(d.requests).filter(function (l) { return l.id === id; })[0]; };
   CI.leadsOf = function (d, invId) { return d.leads.filter(function (l) { return l.investigationId === invId; }); };
@@ -870,9 +957,9 @@
   /* ---------- several charts per special bank ----------
    * The bank's live chart settings (filters, arrangement, snapshots) belong to its active chart. Switching saves them
    * into the chart being left and loads the other's, so the rest of the app keeps reading them straight off the bank. */
-  CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId'];
+  CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId', 'sizeByLinks', 'zoomLabels', 'groups', 'collapsed', 'groupNames'];
   function chartDefaults() {
-    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: true, positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '' };
+    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: 'auto', positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '', sizeByLinks: true, zoomLabels: true, groups: true, collapsed: {}, groupNames: {} };
   }
   CI.ensureCharts = function (b) {
     if (b.quick) return;

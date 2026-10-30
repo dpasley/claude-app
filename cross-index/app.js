@@ -14,8 +14,10 @@
   function idx() { return _idx || (_idx = CI.buildIndex(d)); }
   function persist() {
     _idx = null;
+    d.ui = d.ui || {}; d.ui.changes = (d.ui.changes || 0) + 1;
     if (!CI.save(d) && !saveWarned) { saveWarned = true; toast('This browser is not keeping a saved copy (storage may be full or blocked). Export your data from Settings.', true); }
     updateNav();
+    if (CI.views.backupBanner) CI.views.backupBanner();
   }
   function toast(msg, bad) {
     var t = document.getElementById('toast');
@@ -35,7 +37,7 @@
   function tag(t) { return '<span class="tag t-' + esc(t) + '">' + esc(CI.TYPE_LABEL[t] || t) + '</span>'; }
   /* Dates are typed and shown as day, short month, year (25 Oct. 2026) and kept as YYYY-MM-DD underneath. */
   function dateInput(id, iso, onchange, extra) {
-    return '<span class="datebox"><input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="25 Oct. 2026" autocomplete="off" data-cal="1" data-on-change="' + (onchange || 'date-fix') + '"' + (extra || '') + '>' +
+    return '<span class="datebox"><input type="text" class="date-in" id="' + esc(id) + '" value="' + esc(CI.fmtDate(iso)) + '" placeholder="e.g. 25 Oct. 2026" autocomplete="off" data-cal="1" data-on-change="' + (onchange || 'date-fix') + '"' + (extra || '') + '>' +
       '<button type="button" class="cal-btn" data-action="date-pick" data-for="' + esc(id) + '" title="Pick from a calendar" aria-label="Pick from a calendar">' +
       '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M5 1.5v3M11 1.5v3"/></svg></button></span>';
   }
@@ -82,6 +84,23 @@
   document.addEventListener('keydown', function (ev) { if (cal.el && (ev.key === 'Escape' || ev.key === 'Tab')) calClose(); });
   function readDate(id) { return CI.parseDate(val(id)); }
   var DATE_HELP = 'Not a date I can read. Try 25 Oct. 2026.';
+  /* Every page opens the same way: title, one grey line, actions at the right, then a row of tabs. */
+  function pageHead(title, lead, actions, tabs) {
+    return '<div class="page-head"><div class="ph-t"><h1>' + title + '</h1>' + (lead ? '<p class="lead">' + lead + '</p>' : '') + '</div>' + (actions ? '<div class="row">' + actions + '</div>' : '') + '</div>' + (tabs ? tabRow(tabs) : '');
+  }
+  function tabRow(list) {
+    return '<div class="tabs" role="tablist">' + list.map(function (t) {
+      var n = t.n != null ? ' <span class="n">' + t.n + '</span>' : '';
+      if (t.off) return '<span role="tab" class="tab off" aria-disabled="true">' + esc(t.label) + n + '</span>';
+      if (t.action) return '<button type="button" role="tab" class="tab' + (t.on ? ' on' : '') + '" data-action="' + esc(t.action) + '" data-v="' + esc(t.v || '') + '">' + esc(t.label) + n + '</button>';
+      return '<a role="tab" class="tab' + (t.on ? ' on' : '') + '" href="' + esc(t.href) + '">' + esc(t.label) + n + (t.extra || '') + '</a>';
+    }).join('') + '</div>';
+  }
+  function A_head(t, l) { return '<div class="page-head"><div class="ph-t"><h1>' + t + '</h1><p class="lead">' + l + '</p></div></div>'; }
+  function reportTabs(id, on) {
+    return [{ label: 'Report details', on: on === 'details', href: id ? '#/report/' + id + '/edit' : '#/report-new' },
+      id ? { label: 'Names and connections', on: on === 'names', href: '#/report/' + id } : { label: 'Names and connections', off: true }];
+  }
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
   function ensureSuggested() {
     if (d.settings.suggestedTypes) return;
@@ -117,12 +136,30 @@
   }
   function lt(id) { return CI.linkType(d, id); }
   /* Connections as one table with aligned columns, grouped by what is at the other end (used on name pages and the connection index). */
+  /* The connection index: one row per name and kind of connection, the reports it rests on gathered at the end. */
   function connTable(groups) {
-    return '<table class="fixed"><colgroup><col style="width:27%"><col style="width:21%"><col style="width:28%"><col style="width:24%"></colgroup>' +
-      '<thead><tr><th>Name</th><th>Connection</th><th>What it is</th><th>Source report</th></tr></thead><tbody>' +
+    function merge(rows) {
+      var order = [], by = {};
+      rows.forEach(function (r) {
+        var k = r.other.id + '|' + r.phrase;
+        if (!by[k]) { by[k] = { other: r.other, phrase: r.phrase, notes: [], reports: [] }; order.push(k); }
+        var m = by[k]; if (r.note && m.notes.indexOf(r.note) === -1) m.notes.push(r.note);
+        if (!m.reports.some(function (x) { return x.id === r.reportId; })) m.reports.push({ id: r.reportId, date: r.date });
+      });
+      return order.map(function (k) { return by[k]; });
+    }
+    return '<table class="conn"><colgroup><col style="width:26%"><col style="width:11%"><col style="width:19%"><col style="width:25%"><col style="width:19%"></colgroup>' +
+      '<thead><tr><th>Name</th><th>File type</th><th>Connection</th><th>What it is</th><th>Reports</th></tr></thead><tbody>' +
       groups.map(function (g) {
-        return '<tr class="sec"><td colspan="4">' + esc(g.label) + ' <span class="muted">' + g.rows.length + '</span></td></tr>' + g.rows.map(function (r) {
-          return '<tr><td>' + entLink(r.other.id) + '</td><td title="' + esc(r.phrase) + '">' + esc(r.phrase) + '</td><td title="' + esc(r.note) + '">' + esc(r.note) + '</td><td>' + repLink(r.reportId) + ' <span class="muted small">' + esc(CI.fmtDate(r.date)) + '</span></td></tr>';
+        var kind = String(g.kind).indexOf('item') === 0 ? 'item' : g.kind;
+        return merge(g.rows).map(function (m) {
+          var arrow = /\u2192$/.test(m.phrase) ? 'out' : /^\u2190/.test(m.phrase) ? 'in' : 'both', txt = m.phrase.replace(/^\u2190 /, '').replace(/ \u2192$/, '');
+          var reps = m.reports.sort(function (p, q) { return String(q.date).localeCompare(String(p.date)); });
+          return '<tr><td class="who"><a href="#/entity/' + esc(m.other.id) + '">' + avatar(m.other, 26) + '<span class="nm">' + esc(m.other.name) + '</span></a></td>' +
+            '<td class="ftype" style="--k:var(--t-' + esc(kind) + ',var(--muted))"><span class="dot"></span>' + esc(g.label.replace(/s$/, '')) + '</td>' +
+            '<td><span class="rel ' + arrow + '" title="' + esc(m.phrase) + '">' + (arrow === 'in' ? '<i>\u2190</i>' : '') + esc(txt) + (arrow === 'out' ? '<i>\u2192</i>' : arrow === 'both' ? '<i>\u2194</i>' : '') + '</span></td>' +
+            '<td class="what" title="' + esc(m.notes.join(' \u00b7 ')) + '">' + esc(m.notes.join(' \u00b7 ')) + '</td>' +
+            '<td class="srcs">' + reps.slice(0, 2).map(function (r) { return '<a class="src" href="#/report/' + esc(r.id) + '" title="' + esc(CI.fmtDate(r.date)) + '">' + esc(r.id) + '</a>'; }).join('') + (reps.length > 2 ? '<span class="more" title="' + esc(reps.slice(2).map(function (r) { return r.id; }).join(', ')) + '">+' + (reps.length - 2) + '</span>' : '') + (reps.length === 1 ? '<span class="when">' + esc(CI.fmtDate(reps[0].date)) + '</span>' : '') + '</td></tr>';
         }).join('');
       }).join('') + '</tbody></table>';
   }
@@ -137,16 +174,17 @@
   }
   function updateNav() {
     var h = '#/' + cur;
-    var back = document.getElementById('back-btn'); if (back) back.disabled = !hist.length;
-    var sb = document.getElementById('sample-banner');
+        var sb = document.getElementById('sample-banner');
     if (sb) sb.hidden = true;
-    document.querySelectorAll('#nav a').forEach(function (a) {
+    document.querySelectorAll('#nav a, #more a').forEach(function (a) {
       var key = a.getAttribute('data-nav');
-      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && h.indexOf('#/report') === 0) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'chart' && (h.indexOf('#/estimate') === 0 || h.indexOf('#/bank') === 0)) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/lead') === 0 || h.indexOf('#/casechart') === 0)));
+      a.classList.toggle('active', h.indexOf('#/' + key) === 0 || (key === 'report-new' && (h.indexOf('#/report') === 0 || h.indexOf('#/folder') === 0)) || (key === 'entities' && h.indexOf('#/entity') === 0) || (key === 'chart' && (h.indexOf('#/estimate') === 0 || h.indexOf('#/bank') === 0)) || (key === 'investigations' && (h.indexOf('#/investigation') === 0 || h.indexOf('#/lead') === 0 || h.indexOf('#/casechart') === 0)));
       if (a.getAttribute('data-nav') === 'indexes' && (h.indexOf('#/observation') === 0)) a.classList.add('active');
     });
     var rc = document.getElementById('review-count'), n = openCount();
     rc.textContent = n ? n : ''; rc.style.display = n ? 'inline-block' : 'none';
+    var dot = document.getElementById('review-dot'); if (dot) dot.hidden = !n;
+    var more = document.getElementById('more'); if (more) more.open = false;
   }
   function download(name, text, type) {
     var a = document.createElement('a');
@@ -191,11 +229,12 @@
     else if (name === 'entity') viewEntity(parts[1], parts[2]);
     else if (name === 'chart') CI.views.chart(parts[1] || '');
     else if (name === 'bank') CI.views.bank(parts[1] || '', parts[2] || '');
+    else if (name === 'folder') CI.views.folder();
     else if (name === 'observation') CI.views.observation();
-    else if (name === 'investigations') CI.views.investigations();
+    else if (name === 'investigations') CI.views.investigations(parts[1] || '');
     else if (name === 'investigation') CI.views.investigation(parts[1], parts[2]);
     else if (name === 'casechart') CI.views.casechart(parts[1]);
-    else if (name === 'leads') CI.views.investigations();
+    else if (name === 'leads') CI.views.investigations('register');
     else if (name === 'lead') CI.views.lead(parts[1]);
     else if (name === 'estimate') CI.views.estimate(parts[1], parts[2]);
     else if (name === 'review') viewReview();
@@ -271,15 +310,14 @@
     if (id && !r) return notFound('Report');
     r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
     repDefaults = null;
-    view.innerHTML = '<div class="page-head"><h1>' + (id ? 'Edit report – ' + esc(id) : 'New report') + '</h1></div>' +
+    view.innerHTML = pageHead(id ? esc(id) : 'New report', id ? esc(trunc(repTitle(r), 110)) : 'Record the report first, then add the names it mentions and the connections it shows.', '', reportTabs(id, 'details')) + (id ? '' : CI.views.folderCard()) +
       '<form class="card form rep-form" id="rep-form" onsubmit="return false">' +
-      '<p class="form-intro">Record the report first. Next you add the names it mentions and the connections it shows.</p>' +
       '<div class="rf-grid">' +
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
       '<label class="rf-wide">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
-      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
-      '<label class="rf-wide">Notes or summary <span class="hint">in your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
+      '<label class="rf-wide">Notes or summary <span class="hint">In your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
+      '<label class="rf-wide">Where the preserved copy is kept <span class="hint">Path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '</div>' +
       (r.leadId ? '<input type="hidden" id="f-lead" value="' + esc(r.leadId) + '"><p class="muted small">This report was started from lead ' + esc(r.leadId) + ' and answers it.</p>' : '') +
       '<div id="form-errors" class="errors" role="alert"></div>' +
@@ -308,7 +346,7 @@
         persist(); toast('Details saved.'); go('#/report/' + ex.id);
       } else {
         var n = Object.assign({ id: CI.nextId(d, 'report'), hash: hash ? hash.hash : '', hashAt: hash ? hash.at : '', basis: '', dupOf: '', leadId: '', entities: [], created: CI.today(), updated: CI.today() }, r);
-        d.reports.push(n); persist(); go('#/report/' + n.id);
+        d.reports.push(n); CI.folderAdd(d, n.id); persist(); go('#/report/' + n.id);
       }
     };
     finish();
@@ -323,7 +361,7 @@
     if (ae.reportId !== id) ae = { reportId: id, q: '', type: ae.type || '' };
     var dupInfo = r.dupOf ? '<span class="tag">repost of ' + repLink(r.dupOf) + '</span> <span class="muted small">counts as one report with the original</span>' : '';
     var reposts = d.reports.filter(function (x) { return x.dupOf === id; });
-    var h = '<div class="page-head"><h1>' + esc(r.id) + ' <span class="muted">' + esc(trunc(repTitle(r), 90)) + '</span></h1><div class="row"><button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><a class="btn" href="#/report/' + esc(id) + '/edit">Edit details</a><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button></div></div>';
+    var h = pageHead(esc(r.id), esc(repTitle(r)), '<button class="btn" data-action="print-report" data-id="' + esc(id) + '">Print</button><button class="btn danger" data-action="del-report" data-id="' + esc(id) + '">Delete</button>', reportTabs(id, 'names'));
     var mine = d.links.filter(function (l) { return l.reportId === id; });
     h += '<div class="card rep-strip"><div class="facts">' +
       '<div><span class="fl">Date of report</span><span class="fv">' + esc(CI.fmtDate(r.received)) + '</span></div>' +
@@ -332,6 +370,7 @@
       (r.summary ? '<p class="rs-notes">' + esc(r.summary) + '</p>' : '') +
       ((dupInfo || r.leadId || reposts.length || r.basis) ? '<p class="rs-extra muted small">' + (r.basis ? 'Intake basis: ' + esc(r.basis) + ' ' : '') + (dupInfo ? dupInfo + ' ' : '') + (r.leadId ? 'Answers lead <a href="#/lead/' + esc(r.leadId) + '">' + esc(r.leadId) + '</a> ' : '') + (reposts.length ? 'Reposts: ' + reposts.map(function (x) { return repLink(x.id); }).join(', ') : '') + '</p>' : '') + '</div>';
 
+    h = h.replace('<div class="card rep-strip">', CI.views.folderBar() + '<div class="card rep-strip">');
     h += '<div class="card sec" id="sec-names"><h2>Names mentioned in this report</h2><p class="muted small">Every individual, group, area and subject the report names. Start typing: pick the existing name when it is the same one. If it does not exist yet, press Enter to create it.</p>';
     h += '<label class="big-lbl">Add a name<input type="text" id="ae-q" class="big-in" autocomplete="off" value="' + esc(ae.q) + '" data-on-input="ae-input" placeholder="Start typing to find an existing one…"></label>' +
       '<label class="chk"><input type="checkbox" id="ae-flag"> Unsure this is the same one – flag for review</label>' +
@@ -365,7 +404,7 @@
       }).join('') + '</tbody></table>';
     } else if (r.entities.length >= 2) h += '<p class="muted">No connections recorded for this report yet.</p>';
     h += '</div>';
-    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row"><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
+    h += '<div class="card row spread" id="sec-done"><span class="muted">Finished with this report?</span><span class="row">' + (CI.folderOf(d) ? '<button class="btn" data-action="folder-finish">Finish folder</button>' : '') + '<button class="btn" data-action="idx-lead" data-id="' + esc(r.id) + '">Raise a lead</button><a class="btn" href="#/entities">Files</a><a class="btn primary" href="#/report-new">Start next report</a></span></div>';
     view.innerHTML = h;
     renderAeResults();
   }
@@ -587,11 +626,11 @@
       if (st.sort === 'recent') return (b.last || '').localeCompare(a.last || '') || a.e.name.localeCompare(b.e.name);
       return a.e.name.localeCompare(b.e.name);
     });
-    if (!rows.length) return '<tr><td colspan="5" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No names match.' : 'Nothing in this drawer yet.')) + '</td></tr>';
+    if (!rows.length) return '<tr><td colspan="4" class="empty">' + (items ? 'No items here yet. Items are added from a report: type a plate, number or handle and choose Item.' : (q ? 'No names match.' : 'Nothing in this drawer yet.')) + '</td></tr>';
     return rows.map(function (x) {
       return '<tr><td class="nm">' + avatar(x.e, 30) + '<span class="ell"><a href="#/entity/' + esc(x.e.id) + '">' + esc(x.e.name) + '</a>' +
         (x.e.details ? ' <span class="muted small">' + esc(x.e.details) + '</span>' : '') + (x.e.aliases.length ? ' <span class="muted small">also: ' + esc(x.e.aliases.join(', ')) + '</span>' : '') + '</span></td>' +
-        '<td class="num">' + x.reports + '</td><td>' + (x.last ? esc(CI.fmtDate(x.last)) : '') + '</td><td class="num">' + x.links + '</td><td class="muted small">' + esc(x.e.id) + '</td></tr>';
+        '<td class="num">' + x.reports + '</td><td>' + (x.last ? esc(CI.fmtDate(x.last)) : '') + '</td><td class="num">' + x.links + '</td></tr>';
     }).join('');
   }
   function viewEntities(scope) {
@@ -604,14 +643,19 @@
       ? [{ id: '', label: 'All items', n: total }].concat(Object.keys(counts).sort().map(function (k) { return { id: k, label: k.charAt(0).toUpperCase() + k.slice(1), n: counts[k] }; }))
       : CI.FILE_TYPES.map(function (t) { return { id: t, label: CI.TYPE_LABEL[t] + 's', n: counts[t] || 0 }; });
     var base = items ? '#/items/' : '#/entities/';
-    view.innerHTML = '<div class="page-head"><h1>' + (items ? 'Items <span class="muted">plates, phones, emails, accounts: indexed, not filed</span>' : 'Files <span class="muted">filed by type</span>') + '</h1></div>' +
+    view.innerHTML = A_head(items ? 'Items' : 'Files', items ? 'Plates, phones, emails and accounts: indexed, not filed.' : 'The main file of every individual, group, area and subject.')  +
       '<div class="tabs" role="tablist">' + tabs.map(function (t) {
         return '<a role="tab" class="tab' + (t.id === st.type ? ' on' : '') + '" href="' + base + encodeURIComponent(t.id) + '">' + esc(t.label) + ' <span class="n">' + t.n + '</span></a>';
       }).join('') + '</div>' +
       '<div class="card row wrap"><input type="search" id="ent-q" placeholder="' + (items ? 'Search plates, numbers, addresses and handles…' : 'Search this drawer by name, alias or details…') + '" value="' + esc(st.q) + '" data-on-input="ent-filter">' +
       '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'A to Z' }, { value: 'recent', label: 'Most recent report first' }], st.sort) + '</select></div>' +
-      '<div class="card flush"><table class="fixed"><colgroup><col style="width:46%"><col style="width:10%"><col style="width:16%"><col style="width:14%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th><th>ID</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
+      '<div class="card flush"><table class="fixed"><colgroup><col style="width:58%"><col style="width:12%"><col style="width:16%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
   }
+  handlers['idx-lead'] = function (el) {
+    var rid = el.getAttribute('data-id'), r = idx().report[rid]; if (!r) return;
+    var ids = r.entities.map(function (x) { return x.entityId; });
+    CI.views.openLead({ kind: 'INVESTIGATION', raisedBy: rid, aboutChoices: ids, about: [], origin: { kind: 'report', id: rid } });
+  };
   handlers['ent-filter'] = function () {
     var st = entS();
     st.q = val('ent-q'); st.sort = val('ent-sort');
@@ -627,22 +671,24 @@
     var inc = graph.edges.filter(function (x) { return x.source === id || x.target === id; });
     var others = d.entities.filter(function (x) { return x.id !== id; }).sort(function (a, b) { return a.name.localeCompare(b.name); })
       .map(function (x) { return { value: x.id, label: x.name + ' (' + CI.TYPE_LABEL[x.type].toLowerCase() + ', ' + x.id + ')' }; });
-    var h = '<div class="page-head"><h1>' + esc(e.name) + ' ' + kindTag(e) + '</h1><div class="row"><a class="btn" href="#/indexes/shared/' + esc(id) + '">Cross-filing</a><a class="btn" href="#/indexes/' + esc(id) + '">Connections</a><button class="btn" data-action="chart-entity" data-id="' + esc(id) + '">Chart (1 hop)</button><button class="btn primary" data-action="bank-entity" data-id="' + esc(id) + '">Create bank from this</button></div></div>';
     var stt = CI.statsFor(CI.materialStats(d, idx()), id), spec = CI.PHOTO_TYPES[e.type];
     var nConn = (idx().linksByEntity[id] || []).length;
-    h += '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow"><div><b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + nConn + '</b> connection' + (nConn === 1 ? '' : 's') + ' to <b>' + stt.neighbors + '</b> name' + (stt.neighbors === 1 ? '' : 's') + (stt.hub ? ' <span class="tag warn">high-connection</span>' : '') + '</div>' +
+    var eLead = '<b>' + stt.reports + '</b> report' + (stt.reports === 1 ? '' : 's') + ' \u00b7 <b>' + nConn + '</b> connection' + (nConn === 1 ? '' : 's') + ' to <b>' + stt.neighbors + '</b> name' + (stt.neighbors === 1 ? '' : 's');
+    var picCard = '<div class="card row wrap pic">' + avatar(e, 96) + '<div class="grow">' +
       (stt.reports > stt.material ? '<div class="muted small">' + (stt.reports - stt.material) + ' of the reports only mention it in passing.</div>' : '') +
       (spec ? '<div class="row wrap" style="margin-top:8px"><label class="btn small">' + (e.photo ? 'Replace ' : 'Add ') + spec.label.toLowerCase() + '<input type="file" accept="image/*" data-on-change="photo-file" data-id="' + esc(id) + '" hidden></label>' + (e.photo ? '<button class="btn small" data-action="photo-remove" data-id="' + esc(id) + '">Remove</button>' : '') + '<span class="muted small">Shown on the chart. Stored in this browser, shrunk to a small image.</span></div>' : '<div class="muted small" style="margin-top:6px">Pictures can be added to individuals (a photo) and groups (a logo).</div>') +
       '</div></div>';
     var nsum = d.summaries.filter(function (x) { return x.fileId === id; }).length, ntl = d.timeline.filter(function (x) { return x.fileId === id; }).length, nnew = CI.unsummarized(d, idx(), id).length;
-    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl]];
-    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length]];
+    var aboutL = CI.leadsAbout(d, id), nlead = aboutL.filter(function (l) { return !CI.isClosed(l); }).length;
+    var TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['summaries', 'Summaries', nsum], ['timeline', 'Time line', ntl], ['leads', 'Leads', nlead], ['chart', 'Chart', null]];
+    if (CI.isItem(e)) TABS = [['profile', 'Profile', null], ['connections', 'Connections', nConn], ['reports', 'Reports', repIds.length], ['leads', 'Leads', nlead], ['chart', 'Chart', null]];
     if (!TABS.some(function (t) { return t[0] === tab; })) tab = 'profile';
-    h += '<div class="tabs">' + TABS.map(function (t) {
-      return '<a class="tab' + (tab === t[0] ? ' on' : '') + '" href="#/entity/' + esc(id) + (t[0] === 'profile' ? '' : '/' + t[0]) + '">' + t[1] + (t[2] != null ? ' <span class="n">' + t[2] + '</span>' : '') +
-        (t[0] === 'summaries' && nnew && !CI.isItem(e) ? ' <span class="tag warn" title="Reports not yet covered by a summary">' + nnew + ' new</span>' : '') + '</a>';
-    }).join('') + '</div>';
+    var h = pageHead(esc(e.name) + ' ' + kindTag(e), eLead + (stt.hub ? ' <span class="tag warn">high-connection</span>' : ''), '', TABS.map(function (t) {
+      return { label: t[1], n: t[2], on: tab === t[0], href: '#/entity/' + id + (t[0] === 'profile' ? '' : '/' + t[0]),
+        extra: (t[0] === 'summaries' && nnew && !CI.isItem(e) ? ' <span class="tag warn" title="Reports not yet covered by a summary">' + nnew + ' new</span>' : '') };
+    }));
     if (tab === 'profile') {
+    h += picCard;
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
       (CI.isItem(e) ? '<label>Kind of item <span class="hint">plate, phone, email, account…</span><input type="text" id="en-itemtype" value="' + esc(e.itemType || '') + '"></label><p class="muted small">An item has no folder. This page is its index entry: the reports that mention it and its connections.</p>' : '') +
       (CI.isItem(e) ? '' : '<label>Identifying details <span class="hint">date of birth or age, address, nickname, description: what tells this one apart</span><input type="text" id="en-details" value="' + esc(e.details || '') + '"></label>') +
@@ -670,23 +716,27 @@
     }
     if (tab === 'summaries') h += CI.views.fileSummaries(e);
     if (tab === 'timeline') h += CI.views.fileTimeline(e);
+    if (tab === 'leads') h += CI.views.fileLeads(e, aboutL);
+    if (tab === 'chart') h += CI.views.fileChart(e);
     if (tab === 'profile') {
     h += '<div class="card"><h2>Housekeeping</h2><div class="row wrap"><select id="merge-into">' + options(others, '', 'Merge this name into…') + '</select><button class="btn" data-action="merge-entity" data-id="' + esc(id) + '">Merge</button>' +
       '<span class="muted small">Use when two entries turned out to be the same one. Merges are logged and can be undone from Review.</span></div>' +
       '<div class="row" style="margin-top:10px"><button class="btn danger" data-action="del-entity" data-id="' + esc(id) + '">Delete this name</button><span class="muted small">Only possible while no report or connection uses it.</span></div></div>';
     }
     view.innerHTML = h;
+    if (tab === 'chart') CI.views.fileChartDraw(e);
   }
   function profileFields(e) {
     var fs = CI.isItem(e) ? [] : CI.profileFields(e.type); if (!fs.length) return '';
     var p = e.profile || {};
-    return '<h3 class="pf-h">' + esc(CI.TYPE_LABEL[e.type]) + ' profile</h3><div class="pf-grid">' + fs.map(function (f) {
+    var filled = fs.filter(function (f) { return p[f.id]; }).length;
+    return '<details class="pf-more"><summary>' + esc(CI.TYPE_LABEL[e.type]) + ' profile <span class="muted small">' + filled + ' of ' + fs.length + ' filled in</span></summary><div class="pf-grid">' + fs.map(function (f) {
       var v = p[f.id] || '', id = 'pf-' + f.id, hint = f.hint ? ' <span class="hint">' + esc(f.hint) + '</span>' : '';
       if (f.kind === 'date') return '<label class="pf-f">' + esc(f.label) + hint + dateInput(id, v, 'date-fix') + '</label>';
       if (f.kind === 'select') return '<label class="pf-f">' + esc(f.label) + hint + '<select id="' + id + '">' + options([{ value: '', label: '' }].concat(f.options.map(function (o) { return { value: o, label: o }; })), v) + '</select></label>';
       if (f.kind === 'long') return '<label class="pf-f wide">' + esc(f.label) + hint + '<textarea id="' + id + '" rows="2">' + esc(v) + '</textarea></label>';
       return '<label class="pf-f">' + esc(f.label) + hint + '<input type="text" id="' + id + '" value="' + esc(v) + '"></label>';
-    }).join('') + '</div>';
+    }).join('') + '</div></details>';
   }
   handlers['photo-file'] = function (el) {
     var e = idx().entity[el.getAttribute('data-id')], f = el.files && el.files[0];
@@ -806,9 +856,9 @@
       '<h2>Chart and heat</h2><div class="grid3"><label>Heat window (days)<input type="number" min="1" id="s-hw" value="' + s.heatWindowDays + '"></label><label>Hot at this many reports<input type="number" min="1" id="s-ht" value="' + s.heatThreshold + '"></label>' +
       '<label>High-connection node at this many connections<input type="number" min="3" id="s-hub" value="' + s.hubDegree + '"></label></div>' +
       '<div class="row"><button class="btn primary" data-action="save-settings">Save settings</button></div></form>' +
-      '<div class="card"><h2>Data</h2><p class="muted">Everything is stored in this browser only. Export regularly. <strong>Export files contain report data about real people – keep them out of the GitHub repository.</strong> The repository should hold the app and fictional sample data only.</p>' +
+      '<div class="card"><h2>Data</h2><p class="muted">' + (CI.views.backupLine ? CI.views.backupLine() : '') + ' Everything is stored in this browser only. Back up regularly. <strong>Export files contain report data about real people – keep them out of the GitHub repository.</strong> The repository should hold the app and fictional sample data only.</p>' +
       '<div class="row wrap"><button class="btn" data-action="export">Export\u2026</button><label class="btn">Import from file<input type="file" accept="application/json,.json" id="import-file" data-on-change="import" hidden></label>' +
-      '<button class="btn" data-action="load-sample">Load fictional sample data</button>' + (d.sampleLoaded ? '<button class="btn" data-action="start-fresh">Start fresh (remove the sample data)</button>' : '') + '<button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
+      '<button class="btn" data-action="load-sample">Load fictional sample data</button><button class="btn" data-action="load-pilot">Load pilot-sized fictional data (300 reports)</button>' + (d.sampleLoaded ? '<button class="btn" data-action="start-fresh">Start fresh (remove the sample data)</button>' : '') + '<button class="btn danger" data-action="clear-all">Clear everything</button></div>' +
       '<label class="form-inline">Or paste exported JSON here<textarea id="import-text" class="mono" rows="3" placeholder="{ &quot;version&quot;: 1, ... }"></textarea></label><div class="row"><button class="btn small" data-action="import-paste">Import pasted JSON</button></div>' +
       '<p class="muted small" style="margin-top:10px">Now holding ' + d.reports.length + ' reports, ' + d.entities.length + ' entities, ' + d.links.length + ' connections, ' + d.banks.length + ' banks, ' + d.leads.length + ' leads, ' + d.investigations.length + ' investigations.</p></div>';
     view.innerHTML = h;
@@ -845,6 +895,7 @@
     persist(); toast('Settings saved.'); viewSettings();
   };
   handlers['export'] = function () {
+    CI.markBackup(d); persist();
     modal('<h2>Export</h2><p class="muted small">Copy this text somewhere safe, outside the GitHub repository. To restore it, paste it under Settings, Data, or choose the saved file.</p><textarea id="export-text" class="mono" rows="12" readonly></textarea><div class="row end"><button class="btn" data-action="export-download">Download file</button><button class="btn primary" data-action="export-copy">Copy</button><button class="btn" data-action="modal-close">Close</button></div>', true);
     var ta = document.getElementById('export-text'); ta.value = CI.exportJson(d); ta.focus(); ta.select();
   };
@@ -873,6 +924,11 @@
     doImport(t, 'the pasted data');
   };
   function loadSample() { d = CI.sampleData(); ensureSuggested(); persist(); toast('Sample data loaded.'); go('#/report-new'); }
+  handlers['load-pilot'] = function () {
+    var run = function () { d = CI.pilotData(); ensureSuggested(); persist(); toast('Pilot-sized fictional data loaded.'); go('#/entities'); };
+    if ((d.reports.length || d.entities.length) && !d.sampleLoaded) askConfirm('Replace the data in this browser with the fictional pilot-sized data? Export first if you need what is here.', run, { title: 'Load pilot-sized data', yes: 'Replace', danger: true });
+    else run();
+  };
   handlers['load-sample'] = function () {
     if ((d.reports.length || d.entities.length) && !d.sampleLoaded) askConfirm('Replace the data in this browser with the fictional sample data? Export first if you need what is here.', loadSample, { title: 'Load sample data', yes: 'Replace', danger: true });
     else loadSample();
@@ -890,6 +946,7 @@
   /* ---------- exposed to chartview.js ---------- */
   CI.views = CI.views || {};
   CI.app = {
+    pageHead: pageHead, tabRow: tabRow,
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
     viewEntity: function (id, tab) { viewEntity(id, tab); }, dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, connTable: connTable, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal
   };
@@ -903,7 +960,8 @@
   CI.app.start = function () {
     if (!d.started && !d.reports.length && !d.entities.length) { d = CI.sampleData(); persist(); }
     if (!d.settings.suggestedTypes) { ensureSuggested(); persist(); }
-    document.getElementById('back-btn').addEventListener('click', function () { if (hist.length) { cur = hist.pop(); route(); } });
+    document.addEventListener('click', function (ev) { var m = document.getElementById('more'); if (m && m.open && !m.contains(ev.target)) m.open = false; });
     route();
+    if (CI.views.backupBanner) CI.views.backupBanner();
   };
 })();

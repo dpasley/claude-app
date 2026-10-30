@@ -122,9 +122,12 @@
     var bank = inv && d.banks.filter(function (b) { return b.id === inv.bankId; })[0];
     var rep = d.reports.filter(function (r) { return r.id === lead.raisedBy; })[0];
     header(doc, kind.title, lead.id, true);
-    lab(doc, 'Investigation', X0, 112); lab(doc, 'Issued', X0 + 250, 112); lab(doc, lead.kind === 'DATA_REQUEST' ? 'With' : 'Assigned to', X0 + 385, 112);
+    var home = CI.leadHome(d, lead);
+    lab(doc, 'Belongs to', X0, 112); lab(doc, 'Issued', X0 + 250, 112); lab(doc, lead.kind === 'DATA_REQUEST' ? 'With' : 'Assigned to', X0 + 385, 112);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
-    doc.text(oneLine(doc, plain(inv ? inv.id + '  ' + ((inv.title || (bank && bank.name)) || '') : '(none)'), 235), X0, 132);
+    doc.text(oneLine(doc, plain(inv ? inv.id + '  ' + ((inv.title || (bank && bank.name)) || '') : 'No investigation'), 235), X0, 132);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(70);
+    doc.text(oneLine(doc, plain(home.from + '. ' + home.folder + '.'), W), X0, 150); doc.setTextColor(17); doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
     doc.text(CI.fmtDate(lead.issued), X0 + 250, 132); doc.text(oneLine(doc, lead.kind === 'DATA_REQUEST' ? lead.with : (lead.assigned || ''), 105), X0 + 385, 132);
     lab(doc, lead.kind === 'DATA_REQUEST' ? 'Retrieve' : 'Reason for the lead', X0, 172);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
@@ -190,17 +193,19 @@
    * o: { kind: 'lead' | 'request', openOnly } */
   CI.pdf.leadList = function (d, invId, o) {
     o = o || {};
-    var inv = d.investigations.filter(function (v) { return v.id === invId; })[0]; if (!inv) throw new Error('No such investigation.');
-    var bank = d.banks.filter(function (b) { return b.id === inv.bankId; })[0], req = o.kind === 'request';
-    var all = (req ? CI.requestsOf(d, invId) : CI.leadsOf(d, invId)).sort(function (a, b) { return a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); });
+    var inv = invId ? d.investigations.filter(function (v) { return v.id === invId; })[0] : null; if (invId && !inv) throw new Error('No such investigation.');
+    var bank = inv && d.banks.filter(function (b) { return b.id === inv.bankId; })[0], req = o.kind === 'request';
+    // With no investigation this is a register print: o.scope says what it covers; o.investigation, o.assigned and o.about narrow it.
+    var all = (inv ? (req ? CI.requestsOf(d, invId) : CI.leadsOf(d, invId)).sort(function (a, b) { return a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); })
+      : CI.leadRegister(d, { kind: o.kind, investigation: o.investigation || '', assigned: o.assigned || '', about: o.about || '' }));
     var rows = o.openOnly ? all.filter(function (l) { return !CI.isClosed(l); }) : all;
-    var doc = CI.pdf.begin(), title = (req ? 'REQUEST LIST' : 'LEAD LIST');
-    var again = function () { return CI.pdf.top(doc, title + ' (continued)', inv.id); };
-    var y = CI.pdf.top(doc, title, inv.id);
+    var doc = CI.pdf.begin(), title = (req ? 'REQUEST LIST' : 'LEAD LIST'), sub = inv ? inv.id : (o.scopeTitle || 'Lead register');
+    var again = function () { return CI.pdf.top(doc, title + ' (continued)', sub); };
+    var y = CI.pdf.top(doc, title, sub);
     var n = function (st) { return all.filter(function (l) { return l.status === st; }).length; };
-    lab(doc, 'Investigation', X0, y); lab(doc, 'Investigator', X0 + 250, y); lab(doc, 'Showing', X0 + 385, y);
+    lab(doc, inv ? 'Investigation' : 'Covers', X0, y); lab(doc, inv ? 'Investigator' : '', X0 + 250, y); lab(doc, 'Showing', X0 + 385, y);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-    doc.text(oneLine(doc, plain(inv.title || (bank ? bank.name : '')), 235), X0, y + 18); doc.text(oneLine(doc, plain(inv.investigator || ''), 125), X0 + 250, y + 18);
+    doc.text(oneLine(doc, plain(inv ? (inv.title || (bank ? bank.name : '')) : (o.scope || 'All leads')), inv ? 235 : 380), X0, y + 18); if (inv) doc.text(oneLine(doc, plain(inv.investigator || ''), 125), X0 + 250, y + 18);
     doc.text((o.openOnly ? 'Open ' : 'All ') + rows.length + ' of ' + all.length, X0 + 385, y + 18);
     y += 34; doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(95);
     doc.text('Not started ' + n('NOT_STARTED') + '   ·   In progress ' + n('IN_PROGRESS') + '   ·   Done ' + n('DONE') + '   ·   Nothing found ' + n('NO_RESULT'), X0, y); doc.setTextColor(17);
@@ -214,6 +219,7 @@
       var top = Math.max(ql.length * 14, (al.length + 1) * 12 + 2, sl.length * 12), h = top + (rl.length ? rl.length * 12 + 4 : 0);
       if (y + h > 735) { doc.addPage('letter', 'portrait'); y = again() + 6; }
       doc.setFont('courier', 'bold'); doc.setFontSize(10.5); doc.text(l.id, X0, y);
+      if (!inv) { doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(95); doc.text(l.investigationId || 'none', X0, y + 11); doc.setTextColor(17); }
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11); ql.forEach(function (ln, i) { doc.text(ln, X0 + 62, y + i * 14); });
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
       al.forEach(function (ln, i) { doc.text(ln, X0 + 318, y + i * 12); }); doc.text(CI.fmtShort(l.issued), X0 + 318, y + al.length * 12 + 2);
@@ -222,7 +228,7 @@
       doc.setDrawColor(200); doc.setLineWidth(0.5); doc.line(X0, y + h + 2, X1, y + h + 2);
       y += h + 16;
     });
-    CI.pdf.stamp(doc, (req ? 'Request list' : 'Lead list') + ' · ' + inv.id + ((inv.title || bank) ? ' · ' + (inv.title || bank.name) : ''));
+    CI.pdf.stamp(doc, (req ? 'Request list' : 'Lead list') + ' \u00b7 ' + (inv ? inv.id + ((inv.title || bank) ? ' \u00b7 ' + (inv.title || bank.name) : '') : (o.scope || 'Lead register')));
     return doc.output('blob');
   };
 
