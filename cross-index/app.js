@@ -644,7 +644,7 @@
       ? [{ id: '', label: 'All items', n: total }].concat(Object.keys(counts).sort().map(function (k) { return { id: k, label: k.charAt(0).toUpperCase() + k.slice(1), n: counts[k] }; }))
       : CI.FILE_TYPES.map(function (t) { return { id: t, label: CI.TYPE_LABEL[t] + 's', n: counts[t] || 0 }; });
     var base = items ? '#/items/' : '#/entities/';
-    view.innerHTML = A_head(items ? 'Items' : 'Files', items ? 'Plates, phones, emails and accounts: indexed, not filed.' : 'The main file of every individual, group, area and subject.')  +
+    view.innerHTML = pageHead(items ? 'Items' : 'Files', items ? 'Plates, phones, emails and accounts: indexed, not filed.' : 'The main file of every individual, group, area and subject.', items ? '' : '<button class="btn primary" data-action="newfile" data-type="' + esc(st.type) + '">New file</button>') +
       '<div class="tabs" role="tablist">' + tabs.map(function (t) {
         return '<a role="tab" class="tab' + (t.id === st.type ? ' on' : '') + '" href="' + base + encodeURIComponent(t.id) + '">' + esc(t.label) + ' <span class="n">' + t.n + '</span></a>';
       }).join('') + '</div>' +
@@ -652,6 +652,34 @@
       '<select id="ent-sort" data-on-change="ent-filter">' + options([{ value: 'name', label: 'A to Z' }, { value: 'recent', label: 'Most recent report first' }], st.sort) + '</select></div>' +
       '<div class="card flush"><table class="fixed"><colgroup><col style="width:58%"><col style="width:12%"><col style="width:16%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
   }
+  /* New file: one small dialog, used from Files and from the Select a file box on New report. */
+  var nf = { then: '' };
+  function newFile(name, type, then) {
+    nf.then = then || '';
+    modal('<h2>New file</h2><p class="muted small">A file is the main folder of an individual, group, area or subject.</p>' +
+      '<div class="form"><label>Name<input type="text" id="nf-name" value="' + esc(name || '') + '" autocomplete="off"></label>' +
+      '<label>Type<select id="nf-type">' + options(CI.FILE_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), type || '', 'Choose…') + '</select></label>' +
+      '<label>Identifying details <span class="hint">optional: date of birth or age, address, nickname, description</span><textarea id="nf-details" rows="3"></textarea></label>' +
+      '<div id="nf-msg" class="errors"></div></div>' +
+      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="newfile-ok">Create file</button></div>');
+    var f = document.getElementById(name ? 'nf-type' : 'nf-name'); if (f) f.focus();
+  }
+  handlers['newfile'] = function (el) { newFile('', el.getAttribute('data-type'), ''); };
+  handlers['newfile-ok'] = function () {
+    var q = val('nf-name').trim(), type = val('nf-type'), msg = document.getElementById('nf-msg');
+    if (!q) { msg.textContent = 'The name cannot be empty.'; return; }
+    if (!type) { msg.textContent = 'Choose what type this is.'; return; }
+    var details = val('nf-details').trim(), then = nf.then;
+    var exact = CI.findCandidates(d, q).filter(function (c) { return c.score === 1; })[0];
+    function create() {
+      closeModal();
+      var e = CI.addEntity(d, { type: type, name: q, details: details });
+      if (then === 'folder') { var err = CI.openFolder(d, e.id); if (err) { toast(err, true); return; } persist(); go('#/report-new'); toast('File created. New reports get its name automatically.'); }
+      else { persist(); go('#/entity/' + e.id); toast('File created.'); }
+    }
+    if (exact) askConfirm('“' + exact.entity.name + '” (' + exact.entity.id + ') already matches this name or alias. Create a separate file anyway?', create, { title: 'Possible duplicate', yes: 'Create a separate one' });
+    else create();
+  };
   handlers['idx-lead'] = function (el) {
     var rid = el.getAttribute('data-id'), r = idx().report[rid]; if (!r) return;
     var ids = r.entities.map(function (x) { return x.entityId; });
@@ -948,6 +976,7 @@
   /* ---------- exposed to chartview.js ---------- */
   CI.views = CI.views || {};
   CI.app = {
+    newFile: newFile,
     pageHead: pageHead, tabRow: tabRow,
     data: function () { return d; }, persist: persist, idx: idx, esc: esc, tag: tag, entLink: entLink, repLink: repLink, options: options, trunc: trunc, lt: lt,
     viewEntity: function (id, tab) { viewEntity(id, tab); }, dateInput: dateInput, readDate: readDate, dateHelp: DATE_HELP, go: go, toast: toast, view: view, avatar: avatar, startReport: function (def) { repDefaults = def; go('#/report-new'); }, connTable: connTable, setData: function (nd) { d = nd; _idx = null; }, logEvent: logEvent, download: download, handlers: handlers, confirm: askConfirm, ask: askText, modal: modal, closeModal: closeModal

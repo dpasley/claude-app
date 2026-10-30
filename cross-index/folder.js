@@ -7,9 +7,10 @@
 
   function results(q) {
     var c = CI.findCandidates(D(), q, 8).filter(function (x) { return !CI.isItem(x.entity); });
-    return c.length ? c.map(function (x) {
+    var make = '<div class="cand pick"><div>Not listed? Create a new file named <strong>' + esc(q.trim()) + '</strong></div><button class="btn small" data-action="folder-new" data-q="' + esc(q.trim()) + '">New file…</button></div>';
+    return (c.length ? c.map(function (x) {
       return '<div class="cand pick"><div><strong>' + esc(x.entity.name) + '</strong> ' + A.tag(x.entity.type) + (x.entity.details ? ' <span class="muted small">' + esc(x.entity.details) + '</span>' : '') + '</div><button class="btn small" data-action="folder-pick" data-id="' + esc(x.entity.id) + '">Work on this file</button></div>';
-    }).join('') : '<p class="muted small">No file with that name yet. Add it as a name on a report first, or from Files.</p>';
+    }).join('') : '<p class="muted small">No file with that name yet.</p>') + make;
   }
 
   /* The bar at the top of New report and of the indexing page while a folder is being worked on. */
@@ -26,6 +27,7 @@
       '<input type="search" id="fd-q" data-lookup="#fd-res" data-on-input="folder-find" autocomplete="off" placeholder="Name"></label><div id="fd-res"></div></div>';
   };
   H['folder-find'] = function (el) { var r = document.getElementById('fd-res'); r.innerHTML = el.value.trim() ? results(el.value) : ''; };
+  H['folder-new'] = function (el) { A.newFile(el.getAttribute('data-q'), '', 'folder'); };
   H['folder-pick'] = function (el) {
     var err = CI.openFolder(D(), el.getAttribute('data-id')); if (err) { A.toast(err, true); return; }
     A.persist(); A.go('#/report-new'); A.toast('Working on this folder. New reports get its name automatically.');
