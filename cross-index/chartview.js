@@ -105,7 +105,7 @@
         '<span class="muted small">Each chart keeps its own filters, arrangement and snapshots.</span></div>';
     }
     h += '<div class="chart-layout nodetail" id="cl"><aside class="panel" id="ctl">' + controlsHtml(bank, !!frozen) + '</aside>' +
-      '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' +
+      '<section class="stage"><div class="toolbar"><span id="summary" class="muted small"></span><span class="spacer"></span>' + CI.views.chartFind() +
       '<button class="btn small" data-action="cv-zoom" data-f="0.8" title="Zoom out" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" title="Zoom in" aria-label="Zoom in">+</button><button class="btn small" data-action="cv-fit">Fit</button><button class="btn small" data-action="cv-relayout">Auto-arrange</button><button class="btn small" data-action="cv-png">Image</button><button class="btn small" data-action="cv-print">Print for the wall…</button>' +
       '</div>' +
       (frozen ? '<div class="banner">Frozen snapshot “' + esc(frozen.label) + '”, taken ' + esc(CI.fmtDateTime(frozen.at)) + '. Filters do not apply. Switch to Live to keep working.</div>' : '') +
@@ -115,10 +115,23 @@
     draw();
   }
 
+  CI.views.chartFind = function () {
+    return '<span class="cfind"><input type="search" id="cf-q" data-lookup="#cf-res" data-on-input="chart-find" placeholder="Find on chart" autocomplete="off" aria-label="Find a name on the chart"><span id="cf-res"></span></span><button class="btn small" data-action="chart-back" title="Back to the previous view (B)">\u21b6 Back</button>';
+  };
   function chk(name, checked, label, extra) {
     return '<label class="chk"><input type="checkbox" ' + extra + (checked ? ' checked' : '') + '> ' + esc(label) + '</label>';
   }
 
+  function groupsHtml(bank, frozen) {
+    var g = currentGraph(bank).graph, info = CI.groupInfo(g, bank.groupNames), col = bank.collapsed || {};
+    var h = '<div' + (frozen ? ' class="off"' : '') + '><h3>Groups</h3>' + chk('gr', bank.groups !== false, 'Shade the groups', 'data-on-change="cv-groups"');
+    if (!info.length) return h + '<p class="muted small">Groups appear when names are closely connected.</p></div>';
+    h += '<p class="muted small" style="margin:2px 0 6px">Closely connected names are grouped for you. Fold a group into one node to read a big chart.</p><div class="grp-list">' + info.map(function (x, i) {
+      return '<div class="grp-row"><i class="sw" style="background:rgba(' + CI.GROUP_TINTS[i % CI.GROUP_TINTS.length] + ',.55)"></i><button class="linkbtn" data-action="cv-grp-zoom" data-id="' + esc(x.id) + '" title="Zoom to this group">' + esc(x.name) + '</button><span class="muted small">' + x.size + '</span>' +
+        '<button class="btn small" data-action="cv-grp-fold" data-id="' + esc(x.id) + '">' + (col[x.id] ? 'Open' : 'Fold') + '</button><button class="btn small" data-action="cv-grp-name" data-id="' + esc(x.id) + '" data-name="' + esc(x.name) + '">Rename</button></div>';
+    }).join('') + '</div><div class="row tight-row"><button class="btn small" data-action="cv-grp-all" data-v="1">Fold all</button><button class="btn small" data-action="cv-grp-all" data-v="0">Open all</button><button class="btn small" data-action="cv-grp-arrange">Arrange by group</button></div></div>';
+    return h;
+  }
   function controlsHtml(bank, frozen) {
     var h = bank.quick ? '' : '<h3>Files</h3><p class="small" style="margin:0 0 4px">' + (bank.files || []).length + ' file' + ((bank.files || []).length === 1 ? '' : 's') + ' in this special bank. <a href="#/bank/' + esc(bank.id) + '">Add or remove</a></p>';
     h += '<div' + (frozen ? ' class="off"' : '') + '><h3>Show</h3>' +
@@ -129,6 +142,11 @@
       '<div class="grid2 tight-grid"><label>From ' + A.dateInput('cv-from', bank.dateFrom, 'cv-date', ' data-k="dateFrom"') + '</label><label>To ' + A.dateInput('cv-to', bank.dateTo, 'cv-date', ' data-k="dateTo"') + '</label></div>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
       chk('l', labelsOn(bank, currentGraph(bank).graph), 'Label the connections' + (bank.edgeLabels === true || bank.edgeLabels === false ? '' : ' (automatic)'), 'data-on-change="cv-labels"') + '</div>';
+    h += '<div' + (frozen ? ' class="off"' : '') + '><h3>Look</h3>' +
+      chk('sz', bank.sizeByLinks !== false, 'Bigger names for more connections', 'data-on-change="cv-size"') +
+      chk('zl', bank.zoomLabels !== false, 'Labels follow the zoom', 'data-on-change="cv-zoomlabels"') +
+      '<label>Arrangement<select data-on-change="cv-layout" aria-label="Arrangement">' + A.options([{ value: 'cose', label: 'Organic' }, { value: 'groups', label: 'Grouped' }, { value: 'concentric', label: 'Rings by connections' }, { value: 'breadthfirst', label: 'Tree from the start names' }, { value: 'circle', label: 'Circle' }], bank.layout || 'cose') + '</select></label></div>';
+    h += groupsHtml(bank, frozen);
     if (bank.excluded.length) {
       h += '<h3>Hidden</h3><div class="chips">' + bank.excluded.map(function (id) {
         var e = A.idx().entity[id];
@@ -188,6 +206,8 @@
       layout: bank.layout, positions: posMap, forceLayout: force, forceFit: forceFit, viewKey: bank.id + '|' + bank.chartId + '|' + (cur.frozen ? cur.frozen.id : 'live'),
       onLaidOut: function (all) { Object.keys(all).forEach(function (k) { posMap[k] = all[k]; }); A.persist(); }, photoOf: function (id) { var e = A.idx().entity[id]; return e && e.photo ? e.photo : ''; },
       onMoved: function (id, p) { posMap[id] = p; A.persist(); },
+      sizeByLinks: bank.sizeByLinks !== false, zoomLabels: bank.zoomLabels !== false, hulls: bank.groups !== false, collapsed: cur.frozen ? null : (bank.collapsed || {}), groupNames: bank.groupNames || {},
+      onGroup: function (gid) { mutate(function (b) { b.collapsed = b.collapsed || {}; delete b.collapsed[gid]; }, true); },
       edgeLabels: labelsOn(bank, graph), diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
       onNode: function (id) { st.sel = { kind: 'node', id: id }; renderDetail(); },
       onEdge: function (id) { st.sel = { kind: 'edge', id: id }; renderDetail(); },
@@ -341,7 +361,33 @@
   H['cv-mentions'] = function (el) { mutate(function (b) { b.showMentions = el.checked; }); };
   H['cv-hubstop'] = function (el) { mutate(function (b) { b.hubStop = el.checked; }); };
   H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); };
-  H['cv-layout'] = function (el) { mutate(function (b) { b.layout = el.value; }); };
+  H['cv-layout'] = function (el) { st.forceLayout = true; st.forceFit = true; mutate(function (b) { b.layout = el.value; }); };
+  H['cv-size'] = function (el) { mutate(function (b) { b.sizeByLinks = el.checked; }); };
+  H['cv-zoomlabels'] = function (el) { mutate(function (b) { b.zoomLabels = el.checked; }); };
+  H['cv-groups'] = function (el) { mutate(function (b) { b.groups = el.checked; }); };
+  H['cv-grp-fold'] = function (el) { var id = el.getAttribute('data-id'); st.forceFit = true; mutate(function (b) { b.collapsed = b.collapsed || {}; if (b.collapsed[id]) delete b.collapsed[id]; else b.collapsed[id] = true; }, true); };
+  H['cv-grp-all'] = function (el) {
+    var on = el.getAttribute('data-v') === '1'; st.forceFit = true;
+    mutate(function (b) { b.collapsed = {}; if (on) CI.groupInfo(currentGraph(b).graph, b.groupNames).forEach(function (g) { b.collapsed[g.id] = true; }); }, true);
+  };
+  H['cv-grp-zoom'] = function (el) {
+    var g = CI.groupInfo(currentGraph(B()).graph, B().groupNames).filter(function (x) { return x.id === el.getAttribute('data-id'); })[0], cy = CI.chart.cy; if (!g || !cy) return;
+    var els = cy.collection(); g.members.forEach(function (id) { els = els.union(cy.getElementById(id)); });
+    if (!els.length) els = cy.getElementById('grp:' + g.id);
+    if (els.length) { CI.chart.pushView(); cy.animate({ fit: { eles: els, padding: 70 } }, { duration: 350 }); }
+  };
+  H['cv-grp-name'] = function (el) {
+    var id = el.getAttribute('data-id');
+    A.ask('Name this group', el.getAttribute('data-name'), function (n) { mutate(function (b) { b.groupNames = b.groupNames || {}; if (n.trim()) b.groupNames[id] = n.trim(); else delete b.groupNames[id]; }, true); }, { title: 'Rename group', ok: 'Rename' });
+  };
+  H['cv-grp-arrange'] = function () { st.forceLayout = true; st.forceFit = true; mutate(function (b) { b.layout = 'groups'; }, true); };
+  H['chart-find'] = function (el) {
+    var box = document.getElementById('cf-res'); if (!box) return;
+    var r = CI.chart.find(el.value, 8);
+    box.innerHTML = el.value.trim() ? (r.length ? r.map(function (x) { return '<div class="cand pick"><button class="btn small" data-action="chart-jump" data-id="' + esc(x.id) + '"><b>' + esc(x.name) + '</b> ' + A.tag(x.type === 'cluster' ? 'group' : x.type) + '</button></div>'; }).join('') : '<p class="muted small" style="margin:6px">Not on this chart.</p>') : '';
+  };
+  H['chart-jump'] = function (el) { var q = document.getElementById('cf-q'); if (q) q.value = ''; var b = document.getElementById('cf-res'); if (b) b.innerHTML = ''; CI.chart.flyTo(el.getAttribute('data-id')); };
+  H['chart-back'] = function () { CI.chart.back(); };
   H['cv-unhide'] = function (el) { mutate(function (b) { b.excluded = b.excluded.filter(function (x) { return x !== el.getAttribute('data-id'); }); }, true); };
   H['cv-node-seed'] = function (el) {
     var id = el.getAttribute('data-id');

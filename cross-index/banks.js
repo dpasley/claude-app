@@ -18,7 +18,7 @@
   CI.views.bankHead = function (b, active) {
     var inv = CI.investigationFor(D(), b.id);
     return '<div class="page-head"><div class="ph-t"><h1>' + esc(b.name) + (b.outcome ? ' <span class="tag">no situation ' + esc(CI.fmtDate(b.outcome.date)) + '</span>' : '') + (b.handedOver ? ' <span class="tag">handed over ' + esc(CI.fmtDate(b.handedOver)) + '</span>' : '') + '</h1>' +
-      (b.opened && b.opened.reason ? '<p class="lead" title="' + esc(b.opened.reason) + '">Opened ' + esc(CI.fmtDate(b.opened.date)) + ' : ' + esc(b.opened.reason) + '</p>' : '') + '</div>' +
+      (b.opened && b.opened.reason ? '<p class="lead" title="' + esc(b.opened.reason) + '">Opened ' + esc(CI.fmtDate(b.opened.date)) + ': ' + esc(b.opened.reason) + '</p>' : '') + '</div>' +
       '<div class="row">' + (inv ? '<a class="btn" href="#/investigation/' + esc(inv.id) + '">Investigation</a>' : '') +
       '<details class="more dots"><summary aria-label="More actions">\u22ef</summary><div class="menu"><button type="button" data-action="cl-rename" data-id="' + esc(b.id) + '" data-then="bank">Rename</button><button type="button" data-action="cl-dup" data-id="' + esc(b.id) + '" data-then="bank">Copy</button><button type="button" class="danger" data-action="cl-del" data-id="' + esc(b.id) + '" data-then="list">Delete</button></div></details></div></div>' +
       newsBanner(b) + CI.views.bankTabs(b, active);

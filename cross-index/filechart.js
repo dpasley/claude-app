@@ -9,7 +9,7 @@
     if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'auto'; }
     return '<div class="card"><div class="row wrap"><label class="row" style="margin:0">Steps out <select id="fc-hops" data-on-change="fc-hops">' + A.options([{ value: '1', label: '1: direct connections' }, { value: '2', label: '2: and theirs' }, { value: '3', label: '3: three steps' }], String(st.hops)) + '</select></label>' +
       '<label class="chk"><input type="checkbox" id="fc-labels" data-on-change="fc-labels"> Label the connections</label><span id="fc-sum" class="muted small"></span><span class="spacer" style="flex:1"></span>' +
-      '<button class="btn small" data-action="cv-zoom" data-f="0.8" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" aria-label="Zoom in">+</button><button class="btn small" data-action="fc-fit">Fit</button><button class="btn small" data-action="chart-entity" data-id="' + esc(e.id) + '">Open as a special bank</button></div>' +
+      '' + CI.views.chartFind() + '<span class="zgrp"><button class="btn small" data-action="cv-zoom" data-f="0.8" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" aria-label="Zoom in">+</button><button class="btn small" data-action="fc-fit">Fit</button></span><button class="btn small" data-action="chart-entity" data-id="' + esc(e.id) + '">Open as a special bank</button></div>' +
       '<div id="fc-sel" class="muted small" style="margin-top:8px">Click a name to see what it is.</div></div>' +
       '<div class="card flush"><div id="cy" style="height:560px"></div>' + CI.views.chartLegend() + '</div>';
   };

@@ -957,9 +957,9 @@
   /* ---------- several charts per special bank ----------
    * The bank's live chart settings (filters, arrangement, snapshots) belong to its active chart. Switching saves them
    * into the chart being left and loads the other's, so the rest of the app keeps reading them straight off the bank. */
-  CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId'];
+  CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId', 'sizeByLinks', 'zoomLabels', 'groups', 'collapsed', 'groupNames'];
   function chartDefaults() {
-    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: 'auto', positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '' };
+    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: 'auto', positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '', sizeByLinks: true, zoomLabels: true, groups: true, collapsed: {}, groupNames: {} };
   }
   CI.ensureCharts = function (b) {
     if (b.quick) return;
