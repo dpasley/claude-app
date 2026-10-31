@@ -32,8 +32,8 @@ t('social media connection types', () => {
   want.forEach(([id, label]) => { const lt = d.settings.linkTypes.filter(t => t.id === id); assert.equal(lt.length, 1, id + ' exists once'); assert.equal(lt[0].label, label); assert.ok(CI.socialHint(id).length > 5); assert.equal(CI.toToken(label), id); });
   assert.equal(d.settings.linkTypes.filter(t => t.id === 'MEMBER_OF').length, 1);
   assert.ok(want.filter(x => x[0] !== 'MEMBER_OF').every(x => d.settings.linkTypes.filter(t => t.id === x[0])[0].group === 'Social media'));
-  // note rules
-  assert.ok(CI.noteRequired('CONNECTED_TO') && CI.noteRequired('ADMINISTERS') && CI.noteRequired('REPUBLISHES_CONTENT_OF') && !CI.noteRequired('MEMBER_OF') && !CI.noteRequired('OWNS'));
+  // note rule: only Connected to needs one
+  assert.ok(CI.noteRequired('CONNECTED_TO') && !CI.noteRequired('ADMINISTERS') && !CI.noteRequired('REPUBLISHES_CONTENT_OF') && !CI.noteRequired('MEMBER_OF') && !CI.noteRequired('OWNS'));
   // saving with the stored name, plain label in the connection index and on the chart
   const r = d.reports.find(x => x.entities.length >= 2), [a, b] = r.entities.map(x => x.entityId);
   const res = CI.addLink(d, { reportId: r.id, from: a, to: b, type: 'REPUBLISHES_CONTENT_OF', note: 'clip from episode 12' });

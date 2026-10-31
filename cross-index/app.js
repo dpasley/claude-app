@@ -413,7 +413,7 @@
       h += '<div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, el0 ? el0.from : '', 'Choose…') + '</select></label>' +
         '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(el0 ? el0.type : 'CONNECTED_TO', 'Choose…', ae.allTypes !== false) + '</select></label>' +
         '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, el0 ? el0.to : '', 'Choose…') + '</select></label></div><p id="lk-hint" class="hint" style="margin:4px 0 10px"></p>' +
-        '<label class="big-lbl">What is the connection? <span class="hint">Needed for “Connected to” and the social media types (what was posted, shared or said). Otherwise add detail if it helps.</span><input type="text" id="lk-note" class="big-in" value="' + esc(el0 ? el0.note : '') + '"></label>' +
+        '<label class="big-lbl">What is the connection? <span class="hint">Needed for “Connected to”. For other types, add detail if it helps: how, when or where.</span><input type="text" id="lk-note" class="big-in" value="' + esc(el0 ? el0.note : '') + '"></label>' +
         '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes !== false ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
         '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button>' + (el0 ? '<button class="btn" data-action="lk-cancel">Cancel</button><button class="btn primary" data-action="add-link">Save changes</button>' : '<button class="btn primary" data-action="add-link">Add connection</button>') + '</span></div><div id="lk-msg" class="errors"></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
@@ -617,7 +617,7 @@
   };
   handlers['lk-all'] = function (el) { ae.allTypes = el.checked; viewReport(ae.reportId); };
   handlers['add-link'] = function () {
-    if (CI.noteRequired(val('lk-type')) && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = val('lk-type') === 'CONNECTED_TO' ? 'Say what the connection is in the box below, for example “brother” or “owner of the plate”.' : 'Add the details in the box below: what was posted, shared or said, and where.'; return; }
+    if (CI.noteRequired(val('lk-type')) && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = 'Say what the connection is in the box below, for example “brother” or “owner of the plate”.'; return; }
     var o = { reportId: ae.reportId, from: val('lk-from'), to: val('lk-to'), type: val('lk-type'), note: val('lk-note').trim() };
     var res = ae.editLink ? CI.updateLink(d, ae.editLink, o) : CI.addLink(d, o);
     if (res.error) { document.getElementById('lk-msg').textContent = res.error; return; }

@@ -21,10 +21,13 @@ const { chromium } = require('playwright'); const assert = require('assert'); co
   const [from, to] = await p.$$eval('#lk-from option', o => o.map(x => x.value).filter(Boolean));
   await p.selectOption('#lk-from', from); await p.selectOption('#lk-to', to); await p.selectOption('#lk-type', 'ADMINISTERS'); await p.waitForTimeout(100);
   assert.ok((await p.textContent('#lk-hint')).includes('Runs a page'));
-  await p.click('[data-action=add-link]'); assert.ok((await p.textContent('#lk-msg')).length > 5);
-  await p.fill('#lk-note', 'runs the Facebook page'); await p.click('[data-action=add-link]'); await p.waitForTimeout(300);
-  const saved = await p.evaluate(() => CI.app.data().links.filter(l => l.type === 'ADMINISTERS' && l.note === 'runs the Facebook page').length);
+  // no note needed for a social media type
+  await p.click('[data-action=add-link]'); await p.waitForTimeout(300);
+  const saved = await p.evaluate(() => CI.app.data().links.filter(l => l.type === 'ADMINISTERS' && l.note === '').length);
   assert.equal(saved, 1);
+  // Connected to still needs one
+  await p.selectOption('#lk-from', to); await p.selectOption('#lk-to', from); await p.selectOption('#lk-type', 'CONNECTED_TO');
+  await p.click('[data-action=add-link]'); assert.ok((await p.textContent('#lk-msg')).length > 5);
   assert.ok((await p.content()).includes('Administers'));
   await p.evaluate(() => CI.app.go('#/review')); await p.waitForTimeout(200);
   assert.ok((await p.textContent('#view')).includes('Ordinary supporters of a page'));
