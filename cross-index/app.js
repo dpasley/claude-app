@@ -410,10 +410,10 @@
     if (r.entities.length >= 2) {
       var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
       h += '<div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, el0 ? el0.from : '', 'Choose…') + '</select></label>' +
-        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? (el0 ? el0.type : '') : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
+        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(el0 ? el0.type : 'CONNECTED_TO', 'Choose…', ae.allTypes !== false) + '</select></label>' +
         '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, el0 ? el0.to : '', 'Choose…') + '</select></label></div><p id="lk-hint" class="hint" style="margin:4px 0 10px"></p>' +
         '<label class="big-lbl">What is the connection? <span class="hint">Needed for “Connected to” and the social media types (what was posted, shared or said). Otherwise add detail if it helps.</span><input type="text" id="lk-note" class="big-in" value="' + esc(el0 ? el0.note : '') + '"></label>' +
-        '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
+        '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes !== false ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
         '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button>' + (el0 ? '<button class="btn" data-action="lk-cancel">Cancel</button><button class="btn primary" data-action="add-link">Save changes</button>' : '<button class="btn primary" data-action="add-link">Add connection</button>') + '</span></div><div id="lk-msg" class="errors"></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     if (mine.length) {

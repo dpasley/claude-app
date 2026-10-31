@@ -6,7 +6,10 @@ const { chromium } = require('playwright'); const assert = require('assert'); co
   await p.goto('file://' + path.join(__dirname, '..', 'dist', 'cross-index-artifact.html')); await p.waitForTimeout(700);
   const rid = await p.evaluate(() => { const d = CI.app.data(); return d.reports.find(r => r.entities.length >= 2).id; });
   await p.evaluate(id => CI.app.go('#/report/' + id), rid); await p.waitForTimeout(300);
-  // short list: no social section
+  // the full list is shown by default, with Connected to selected
+  assert.equal(await p.$eval('#lk-type', s => s.value), 'CONNECTED_TO');
+  // ticking off the full list gives the short one: no social section
+  await p.click('#lk-all'); await p.waitForTimeout(300);
   assert.equal(await p.$$eval('#lk-type optgroup[label="Social media"]', o => o.length), 0);
   await p.click('#lk-all'); await p.waitForTimeout(300);
   const opts = await p.$$eval('#lk-type optgroup[label="Social media"] option', o => o.map(x => x.value));
