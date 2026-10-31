@@ -46,6 +46,13 @@
     { group: 'Work', label: 'Works for', directed: true },
     { group: 'Work', label: 'Works with', directed: false },
     { group: 'Work', label: 'Supervises', directed: true },
+    { group: 'Social media', label: 'Administers', directed: true },
+    { group: 'Social media', label: 'Posts on', directed: true },
+    { group: 'Social media', label: 'Follows or supports', directed: true },
+    { group: 'Social media', label: 'Shares or amplifies', directed: true },
+    { group: 'Social media', label: 'Mentions or tags', directed: true },
+    { group: 'Social media', label: 'Replies to', directed: true },
+    { group: 'Social media', label: 'Republishes content of', directed: true },
     { group: 'Media', label: 'Hosts', directed: true },
     { group: 'Media', label: 'Appeared on', directed: true },
     { group: 'Groups', label: 'Member of', directed: true },
@@ -80,6 +87,20 @@
     { group: 'Subjects and crime', label: 'Related to', directed: false },
     { group: 'General', label: 'Connected to', directed: false }
   ];
+  /* The Social media section of the connection picker, strongest to weakest. Member of is the ordinary MEMBER_OF type, listed here as well as under Groups. */
+  CI.SOCIAL_TYPES = [
+    { id: 'ADMINISTERS', hint: 'Runs a page, group or channel' },
+    { id: 'POSTS_ON', hint: 'Contributes content to it' },
+    { id: 'FOLLOWS_OR_SUPPORTS', hint: 'Weakest. The default for ordinary supporters' },
+    { id: 'MEMBER_OF', hint: 'Joined a closed or private group' },
+    { id: 'SHARES_OR_AMPLIFIES', hint: 'Reposts or promotes someone\u2019s content' },
+    { id: 'MENTIONS_OR_TAGS', hint: 'Refers to a name in a post' },
+    { id: 'REPLIES_TO', hint: 'Direct back-and-forth' },
+    { id: 'REPUBLISHES_CONTENT_OF', hint: 'A page posts content that began with someone else, e.g. a podcast clip. From the page\u2019s group to the person; no sign they know or approve' }
+  ];
+  CI.socialHint = function (id) { var t = CI.SOCIAL_TYPES.filter(function (x) { return x.id === id; })[0]; return t ? t.hint : ''; };
+  /* A note is required for Connected to and for the new social media types (the post\u2019s details go in the note). */
+  CI.noteRequired = function (id) { return id === 'CONNECTED_TO' || (id !== 'MEMBER_OF' && CI.SOCIAL_TYPES.some(function (x) { return x.id === id; })); };
   /* Adds any suggested type that is not already there, ahead of the older names. Returns how many were added. */
   CI.addSuggestedLinkTypes = function (d) {
     var have = {}; d.settings.linkTypes.forEach(function (t) { have[t.id] = t; });

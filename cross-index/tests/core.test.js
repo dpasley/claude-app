@@ -25,6 +25,32 @@ t('individual names split into given and family', () => {
   assert.equal(CI.normalize(old).entities.find(x => x.id === e.id).family, 'de la Cruz');
 });
 
+t('social media connection types', () => {
+  const d = CI.sampleData(); CI.addSuggestedLinkTypes(d);
+  const want = [['ADMINISTERS', 'Administers'], ['POSTS_ON', 'Posts on'], ['FOLLOWS_OR_SUPPORTS', 'Follows or supports'], ['MEMBER_OF', 'Member of'], ['SHARES_OR_AMPLIFIES', 'Shares or amplifies'], ['MENTIONS_OR_TAGS', 'Mentions or tags'], ['REPLIES_TO', 'Replies to'], ['REPUBLISHES_CONTENT_OF', 'Republishes content of']];
+  assert.deepEqual(CI.SOCIAL_TYPES.map(x => x.id), want.map(x => x[0]));
+  want.forEach(([id, label]) => { const lt = d.settings.linkTypes.filter(t => t.id === id); assert.equal(lt.length, 1, id + ' exists once'); assert.equal(lt[0].label, label); assert.ok(CI.socialHint(id).length > 5); assert.equal(CI.toToken(label), id); });
+  assert.equal(d.settings.linkTypes.filter(t => t.id === 'MEMBER_OF').length, 1);
+  assert.ok(want.filter(x => x[0] !== 'MEMBER_OF').every(x => d.settings.linkTypes.filter(t => t.id === x[0])[0].group === 'Social media'));
+  // note rules
+  assert.ok(CI.noteRequired('CONNECTED_TO') && CI.noteRequired('ADMINISTERS') && CI.noteRequired('REPUBLISHES_CONTENT_OF') && !CI.noteRequired('MEMBER_OF') && !CI.noteRequired('OWNS'));
+  // saving with the stored name, plain label in the connection index and on the chart
+  const r = d.reports.find(x => x.entities.length >= 2), [a, b] = r.entities.map(x => x.entityId);
+  const res = CI.addLink(d, { reportId: r.id, from: a, to: b, type: 'REPUBLISHES_CONTENT_OF', note: 'clip from episode 12' });
+  assert.ok(res.link && res.link.type === 'REPUBLISHES_CONTENT_OF');
+  const row = CI.connectionIndex(d, a).reduce((o, g) => o.concat(g.rows), []).find(x => x.linkId === res.link.id);
+  assert.equal(row.type, 'Republishes content of'); assert.ok(/Republishes content of/.test(row.phrase));
+  assert.equal(CI.humanLabel('FOLLOWS_OR_SUPPORTS'), 'Follows or supports');
+  const g = CI.computeGraph(d, CI.newBank(d, 'tmp', [a], 1)); assert.ok(g.edges.some(e => /Republishes content of/.test(CI.humanLabel(e.label))));
+  // an old save (before the section) still loads and gains the types once
+  const old = JSON.parse(JSON.stringify(d)); old.settings.linkTypes = old.settings.linkTypes.filter(t => t.group !== 'Social media'); delete old.settings.suggestedRev;
+  old.links.forEach(l => { if (l.type === 'ADMINISTERS' || l.type === 'POSTS_ON') l.type = 'CONNECTED_TO'; });
+  const n = CI.normalize(old); assert.equal(n.links.length, old.links.length);
+  CI.addSuggestedLinkTypes(n); assert.equal(n.settings.linkTypes.filter(t => t.id === 'ADMINISTERS').length, 1);
+  assert.equal(n.settings.linkTypes.filter(t => t.id === 'MEMBER_OF').length, 1);
+  assert.equal(CI.addSuggestedLinkTypes(n), 0);
+});
+
 t('sample builds and validates', () => {
   const d = CI.sampleData();
   assert.equal(d.entities.length, 14);

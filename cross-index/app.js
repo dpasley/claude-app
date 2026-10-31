@@ -104,20 +104,27 @@
   }
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
   function ensureSuggested() {
-    if (d.settings.suggestedTypes && d.settings.suggestedRev >= 2) return;
-    CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true; d.settings.suggestedRev = 2;
+    if (d.settings.suggestedTypes && d.settings.suggestedRev >= 3) return;
+    CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true; d.settings.suggestedRev = 3;
   }
   /* Connection types as a grouped drop-down. Every label reads as "A [label] B". */
   function linkTypeOptions(sel, blank, all) {
-    var groups = [], by = {};
+    var groups = [], by = {}, byId = {}, used = false;
+    d.settings.linkTypes.forEach(function (t) { byId[t.id] = t; });
     d.settings.linkTypes.forEach(function (t) {
-      if (all === false && t.id !== 'CONNECTED_TO' && t.group !== 'Added by staff') return; var g = t.group || 'Other'; if (!by[g]) { by[g] = []; groups.push(g); } by[g].push(t); });
+      if (all === false && t.id !== 'CONNECTED_TO' && t.group !== 'Added by staff') return;
+      var g = t.group || 'Other'; if (g === 'Social media') return;
+      if (!by[g]) { groups.push(g); by[g] = []; } by[g].push(t); });
     groups.sort(function (a, b) { return (a === 'Older names') - (b === 'Older names') || (a === 'Other') - (b === 'Other'); });
-    return (all === false ? '' : '<option value="">' + esc(blank || 'Choose…') + '</option>') + groups.map(function (g) {
-      return '<optgroup label="' + esc(g) + '">' + by[g].map(function (t) {
-        return '<option value="' + esc(t.id) + '"' + (t.id === sel ? ' selected' : '') + '>' + esc(t.label + (t.directed ? '  →' : '  ↔')) + '</option>';
-      }).join('') + '</optgroup>';
-    }).join('') + '<option value="__new__">＋ New connection type…</option>';
+    function opt(t, mark) { return '<option value="' + esc(t.id) + '"' + (mark && t.id === sel ? ' selected' : '') + '>' + esc(t.label + (t.directed ? '  →' : '  ↔')) + '</option>'; }
+    var html = groups.map(function (g) { return { g: g, h: '<optgroup label="' + esc(g) + '">' + by[g].map(function (t) { return opt(t, true); }).join('') + '</optgroup>' }; });
+    if (all !== false) {
+      var soc = CI.SOCIAL_TYPES.map(function (x) { return byId[x.id]; }).filter(Boolean);
+      var sh = { g: 'Social media', h: '<optgroup label="Social media">' + soc.map(function (t) { var dup = !!by.Groups && by.Groups.some(function (x) { return x.id === t.id; }); return opt(t, !dup); }).join('') + '</optgroup>' };
+      var at = html.map(function (x) { return x.g; }).indexOf('Older names'); if (at < 0) at = html.length;
+      html.splice(at, 0, sh);
+    }
+    return (all === false ? '' : '<option value="">' + esc(blank || 'Choose…') + '</option>') + html.map(function (x) { return x.h; }).join('') + '<option value="__new__">＋ New connection type…</option>';
   }
   function avatar(e, px) {
     var pic = CI.tile(e.type, CI.TYPE_COLOR[e.type] || '#666666', CI.PHOTO_TYPES[e.type] && e.photo ? e.photo : '');
@@ -404,8 +411,8 @@
       var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
       h += '<div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, el0 ? el0.from : '', 'Choose…') + '</select></label>' +
         '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? (el0 ? el0.type : '') : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
-        '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, el0 ? el0.to : '', 'Choose…') + '</select></label></div>' +
-        '<label class="big-lbl">What is the connection? <span class="hint">Needed for “Connected to”. For other types, add detail if it helps: how, when or where.</span><input type="text" id="lk-note" class="big-in" value="' + esc(el0 ? el0.note : '') + '"></label>' +
+        '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, el0 ? el0.to : '', 'Choose…') + '</select></label></div><p id="lk-hint" class="hint" style="margin:4px 0 10px"></p>' +
+        '<label class="big-lbl">What is the connection? <span class="hint">Needed for “Connected to” and the social media types (what was posted, shared or said). Otherwise add detail if it helps.</span><input type="text" id="lk-note" class="big-in" value="' + esc(el0 ? el0.note : '') + '"></label>' +
         '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
         '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button>' + (el0 ? '<button class="btn" data-action="lk-cancel">Cancel</button><button class="btn primary" data-action="add-link">Save changes</button>' : '<button class="btn primary" data-action="add-link">Add connection</button>') + '</span></div><div id="lk-msg" class="errors"></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
@@ -599,6 +606,7 @@
   handlers['lk-preview'] = function () {
     if (val('lk-type') === '__new__') { newTypeFlow(); return; }
     var f = val('lk-from'), t = val('lk-to'), ty = val('lk-type'), box = document.getElementById('lk-preview');
+    var hb = document.getElementById('lk-hint'); if (hb) hb.textContent = CI.socialHint(ty);
     if (!f || !t || !ty) { box.textContent = ''; return; }
     var e1 = idx().entity[f], e2 = idx().entity[t], tt = lt(ty);
     box.textContent = e1.name + (tt.directed ? '  — ' + tt.label + ' →  ' : '  ↔ ' + tt.label + ' ↔  ') + e2.name;
@@ -608,7 +616,7 @@
   };
   handlers['lk-all'] = function (el) { ae.allTypes = el.checked; viewReport(ae.reportId); };
   handlers['add-link'] = function () {
-    if (val('lk-type') === 'CONNECTED_TO' && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = 'Say what the connection is in the box below, for example “brother” or “owner of the plate”.'; return; }
+    if (CI.noteRequired(val('lk-type')) && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = val('lk-type') === 'CONNECTED_TO' ? 'Say what the connection is in the box below, for example “brother” or “owner of the plate”.' : 'Add the details in the box below: what was posted, shared or said, and where.'; return; }
     var o = { reportId: ae.reportId, from: val('lk-from'), to: val('lk-to'), type: val('lk-type'), note: val('lk-note').trim() };
     var res = ae.editLink ? CI.updateLink(d, ae.editLink, o) : CI.addLink(d, o);
     if (res.error) { document.getElementById('lk-msg').textContent = res.error; return; }
@@ -874,7 +882,8 @@
     var open = d.log.filter(function (x) { return !x.resolved; }).slice().reverse();
     var done = d.log.filter(function (x) { return x.resolved; }).slice().reverse();
     var h = '<div class="page-head"><h1>Review</h1></div><p class="muted">Where the hand run hesitated. Each of these points at a decision the staff procedure or training has to make easy.</p>';
-    h += '<div class="card"><h2>Flagged entity matches (' + flags.length + ')</h2><p class="muted small">When you add an entity to a report you can tick a box to say “I am not sure this is the same person or thing as the existing entry.” Those reports show here. Open the report, decide, then press <b>Resolved</b> to clear the flag. It changes nothing else.</p>';
+    h += '<div class="card"><h2>Office practice: social media</h2><p class="muted small">Ordinary supporters of a page are named in the report only and get no connection. Record a connection only when it is significant to the work, usually an individual to the group that runs the page. Connect straight to an opponent only when there is evidence of a personal tie. No file is made for a page: the connection goes to the group that runs it, and the post\u2019s details go in the connection note and the source report.</p></div>' +
+      '<div class="card"><h2>Flagged entity matches (' + flags.length + ')</h2><p class="muted small">When you add an entity to a report you can tick a box to say “I am not sure this is the same person or thing as the existing entry.” Those reports show here. Open the report, decide, then press <b>Resolved</b> to clear the flag. It changes nothing else.</p>';
     h += flags.length ? '<table class="tight"><tbody>' + flags.map(function (f) {
       return '<tr><td>' + repLink(f.r.id) + '</td><td>' + entLink(f.x.entityId) + '</td><td>' + esc(f.x.flagNote || '') + '</td><td class="right"><button class="btn small" data-action="clear-flag" data-rid="' + esc(f.r.id) + '" data-eid="' + esc(f.x.entityId) + '">Resolved</button></td></tr>';
     }).join('') + '</tbody></table>' : '<p class="muted">None.</p>';
@@ -1038,7 +1047,7 @@
 
   CI.app.start = function () {
     if (!d.started && !d.reports.length && !d.entities.length) { d = CI.sampleData(); persist(); }
-    if (!d.settings.suggestedTypes || !(d.settings.suggestedRev >= 2)) { ensureSuggested(); persist(); }
+    if (!d.settings.suggestedTypes || !(d.settings.suggestedRev >= 3)) { ensureSuggested(); persist(); }
     document.addEventListener('click', function (ev) { var m = document.getElementById('more'); if (m && m.open && !m.contains(ev.target)) m.open = false; });
     route();
     if (CI.views.backupBanner) CI.views.backupBanner();

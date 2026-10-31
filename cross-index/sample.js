@@ -247,7 +247,7 @@
     R('dgcall', 27, 27, 'Social post', 'https://social.example/darkgrid/post/301', 'Coordinated damaging activity',
       'Jonas Weir posts a call for a “lights out for Northwind” night action and tags Dark Grid Collective.',
       [['jonas', 'author'], ['darkgrid', 'author'], ['protest', 'subject'], ['northwind', 'named']],
-      [['jonas', 'darkgrid', 'MEMBER_OF', 'organiser'], ['darkgrid', 'protest', 'INVOLVED_IN'], ['darkgrid', 'northwind', 'ACTED_AGAINST']]);
+      [['jonas', 'darkgrid', 'MEMBER_OF', 'organiser'], ['jonas', 'darkgrid', 'POSTS_ON', 'post 301: call for a night action'], ['darkgrid', 'protest', 'INVOLVED_IN'], ['darkgrid', 'northwind', 'ACTED_AGAINST']]);
     R('news2', 25, 25, 'News / media', 'Kessler Ledger, “Who is Dark Grid?”', 'Coordinated damaging activity',
       'Teodora Banks interviews Jonas Weir about Dark Grid; Tobias Crane of GridWatch Now is named as an occasional spokesperson.',
       [['teodora', 'author'], ['jonas', 'named'], ['tobias', 'named'], ['darkgrid', 'subject'], ['grid', 'named'], ['millbrook', 'named']],
@@ -258,7 +258,7 @@
     var gwpost = R('gwpost', 16, 16, 'Social post', 'https://social.example/gridwatch_now/post/5521', 'Sabotage',
       'GridWatch Now posts that Depot 4 “will be going dark soon”; the account is administered by Tobias Crane according to its profile page.',
       [['grid', 'author'], ['depot4', 'named'], ['outage', 'subject'], ['tobias', 'named']],
-      [['grid', 'outage', 'INVOLVED_IN'], ['tobias', 'grid', 'MEMBER_OF', 'profile admin']]);
+      [['grid', 'outage', 'INVOLVED_IN'], ['tobias', 'grid', 'ADMINISTERS', 'profile page lists him as administrator']]);
     R('gwrepost', 16, 16, 'Social post', 'https://other.example/p/88130 (repost of GridWatch post)', 'Sabotage',
       'Reshare of the GridWatch Now post on a second platform with the same text.',
       [['grid', 'author'], ['outage', 'subject']],
