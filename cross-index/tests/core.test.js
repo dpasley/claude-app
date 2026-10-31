@@ -5,6 +5,23 @@ require('../core.js'); require('../sample.js'); require('./fixture-sample.js'); 
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
+t('individual names split into given and family', () => {
+  const sp = CI.splitName;
+  assert.deepEqual(sp('John Smith'), { given: 'John', family: 'Smith' });
+  assert.deepEqual(sp('Mary Ann Jones'), { given: 'Mary Ann', family: 'Jones' });
+  assert.deepEqual(sp('Smith, John'), { given: 'John', family: 'Smith' });
+  assert.deepEqual(sp('Ludwig van Beethoven'), { given: 'Ludwig', family: 'van Beethoven' });
+  assert.deepEqual(sp('John Smith Jr'), { given: 'John', family: 'Smith Jr' });
+  assert.deepEqual(sp('Madonna'), { given: '', family: 'Madonna' });
+  const d = CI.sampleData();
+  d.entities.filter(e => e.type === 'individual').forEach(e => assert.ok(typeof e.given === 'string' && CI.joinName(e.given, e.family) === e.name.replace(/\s+/g, ' ').trim() || e.family));
+  d.entities.filter(e => e.type !== 'individual').forEach(e => assert.ok(!('given' in e)));
+  const e = CI.addEntity(d, { type: 'individual', given: 'Ana', family: 'de la Cruz' });
+  assert.equal(e.name, 'Ana de la Cruz'); assert.equal(CI.sortKey(e), 'de la cruz ana');
+  const old = JSON.parse(JSON.stringify(d)); old.entities.forEach(x => { delete x.given; delete x.family; });
+  assert.equal(CI.normalize(old).entities.find(x => x.id === e.id).family, 'de la Cruz');
+});
+
 t('sample builds and validates', () => {
   const d = CI.sampleData();
   assert.equal(d.entities.length, 14);
