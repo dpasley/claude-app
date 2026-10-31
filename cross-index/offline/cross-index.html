@@ -4451,6 +4451,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     d.settings.linkTypes.forEach(function (t) {
       if (all === false && t.id !== 'CONNECTED_TO' && t.group !== 'Added by staff') return;
       var g = t.group || 'Other'; if (g === 'Social media') return;
+      if (g === 'Older names' && t.id !== sel) return; /* older names stay out of the list, except when editing a connection that uses one */
       if (!by[g]) { groups.push(g); by[g] = []; } by[g].push(t); });
     groups.sort(function (a, b) { return (a === 'Older names') - (b === 'Older names') || (a === 'Other') - (b === 'Other'); });
     function opt(t, mark) { return '<option value="' + esc(t.id) + '"' + (mark && t.id === sel ? ' selected' : '') + '>' + esc(t.label + (t.directed ? '  →' : '  ↔')) + '</option>'; }
@@ -7980,5 +7981,5 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 })();
 
 </script>
-<script>CI.BUILD = "2026-10-31 05:28"; CI.app.start();</script>
+<script>CI.BUILD = "2026-10-31 05:30"; CI.app.start();</script>
 </body></html>

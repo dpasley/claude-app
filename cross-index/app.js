@@ -114,6 +114,7 @@
     d.settings.linkTypes.forEach(function (t) {
       if (all === false && t.id !== 'CONNECTED_TO' && t.group !== 'Added by staff') return;
       var g = t.group || 'Other'; if (g === 'Social media') return;
+      if (g === 'Older names' && t.id !== sel) return; /* older names stay out of the list, except when editing a connection that uses one */
       if (!by[g]) { groups.push(g); by[g] = []; } by[g].push(t); });
     groups.sort(function (a, b) { return (a === 'Older names') - (b === 'Older names') || (a === 'Other') - (b === 'Other'); });
     function opt(t, mark) { return '<option value="' + esc(t.id) + '"' + (mark && t.id === sel ? ' selected' : '') + '>' + esc(t.label + (t.directed ? '  →' : '  ↔')) + '</option>'; }
