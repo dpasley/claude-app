@@ -229,7 +229,7 @@
       }
       var els = CI.buildElements(graph, o);
       var cy = self.cy = root.cytoscape({
-        container: container, elements: els, style: CI.cyStyle(CI.PAPER, o), minZoom: 0.08, maxZoom: 3, wheelSensitivity: 0.25, layout: { name: 'null' }
+        container: container, elements: els, style: CI.cyStyle(CI.PAPER, o), minZoom: 0.08, maxZoom: 3, wheelSensitivity: 0.8, layout: { name: 'null' }
       });
       self.viewKey = o.viewKey || ''; self.hist = [];
       /* Gentle curves: single connections bow a little, several between the same two names fan out. Straight when the chart is busy. */
