@@ -365,29 +365,39 @@
 
   /* ---------- individuals: one name to look up, stored as given name and family name ---------- */
   var PARTICLES = /^(van|von|der|den|de|del|della|di|da|do|dos|du|la|le|bin|ibn|al|el|st\.?|ter|ten)$/i, SUFFIX = /^(jr\.?|sr\.?|ii|iii|iv|v|phd|md)$/i;
+  /* "John Q. Smith" -> given John, middle Q., family Smith. Two words: given and family. One word: family only.
+     "Smith, John Quincy" -> family Smith, given John, middle Quincy. Particles (van, de la, bin…) and suffixes (Jr, III) stay with the family name. */
   CI.splitName = function (full) {
     var s = String(full || '').replace(/\s+/g, ' ').trim();
-    if (!s) return { given: '', family: '' };
+    if (!s) return { given: '', middle: '', family: '' };
     var c = s.indexOf(',');
-    if (c > 0) return { given: s.slice(c + 1).trim(), family: s.slice(0, c).trim() };
+    if (c > 0) {
+      var rest = s.slice(c + 1).trim().split(' ').filter(Boolean);
+      return { given: rest[0] || '', middle: rest.slice(1).join(' '), family: s.slice(0, c).trim() };
+    }
     var w = s.split(' ');
-    if (w.length === 1) return { given: '', family: w[0] };
+    if (w.length === 1) return { given: '', middle: '', family: w[0] };
     var i = w.length - 1;
     while (i > 1 && SUFFIX.test(w[i])) i--;
     while (i > 1 && PARTICLES.test(w[i - 1])) i--;
-    return { given: w.slice(0, i).join(' '), family: w.slice(i).join(' ') };
+    return { given: w[0], middle: w.slice(1, i).join(' '), family: w.slice(i).join(' ') };
   };
-  CI.joinName = function (given, family) { return [String(given || '').trim(), String(family || '').trim()].filter(Boolean).join(' '); };
-  /* Fills given and family on an individual that has neither, and keeps them in step with the name. */
+  CI.joinName = function (given, family, middle) { return [given, middle, family].map(function (x) { return String(x || '').trim(); }).filter(Boolean).join(' '); };
+  /* Fills given, middle and family on an individual that has none, and keeps them in step with the name. */
   CI.fillNames = function (e) {
-    if (e.type !== 'individual') { delete e.given; delete e.family; return; }
-    if (typeof e.given !== 'string' && typeof e.family !== 'string') { var p = CI.splitName(e.name); e.given = p.given; e.family = p.family; }
+    if (e.type !== 'individual') { delete e.given; delete e.middle; delete e.family; return; }
+    if (typeof e.given !== 'string' && typeof e.family !== 'string') { var p = CI.splitName(e.name); e.given = p.given; e.middle = p.middle; e.family = p.family; }
+    else if (typeof e.middle !== 'string') {
+      // Names stored before the middle-name field: a given name of several words becomes given plus middle.
+      var g = String(e.given || '').trim().split(' ').filter(Boolean);
+      e.given = g[0] || ''; e.middle = g.slice(1).join(' ');
+    }
   };
-  CI.sortKey = function (e) { return e.type === 'individual' && (e.family || e.given) ? CI.norm((e.family || '') + ' ' + (e.given || '')) : CI.norm(e.name); };
+  CI.sortKey = function (e) { return e.type === 'individual' && (e.family || e.given) ? CI.norm((e.family || '') + ' ' + (e.given || '') + ' ' + (e.middle || '')) : CI.norm(e.name); };
 
   /* ---------- mutations ---------- */
   CI.addEntity = function (d, o) {
-    if (o.type === 'individual' && (o.given || o.family)) o.name = CI.joinName(o.given, o.family);
+    if (o.type === 'individual' && (o.given || o.family)) o.name = CI.joinName(o.given, o.family, o.middle);
     var e = {
       id: CI.nextId(d, 'entity'),
       type: o.type,
@@ -399,7 +409,7 @@
       created: CI.today()
     };
     if (o.type === 'item') e.itemType = String(o.itemType || '').trim();
-    if (o.type === 'individual') { var sp = (o.given || o.family) ? { given: String(o.given || '').trim(), family: String(o.family || '').trim() } : CI.splitName(e.name); e.given = sp.given; e.family = sp.family; }
+    if (o.type === 'individual') { var sp = (o.given || o.family) ? { given: String(o.given || '').trim(), middle: String(o.middle || '').trim(), family: String(o.family || '').trim() } : CI.splitName(e.name); e.given = sp.given; e.middle = sp.middle; e.family = sp.family; }
     d.entities.push(e);
     return e;
   };

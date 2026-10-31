@@ -7,17 +7,20 @@ let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
 t('individual names split into given and family', () => {
   const sp = CI.splitName;
-  assert.deepEqual(sp('John Smith'), { given: 'John', family: 'Smith' });
-  assert.deepEqual(sp('Mary Ann Jones'), { given: 'Mary Ann', family: 'Jones' });
-  assert.deepEqual(sp('Smith, John'), { given: 'John', family: 'Smith' });
-  assert.deepEqual(sp('Ludwig van Beethoven'), { given: 'Ludwig', family: 'van Beethoven' });
-  assert.deepEqual(sp('John Smith Jr'), { given: 'John', family: 'Smith Jr' });
-  assert.deepEqual(sp('Madonna'), { given: '', family: 'Madonna' });
+  assert.deepEqual(sp('John Smith'), { given: 'John', middle: '', family: 'Smith' });
+  assert.deepEqual(sp('Mary Ann Jones'), { given: 'Mary', middle: 'Ann', family: 'Jones' });
+  assert.deepEqual(sp('John Q. Public Jr'), { given: 'John', middle: 'Q.', family: 'Public Jr' });
+  assert.deepEqual(sp('Smith, John'), { given: 'John', middle: '', family: 'Smith' });
+  assert.deepEqual(sp('Smith, John Quincy'), { given: 'John', middle: 'Quincy', family: 'Smith' });
+  assert.deepEqual(sp('Ludwig van Beethoven'), { given: 'Ludwig', middle: '', family: 'van Beethoven' });
+  assert.deepEqual(sp('John Smith Jr'), { given: 'John', middle: '', family: 'Smith Jr' });
+  assert.deepEqual(sp('Madonna'), { given: '', middle: '', family: 'Madonna' });
   const d = CI.sampleData();
-  d.entities.filter(e => e.type === 'individual').forEach(e => assert.ok(typeof e.given === 'string' && CI.joinName(e.given, e.family) === e.name.replace(/\s+/g, ' ').trim() || e.family));
+  d.entities.filter(e => e.type === 'individual').forEach(e => assert.ok(typeof e.given === 'string' && CI.joinName(e.given, e.family, e.middle) === e.name.replace(/\s+/g, ' ').trim() || e.family));
   d.entities.filter(e => e.type !== 'individual').forEach(e => assert.ok(!('given' in e)));
   const e = CI.addEntity(d, { type: 'individual', given: 'Ana', family: 'de la Cruz' });
   assert.equal(e.name, 'Ana de la Cruz'); assert.equal(CI.sortKey(e), 'de la cruz ana');
+  const e2 = CI.addEntity(d, { type: 'individual', given: 'Ana', middle: 'Maria', family: 'Cruz' }); assert.equal(e2.name, 'Ana Maria Cruz');
   const old = JSON.parse(JSON.stringify(d)); old.entities.forEach(x => { delete x.given; delete x.family; });
   assert.equal(CI.normalize(old).entities.find(x => x.id === e.id).family, 'de la Cruz');
 });

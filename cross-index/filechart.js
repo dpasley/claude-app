@@ -2,11 +2,11 @@
 (function () {
   'use strict';
   var A = CI.app, H = A.handlers, esc = A.esc;
-  var st = { hops: 1, labels: 'auto', fileId: '' };
+  var st = { hops: 1, labels: 'auto', fileId: '', pos: {} };
   function D() { return A.data(); }
 
   CI.views.fileChart = function (e) {
-    if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'auto'; }
+    if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'auto'; st.pos = {}; }
     return '<div class="card"><div class="row wrap"><label class="row" style="margin:0">Steps out <select id="fc-hops" data-on-change="fc-hops">' + A.options([{ value: '1', label: '1: direct connections' }, { value: '2', label: '2: and theirs' }, { value: '3', label: '3: three steps' }], String(st.hops)) + '</select></label>' +
       '<label class="chk"><input type="checkbox" id="fc-labels" data-on-change="fc-labels"> Label the connections</label><span id="fc-sum" class="muted small"></span><span class="spacer" style="flex:1"></span>' +
       '' + CI.views.chartFind() + '<span class="zgrp"><button class="btn small" data-action="cv-zoom" data-f="0.8" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" aria-label="Zoom in">+</button><button class="btn small" data-action="fc-fit">Fit</button></span><button class="btn small" data-action="chart-entity" data-id="' + esc(e.id) + '">Open as a special bank</button></div>' +
@@ -18,9 +18,10 @@
     var on = st.labels === 'auto' ? g.edges.length <= 15 : st.labels === 'on';
     var cb = document.getElementById('fc-labels'); if (cb) cb.checked = on;
     var sum = document.getElementById('fc-sum'); if (sum) sum.textContent = g.nodes.length + ' names · ' + g.edges.length + ' connections' + (g.edges.length > 15 && st.labels === 'auto' ? ' · labels are off on a busy chart' : '');
-    CI.chart.destroy();
     CI.chart.render(document.getElementById('cy'), g, {
-      layout: 'cose', positions: {}, edgeLabels: on,
+      layout: 'cose', positions: st.pos, edgeLabels: on, viewKey: 'file|' + e.id,
+      onLaidOut: function (all) { Object.keys(all).forEach(function (k) { st.pos[k] = all[k]; }); },
+      onMoved: function (id, p) { st.pos[id] = p; },
       photoOf: function (id) { var x = idx.entity[id]; return x && x.photo ? x.photo : ''; },
       onNode: function (id) {
         var x = idx.entity[id], s = document.getElementById('fc-sel'); CI.chart.focus(id);

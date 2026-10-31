@@ -256,7 +256,8 @@
     if (!document.querySelector('#modal-root .overlay')) return;
     if (ev.key === 'Escape') closeModal();
     else if (ev.key === 'Enter' && ev.target && ev.target.id === 'modal-input') { ev.preventDefault(); handlers['modal-ok'](); }
-    else if (ev.key === 'Enter' && ev.target && (ev.target.id === 'nn-name' || ev.target.id === 'nn-type')) { ev.preventDefault(); handlers['ae-new-ok'](); }
+    else if (ev.key === 'Enter' && ev.target && /^nn-(name|type|given|middle|family)$/.test(ev.target.id)) { ev.preventDefault(); handlers['ae-new-ok'](); }
+    else if (ev.key === 'Enter' && ev.target && /^nf-(name|type|given|middle|family)$/.test(ev.target.id)) { ev.preventDefault(); handlers['newfile-ok'](); }
   });
   handlers['date-fix'] = function (el) {
     var v = CI.parseDate(el.value);
@@ -307,17 +308,23 @@
 
   /* ---------- REPORT FORM (new + edit) ---------- */
   var repDefaults = null;
+  /* Sources already used, most used first. A new source is simply typed; it joins the list once the report is saved. */
+  function sourceList() {
+    var cnt = {}, name = {};
+    d.reports.forEach(function (r) { var k = CI.norm(r.sourceRef || ''); if (!k) return; cnt[k] = (cnt[k] || 0) + 1; if (!name[k]) name[k] = r.sourceRef; });
+    return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] || name[a].localeCompare(name[b]); }).map(function (k) { return name[k]; });
+  }
   function viewReportForm(id) {
     var r = id ? idx().report[id] : null;
     if (id && !r) return notFound('Report');
-    r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
+    r = r || Object.assign({ received: '', subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
     repDefaults = null;
     view.innerHTML = pageHead(id ? esc(id) : 'New report', id ? esc(trunc(repTitle(r), 110)) : 'Record the report first, then add the names it mentions and the connections it shows.', '', reportTabs(id, 'details')) + (id ? '' : CI.views.folderCard()) +
       '<form class="card form rep-form" id="rep-form" onsubmit="return false">' +
       '<div class="rf-grid">' +
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
-      '<label class="rf-wide">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
+      '<label class="rf-wide">Source of report<input type="text" id="f-ref" list="src-list" autocomplete="off" value="' + esc(r.sourceRef) + '" placeholder="Start typing to find an earlier source, or type a new one"><datalist id="src-list">' + sourceList().map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist></label>' +
       '<label class="rf-wide">Notes or summary <span class="hint">In your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
       '<label class="rf-wide">Where the preserved copy is kept <span class="hint">Path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '</div>' +
@@ -325,11 +332,14 @@
       '<div id="form-errors" class="errors" role="alert"></div>' +
       '<div class="rf-actions"><button class="btn primary" data-action="save-report" data-id="' + esc(id || '') + '">' + (id ? 'Save' : 'Save, then add names and connections') + '</button><a class="btn" href="' + (id ? '#/report/' + esc(id) : '#/reports') + '">Cancel</a></div></form>';
   }
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target && ev.target.id === 'f-ref') { ev.preventDefault(); var n = document.getElementById('f-summary'); if (n) n.focus(); }
+  });
   handlers['save-report'] = function (el) {
     var id = el.getAttribute('data-id'), ex = id ? idx().report[id] : null;
     var rec = readDate('f-received');
     var r = {
-      received: rec || '', subject: val('f-subject').trim(), sourceRef: val('f-ref').trim(),
+      received: rec || '', subject: val('f-subject').trim(), sourceRef: (function () { var t = val('f-ref').trim(), m = sourceList().filter(function (x) { return CI.norm(x) === CI.norm(t); })[0]; return m || t; })(),
       archiveLoc: val('f-arch').trim(), summary: val('f-summary').trim()
     };
     var leadEl = document.getElementById('f-lead'); if (leadEl) r.leadId = leadEl.value;
@@ -520,7 +530,8 @@
       '<label class="chk"><input type="checkbox" id="nn-flag"' + (flag ? ' checked' : '') + '> Unsure this is the same one – flag for review</label><div id="nn-msg" class="errors"></div></div>' +
       '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="ae-new-ok">Create name</button></div>');
     handlers['nm-sync']({ getAttribute: function () { return 'nn'; } });
-    var f = document.getElementById(ae.type ? 'nn-details' : 'nn-type'); if (f) f.focus();
+    /* Rapid entry: with a type already chosen the Create button has focus, so Enter saves. */
+    var f = ae.type ? document.querySelector('[data-action="ae-new-ok"]') : document.getElementById('nn-type'); if (f) f.focus();
   };
   handlers['ae-new-ok'] = function () {
     var q = val('nn-name').trim(), type = val('nn-type'), msg = document.getElementById('nn-msg');
@@ -664,20 +675,21 @@
   handlers['back'] = function () { if (hist.length) { cur = hist.pop(); route(); } };
   /* Given and family name, shown only for individuals. The lookup box stays one field; these fill in from it. */
   function nameBlock(p) {
-    return '<div id="' + p + '-split" hidden><div class="grid2"><label>Given name<input type="text" id="' + p + '-given" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label>' +
-      '<label>Family name<input type="text" id="' + p + '-family" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label></div><p class="hint">Filled in from the name above. Correct it if it split the wrong way, for example “Mary Ann” as the given name.</p></div>';
+    return '<div id="' + p + '-split" hidden><div class="grid3"><label>Given name<input type="text" id="' + p + '-given" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label>' +
+      '<label>Middle name <span class="hint">optional</span><input type="text" id="' + p + '-middle" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label>' +
+      '<label>Family name<input type="text" id="' + p + '-family" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label></div><p class="hint">Filled in from the name above: first word given, last word family, anything between is middle. Correct it if it split the wrong way.</p></div>';
   }
   handlers['nm-sync'] = function (el) {
     var p = el.getAttribute('data-p'), box = document.getElementById(p + '-split'); if (!box) return;
     var ind = val(p + '-type') === 'individual'; box.hidden = !ind;
-    if (ind && !box.getAttribute('data-touched')) { var sp = CI.splitName(val(p + '-name')); document.getElementById(p + '-given').value = sp.given; document.getElementById(p + '-family').value = sp.family; }
+    if (ind && !box.getAttribute('data-touched')) { var sp = CI.splitName(val(p + '-name')); document.getElementById(p + '-given').value = sp.given; document.getElementById(p + '-middle').value = sp.middle; document.getElementById(p + '-family').value = sp.family; }
   };
   handlers['nm-touch'] = function (el) { var box = document.getElementById(el.getAttribute('data-p') + '-split'); if (box) box.setAttribute('data-touched', '1'); };
   function namesFrom(p, q, type) {
     if (type !== 'individual') return { name: q };
     var box = document.getElementById(p + '-split');
-    if (box && box.getAttribute('data-touched')) { var g = val(p + '-given').trim(), f = val(p + '-family').trim(); if (g || f) return { name: CI.joinName(g, f), given: g, family: f }; }
-    var sp = CI.splitName(q); return { name: q, given: sp.given, family: sp.family };
+    if (box && box.getAttribute('data-touched')) { var g = val(p + '-given').trim(), m = val(p + '-middle').trim(), f = val(p + '-family').trim(); if (g || f) return { name: CI.joinName(g, f, m), given: g, middle: m, family: f }; }
+    var sp = CI.splitName(q); return { name: q, given: sp.given, middle: sp.middle, family: sp.family };
   }
   var nf = { then: '' };
   function newFile(name, type, then) {
@@ -689,7 +701,7 @@
       '<div id="nf-msg" class="errors"></div></div>' +
       '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="newfile-ok">Create file</button></div>');
     handlers['nm-sync']({ getAttribute: function () { return 'nf'; } });
-    var f = document.getElementById(name ? 'nf-type' : 'nf-name'); if (f) f.focus();
+    var f = name && type ? document.querySelector('[data-action="newfile-ok"]') : document.getElementById(name ? 'nf-type' : 'nf-name'); if (f) f.focus();
   }
   handlers['newfile'] = function (el) { newFile('', el.getAttribute('data-type'), ''); };
   handlers['newfile-ok'] = function () {
@@ -747,7 +759,7 @@
     if (tab === 'profile') {
     h += picCard;
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
-      (e.type === 'individual' ? '<div class="grid2"><label>Given name<input type="text" id="en-given" value="' + esc(e.given || '') + '"></label><label>Family name<input type="text" id="en-family" value="' + esc(e.family || '') + '"></label></div>' : '') +
+      (e.type === 'individual' ? '<div class="grid3"><label>Given name<input type="text" id="en-given" value="' + esc(e.given || '') + '"></label><label>Middle name<input type="text" id="en-middle" value="' + esc(e.middle || '') + '"></label><label>Family name<input type="text" id="en-family" value="' + esc(e.family || '') + '"></label></div>' : '') +
       (CI.isItem(e) ? '<label>Kind of item <span class="hint">plate, phone, email, account…</span><input type="text" id="en-itemtype" value="' + esc(e.itemType || '') + '"></label><p class="muted small">An item has no folder. This page is its index entry: the reports that mention it and its connections.</p>' : '') +
       (CI.isItem(e) ? '' : '<label>Identifying details <span class="hint">date of birth or age, address, nickname, description: what tells this one apart</span><input type="text" id="en-details" value="' + esc(e.details || '') + '"></label>') +
       profileFields(e) +
@@ -808,13 +820,13 @@
   handlers['save-entity'] = function (el) {
     var e = idx().entity[el.getAttribute('data-id')], name = val('en-name').trim();
     if (!name) { toast('A name is required.', true); return; }
-    var oldName = e.name, oldG = e.given || '', oldF = e.family || '';
+    var oldName = e.name, oldG = e.given || '', oldM = e.middle || '', oldF = e.family || '';
     e.name = name; e.type = val('en-type'); e.notes = val('en-notes');
-    if (e.type !== 'individual') { delete e.given; delete e.family; }
+    if (e.type !== 'individual') { delete e.given; delete e.middle; delete e.family; }
     else {
-      var gi = document.getElementById('en-given'), fi = document.getElementById('en-family');
-      if (gi && fi && (gi.value.trim() !== oldG || fi.value.trim() !== oldF)) { e.given = gi.value.trim(); e.family = fi.value.trim(); if (name === oldName) e.name = CI.joinName(e.given, e.family) || name; }
-      else { var sp = CI.splitName(name); if (name !== oldName || typeof e.given !== 'string') { e.given = sp.given; e.family = sp.family; } }
+      var gi = document.getElementById('en-given'), mi = document.getElementById('en-middle'), fi = document.getElementById('en-family');
+      if (gi && mi && fi && (gi.value.trim() !== oldG || mi.value.trim() !== oldM || fi.value.trim() !== oldF)) { e.given = gi.value.trim(); e.middle = mi.value.trim(); e.family = fi.value.trim(); if (name === oldName) e.name = CI.joinName(e.given, e.family, e.middle) || name; }
+      else { var sp = CI.splitName(name); if (name !== oldName || typeof e.given !== 'string') { e.given = sp.given; e.middle = sp.middle; e.family = sp.family; } }
     }
     var dtl = document.getElementById('en-details'); if (dtl) e.details = dtl.value.trim();
     if (e.type === 'item') { var it = document.getElementById('en-itemtype'); e.itemType = it ? it.value.trim() : (e.itemType || ''); } else delete e.itemType;

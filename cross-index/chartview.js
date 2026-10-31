@@ -360,7 +360,7 @@
   };
   H['cv-mentions'] = function (el) { mutate(function (b) { b.showMentions = el.checked; }); };
   H['cv-hubstop'] = function (el) { mutate(function (b) { b.hubStop = el.checked; }); };
-  H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); };
+  H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); recompute(); };
   H['cv-layout'] = function (el) { st.forceLayout = true; st.forceFit = true; mutate(function (b) { b.layout = el.value; }); };
   H['cv-size'] = function (el) { mutate(function (b) { b.sizeByLinks = el.checked; }); };
   H['cv-zoomlabels'] = function (el) { mutate(function (b) { b.zoomLabels = el.checked; }); };

@@ -264,14 +264,14 @@
       var lblPending = false;
       function applyLabels() {
         lblPending = false; if (!cy || cy.destroyed()) return;
-        if (o.zoomLabels === false) { cy.elements().removeClass('lbl-off'); return; }
+        if (o.zoomLabels === false) { cy.nodes().removeClass('lbl-off'); cy.edges().toggleClass('lbl-off', !o.edgeLabels && false); return; }
         var z = cy.zoom();
         var ns = cy.nodes().filter(function (n) { return !n.hasClass('note') && !n.hasClass('flag'); }).sort(function (a, b) { return (b.data('degree') || 0) - (a.data('degree') || 0); });
         var frac = ns.length <= 30 ? (z < 0.3 ? 0.3 : 1.01) : (z < 0.4 ? 0.08 : z < 0.75 ? 0.35 : 1.01);
         var keep = Math.ceil(ns.length * frac);
         cy.batch(function () {
           ns.forEach(function (n, i) { n.toggleClass('lbl-off', i >= keep && !n.hasClass('seed') && !n.hasClass('hl') && !n.hasClass('new')); });
-          cy.edges().toggleClass('lbl-off', z < 1.25);
+          cy.edges().toggleClass('lbl-off', !o.edgeLabels && z < 1.25);
         });
       }
       cy.on('zoom', function () { if (!lblPending) { lblPending = true; (root.requestAnimationFrame || setTimeout)(applyLabels); } });

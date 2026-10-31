@@ -1540,29 +1540,39 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ---------- individuals: one name to look up, stored as given name and family name ---------- */
   var PARTICLES = /^(van|von|der|den|de|del|della|di|da|do|dos|du|la|le|bin|ibn|al|el|st\.?|ter|ten)$/i, SUFFIX = /^(jr\.?|sr\.?|ii|iii|iv|v|phd|md)$/i;
+  /* "John Q. Smith" -> given John, middle Q., family Smith. Two words: given and family. One word: family only.
+     "Smith, John Quincy" -> family Smith, given John, middle Quincy. Particles (van, de la, bin…) and suffixes (Jr, III) stay with the family name. */
   CI.splitName = function (full) {
     var s = String(full || '').replace(/\s+/g, ' ').trim();
-    if (!s) return { given: '', family: '' };
+    if (!s) return { given: '', middle: '', family: '' };
     var c = s.indexOf(',');
-    if (c > 0) return { given: s.slice(c + 1).trim(), family: s.slice(0, c).trim() };
+    if (c > 0) {
+      var rest = s.slice(c + 1).trim().split(' ').filter(Boolean);
+      return { given: rest[0] || '', middle: rest.slice(1).join(' '), family: s.slice(0, c).trim() };
+    }
     var w = s.split(' ');
-    if (w.length === 1) return { given: '', family: w[0] };
+    if (w.length === 1) return { given: '', middle: '', family: w[0] };
     var i = w.length - 1;
     while (i > 1 && SUFFIX.test(w[i])) i--;
     while (i > 1 && PARTICLES.test(w[i - 1])) i--;
-    return { given: w.slice(0, i).join(' '), family: w.slice(i).join(' ') };
+    return { given: w[0], middle: w.slice(1, i).join(' '), family: w.slice(i).join(' ') };
   };
-  CI.joinName = function (given, family) { return [String(given || '').trim(), String(family || '').trim()].filter(Boolean).join(' '); };
-  /* Fills given and family on an individual that has neither, and keeps them in step with the name. */
+  CI.joinName = function (given, family, middle) { return [given, middle, family].map(function (x) { return String(x || '').trim(); }).filter(Boolean).join(' '); };
+  /* Fills given, middle and family on an individual that has none, and keeps them in step with the name. */
   CI.fillNames = function (e) {
-    if (e.type !== 'individual') { delete e.given; delete e.family; return; }
-    if (typeof e.given !== 'string' && typeof e.family !== 'string') { var p = CI.splitName(e.name); e.given = p.given; e.family = p.family; }
+    if (e.type !== 'individual') { delete e.given; delete e.middle; delete e.family; return; }
+    if (typeof e.given !== 'string' && typeof e.family !== 'string') { var p = CI.splitName(e.name); e.given = p.given; e.middle = p.middle; e.family = p.family; }
+    else if (typeof e.middle !== 'string') {
+      // Names stored before the middle-name field: a given name of several words becomes given plus middle.
+      var g = String(e.given || '').trim().split(' ').filter(Boolean);
+      e.given = g[0] || ''; e.middle = g.slice(1).join(' ');
+    }
   };
-  CI.sortKey = function (e) { return e.type === 'individual' && (e.family || e.given) ? CI.norm((e.family || '') + ' ' + (e.given || '')) : CI.norm(e.name); };
+  CI.sortKey = function (e) { return e.type === 'individual' && (e.family || e.given) ? CI.norm((e.family || '') + ' ' + (e.given || '') + ' ' + (e.middle || '')) : CI.norm(e.name); };
 
   /* ---------- mutations ---------- */
   CI.addEntity = function (d, o) {
-    if (o.type === 'individual' && (o.given || o.family)) o.name = CI.joinName(o.given, o.family);
+    if (o.type === 'individual' && (o.given || o.family)) o.name = CI.joinName(o.given, o.family, o.middle);
     var e = {
       id: CI.nextId(d, 'entity'),
       type: o.type,
@@ -1574,7 +1584,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       created: CI.today()
     };
     if (o.type === 'item') e.itemType = String(o.itemType || '').trim();
-    if (o.type === 'individual') { var sp = (o.given || o.family) ? { given: String(o.given || '').trim(), family: String(o.family || '').trim() } : CI.splitName(e.name); e.given = sp.given; e.family = sp.family; }
+    if (o.type === 'individual') { var sp = (o.given || o.family) ? { given: String(o.given || '').trim(), middle: String(o.middle || '').trim(), family: String(o.family || '').trim() } : CI.splitName(e.name); e.given = sp.given; e.middle = sp.middle; e.family = sp.family; }
     d.entities.push(e);
     return e;
   };
@@ -3705,14 +3715,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var lblPending = false;
       function applyLabels() {
         lblPending = false; if (!cy || cy.destroyed()) return;
-        if (o.zoomLabels === false) { cy.elements().removeClass('lbl-off'); return; }
+        if (o.zoomLabels === false) { cy.nodes().removeClass('lbl-off'); cy.edges().toggleClass('lbl-off', !o.edgeLabels && false); return; }
         var z = cy.zoom();
         var ns = cy.nodes().filter(function (n) { return !n.hasClass('note') && !n.hasClass('flag'); }).sort(function (a, b) { return (b.data('degree') || 0) - (a.data('degree') || 0); });
         var frac = ns.length <= 30 ? (z < 0.3 ? 0.3 : 1.01) : (z < 0.4 ? 0.08 : z < 0.75 ? 0.35 : 1.01);
         var keep = Math.ceil(ns.length * frac);
         cy.batch(function () {
           ns.forEach(function (n, i) { n.toggleClass('lbl-off', i >= keep && !n.hasClass('seed') && !n.hasClass('hl') && !n.hasClass('new')); });
-          cy.edges().toggleClass('lbl-off', z < 1.25);
+          cy.edges().toggleClass('lbl-off', !o.edgeLabels && z < 1.25);
         });
       }
       cy.on('zoom', function () { if (!lblPending) { lblPending = true; (root.requestAnimationFrame || setTimeout)(applyLabels); } });
@@ -4562,7 +4572,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (!document.querySelector('#modal-root .overlay')) return;
     if (ev.key === 'Escape') closeModal();
     else if (ev.key === 'Enter' && ev.target && ev.target.id === 'modal-input') { ev.preventDefault(); handlers['modal-ok'](); }
-    else if (ev.key === 'Enter' && ev.target && (ev.target.id === 'nn-name' || ev.target.id === 'nn-type')) { ev.preventDefault(); handlers['ae-new-ok'](); }
+    else if (ev.key === 'Enter' && ev.target && /^nn-(name|type|given|middle|family)$/.test(ev.target.id)) { ev.preventDefault(); handlers['ae-new-ok'](); }
+    else if (ev.key === 'Enter' && ev.target && /^nf-(name|type|given|middle|family)$/.test(ev.target.id)) { ev.preventDefault(); handlers['newfile-ok'](); }
   });
   handlers['date-fix'] = function (el) {
     var v = CI.parseDate(el.value);
@@ -4613,17 +4624,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   /* ---------- REPORT FORM (new + edit) ---------- */
   var repDefaults = null;
+  /* Sources already used, most used first. A new source is simply typed; it joins the list once the report is saved. */
+  function sourceList() {
+    var cnt = {}, name = {};
+    d.reports.forEach(function (r) { var k = CI.norm(r.sourceRef || ''); if (!k) return; cnt[k] = (cnt[k] || 0) + 1; if (!name[k]) name[k] = r.sourceRef; });
+    return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a] || name[a].localeCompare(name[b]); }).map(function (k) { return name[k]; });
+  }
   function viewReportForm(id) {
     var r = id ? idx().report[id] : null;
     if (id && !r) return notFound('Report');
-    r = r || Object.assign({ received: CI.today(), subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
+    r = r || Object.assign({ received: '', subject: '', eventDate: '', sourceRef: '', archiveLoc: '', dupOf: '', leadId: '', summary: '', basis: '' }, repDefaults || {});
     repDefaults = null;
     view.innerHTML = pageHead(id ? esc(id) : 'New report', id ? esc(trunc(repTitle(r), 110)) : 'Record the report first, then add the names it mentions and the connections it shows.', '', reportTabs(id, 'details')) + (id ? '' : CI.views.folderCard()) +
       '<form class="card form rep-form" id="rep-form" onsubmit="return false">' +
       '<div class="rf-grid">' +
       '<label class="rf-date">Date of report' + dateInput('f-received', r.received) + '</label>' +
       '<label class="rf-subject">Subject of report<input type="text" id="f-subject" value="' + esc(r.subject || '') + '" placeholder="What is the report about?"></label>' +
-      '<label class="rf-wide">Source of report<input type="text" id="f-ref" value="' + esc(r.sourceRef) + '" placeholder="Name, URL, handle or document title"></label>' +
+      '<label class="rf-wide">Source of report<input type="text" id="f-ref" list="src-list" autocomplete="off" value="' + esc(r.sourceRef) + '" placeholder="Start typing to find an earlier source, or type a new one"><datalist id="src-list">' + sourceList().map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist></label>' +
       '<label class="rf-wide">Notes or summary <span class="hint">In your own words</span><textarea id="f-summary" rows="4">' + esc(r.summary) + '</textarea></label>' +
       '<label class="rf-wide">Where the preserved copy is kept <span class="hint">Path, URL or file reference</span><input type="text" id="f-arch" value="' + esc(r.archiveLoc) + '"></label>' +
       '</div>' +
@@ -4631,11 +4648,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       '<div id="form-errors" class="errors" role="alert"></div>' +
       '<div class="rf-actions"><button class="btn primary" data-action="save-report" data-id="' + esc(id || '') + '">' + (id ? 'Save' : 'Save, then add names and connections') + '</button><a class="btn" href="' + (id ? '#/report/' + esc(id) : '#/reports') + '">Cancel</a></div></form>';
   }
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target && ev.target.id === 'f-ref') { ev.preventDefault(); var n = document.getElementById('f-summary'); if (n) n.focus(); }
+  });
   handlers['save-report'] = function (el) {
     var id = el.getAttribute('data-id'), ex = id ? idx().report[id] : null;
     var rec = readDate('f-received');
     var r = {
-      received: rec || '', subject: val('f-subject').trim(), sourceRef: val('f-ref').trim(),
+      received: rec || '', subject: val('f-subject').trim(), sourceRef: (function () { var t = val('f-ref').trim(), m = sourceList().filter(function (x) { return CI.norm(x) === CI.norm(t); })[0]; return m || t; })(),
       archiveLoc: val('f-arch').trim(), summary: val('f-summary').trim()
     };
     var leadEl = document.getElementById('f-lead'); if (leadEl) r.leadId = leadEl.value;
@@ -4826,7 +4846,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       '<label class="chk"><input type="checkbox" id="nn-flag"' + (flag ? ' checked' : '') + '> Unsure this is the same one – flag for review</label><div id="nn-msg" class="errors"></div></div>' +
       '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="ae-new-ok">Create name</button></div>');
     handlers['nm-sync']({ getAttribute: function () { return 'nn'; } });
-    var f = document.getElementById(ae.type ? 'nn-details' : 'nn-type'); if (f) f.focus();
+    /* Rapid entry: with a type already chosen the Create button has focus, so Enter saves. */
+    var f = ae.type ? document.querySelector('[data-action="ae-new-ok"]') : document.getElementById('nn-type'); if (f) f.focus();
   };
   handlers['ae-new-ok'] = function () {
     var q = val('nn-name').trim(), type = val('nn-type'), msg = document.getElementById('nn-msg');
@@ -4970,20 +4991,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   handlers['back'] = function () { if (hist.length) { cur = hist.pop(); route(); } };
   /* Given and family name, shown only for individuals. The lookup box stays one field; these fill in from it. */
   function nameBlock(p) {
-    return '<div id="' + p + '-split" hidden><div class="grid2"><label>Given name<input type="text" id="' + p + '-given" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label>' +
-      '<label>Family name<input type="text" id="' + p + '-family" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label></div><p class="hint">Filled in from the name above. Correct it if it split the wrong way, for example “Mary Ann” as the given name.</p></div>';
+    return '<div id="' + p + '-split" hidden><div class="grid3"><label>Given name<input type="text" id="' + p + '-given" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label>' +
+      '<label>Middle name <span class="hint">optional</span><input type="text" id="' + p + '-middle" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label>' +
+      '<label>Family name<input type="text" id="' + p + '-family" data-p="' + p + '" data-on-input="nm-touch" autocomplete="off"></label></div><p class="hint">Filled in from the name above: first word given, last word family, anything between is middle. Correct it if it split the wrong way.</p></div>';
   }
   handlers['nm-sync'] = function (el) {
     var p = el.getAttribute('data-p'), box = document.getElementById(p + '-split'); if (!box) return;
     var ind = val(p + '-type') === 'individual'; box.hidden = !ind;
-    if (ind && !box.getAttribute('data-touched')) { var sp = CI.splitName(val(p + '-name')); document.getElementById(p + '-given').value = sp.given; document.getElementById(p + '-family').value = sp.family; }
+    if (ind && !box.getAttribute('data-touched')) { var sp = CI.splitName(val(p + '-name')); document.getElementById(p + '-given').value = sp.given; document.getElementById(p + '-middle').value = sp.middle; document.getElementById(p + '-family').value = sp.family; }
   };
   handlers['nm-touch'] = function (el) { var box = document.getElementById(el.getAttribute('data-p') + '-split'); if (box) box.setAttribute('data-touched', '1'); };
   function namesFrom(p, q, type) {
     if (type !== 'individual') return { name: q };
     var box = document.getElementById(p + '-split');
-    if (box && box.getAttribute('data-touched')) { var g = val(p + '-given').trim(), f = val(p + '-family').trim(); if (g || f) return { name: CI.joinName(g, f), given: g, family: f }; }
-    var sp = CI.splitName(q); return { name: q, given: sp.given, family: sp.family };
+    if (box && box.getAttribute('data-touched')) { var g = val(p + '-given').trim(), m = val(p + '-middle').trim(), f = val(p + '-family').trim(); if (g || f) return { name: CI.joinName(g, f, m), given: g, middle: m, family: f }; }
+    var sp = CI.splitName(q); return { name: q, given: sp.given, middle: sp.middle, family: sp.family };
   }
   var nf = { then: '' };
   function newFile(name, type, then) {
@@ -4995,7 +5017,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       '<div id="nf-msg" class="errors"></div></div>' +
       '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="newfile-ok">Create file</button></div>');
     handlers['nm-sync']({ getAttribute: function () { return 'nf'; } });
-    var f = document.getElementById(name ? 'nf-type' : 'nf-name'); if (f) f.focus();
+    var f = name && type ? document.querySelector('[data-action="newfile-ok"]') : document.getElementById(name ? 'nf-type' : 'nf-name'); if (f) f.focus();
   }
   handlers['newfile'] = function (el) { newFile('', el.getAttribute('data-type'), ''); };
   handlers['newfile-ok'] = function () {
@@ -5053,7 +5075,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (tab === 'profile') {
     h += picCard;
     h += '<form class="card form" onsubmit="return false"><div class="grid2"><label>Name<input type="text" id="en-name" value="' + esc(e.name) + '"></label><label>Type<select id="en-type">' + options(CI.ENTITY_TYPES.map(function (t) { return { value: t, label: CI.TYPE_LABEL[t] }; }), e.type) + '</select></label></div>' +
-      (e.type === 'individual' ? '<div class="grid2"><label>Given name<input type="text" id="en-given" value="' + esc(e.given || '') + '"></label><label>Family name<input type="text" id="en-family" value="' + esc(e.family || '') + '"></label></div>' : '') +
+      (e.type === 'individual' ? '<div class="grid3"><label>Given name<input type="text" id="en-given" value="' + esc(e.given || '') + '"></label><label>Middle name<input type="text" id="en-middle" value="' + esc(e.middle || '') + '"></label><label>Family name<input type="text" id="en-family" value="' + esc(e.family || '') + '"></label></div>' : '') +
       (CI.isItem(e) ? '<label>Kind of item <span class="hint">plate, phone, email, account…</span><input type="text" id="en-itemtype" value="' + esc(e.itemType || '') + '"></label><p class="muted small">An item has no folder. This page is its index entry: the reports that mention it and its connections.</p>' : '') +
       (CI.isItem(e) ? '' : '<label>Identifying details <span class="hint">date of birth or age, address, nickname, description: what tells this one apart</span><input type="text" id="en-details" value="' + esc(e.details || '') + '"></label>') +
       profileFields(e) +
@@ -5114,13 +5136,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   handlers['save-entity'] = function (el) {
     var e = idx().entity[el.getAttribute('data-id')], name = val('en-name').trim();
     if (!name) { toast('A name is required.', true); return; }
-    var oldName = e.name, oldG = e.given || '', oldF = e.family || '';
+    var oldName = e.name, oldG = e.given || '', oldM = e.middle || '', oldF = e.family || '';
     e.name = name; e.type = val('en-type'); e.notes = val('en-notes');
-    if (e.type !== 'individual') { delete e.given; delete e.family; }
+    if (e.type !== 'individual') { delete e.given; delete e.middle; delete e.family; }
     else {
-      var gi = document.getElementById('en-given'), fi = document.getElementById('en-family');
-      if (gi && fi && (gi.value.trim() !== oldG || fi.value.trim() !== oldF)) { e.given = gi.value.trim(); e.family = fi.value.trim(); if (name === oldName) e.name = CI.joinName(e.given, e.family) || name; }
-      else { var sp = CI.splitName(name); if (name !== oldName || typeof e.given !== 'string') { e.given = sp.given; e.family = sp.family; } }
+      var gi = document.getElementById('en-given'), mi = document.getElementById('en-middle'), fi = document.getElementById('en-family');
+      if (gi && mi && fi && (gi.value.trim() !== oldG || mi.value.trim() !== oldM || fi.value.trim() !== oldF)) { e.given = gi.value.trim(); e.middle = mi.value.trim(); e.family = fi.value.trim(); if (name === oldName) e.name = CI.joinName(e.given, e.family, e.middle) || name; }
+      else { var sp = CI.splitName(name); if (name !== oldName || typeof e.given !== 'string') { e.given = sp.given; e.middle = sp.middle; e.family = sp.family; } }
     }
     var dtl = document.getElementById('en-details'); if (dtl) e.details = dtl.value.trim();
     if (e.type === 'item') { var it = document.getElementById('en-itemtype'); e.itemType = it ? it.value.trim() : (e.itemType || ''); } else delete e.itemType;
@@ -5703,7 +5725,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   };
   H['cv-mentions'] = function (el) { mutate(function (b) { b.showMentions = el.checked; }); };
   H['cv-hubstop'] = function (el) { mutate(function (b) { b.hubStop = el.checked; }); };
-  H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); };
+  H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); recompute(); };
   H['cv-layout'] = function (el) { st.forceLayout = true; st.forceFit = true; mutate(function (b) { b.layout = el.value; }); };
   H['cv-size'] = function (el) { mutate(function (b) { b.sizeByLinks = el.checked; }); };
   H['cv-zoomlabels'] = function (el) { mutate(function (b) { b.zoomLabels = el.checked; }); };
@@ -7652,11 +7674,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 (function () {
   'use strict';
   var A = CI.app, H = A.handlers, esc = A.esc;
-  var st = { hops: 1, labels: 'auto', fileId: '' };
+  var st = { hops: 1, labels: 'auto', fileId: '', pos: {} };
   function D() { return A.data(); }
 
   CI.views.fileChart = function (e) {
-    if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'auto'; }
+    if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'auto'; st.pos = {}; }
     return '<div class="card"><div class="row wrap"><label class="row" style="margin:0">Steps out <select id="fc-hops" data-on-change="fc-hops">' + A.options([{ value: '1', label: '1: direct connections' }, { value: '2', label: '2: and theirs' }, { value: '3', label: '3: three steps' }], String(st.hops)) + '</select></label>' +
       '<label class="chk"><input type="checkbox" id="fc-labels" data-on-change="fc-labels"> Label the connections</label><span id="fc-sum" class="muted small"></span><span class="spacer" style="flex:1"></span>' +
       '' + CI.views.chartFind() + '<span class="zgrp"><button class="btn small" data-action="cv-zoom" data-f="0.8" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" aria-label="Zoom in">+</button><button class="btn small" data-action="fc-fit">Fit</button></span><button class="btn small" data-action="chart-entity" data-id="' + esc(e.id) + '">Open as a special bank</button></div>' +
@@ -7668,9 +7690,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var on = st.labels === 'auto' ? g.edges.length <= 15 : st.labels === 'on';
     var cb = document.getElementById('fc-labels'); if (cb) cb.checked = on;
     var sum = document.getElementById('fc-sum'); if (sum) sum.textContent = g.nodes.length + ' names · ' + g.edges.length + ' connections' + (g.edges.length > 15 && st.labels === 'auto' ? ' · labels are off on a busy chart' : '');
-    CI.chart.destroy();
     CI.chart.render(document.getElementById('cy'), g, {
-      layout: 'cose', positions: {}, edgeLabels: on,
+      layout: 'cose', positions: st.pos, edgeLabels: on, viewKey: 'file|' + e.id,
+      onLaidOut: function (all) { Object.keys(all).forEach(function (k) { st.pos[k] = all[k]; }); },
+      onMoved: function (id, p) { st.pos[id] = p; },
       photoOf: function (id) { var x = idx.entity[id]; return x && x.photo ? x.photo : ''; },
       onNode: function (id) {
         var x = idx.entity[id], s = document.getElementById('fc-sel'); CI.chart.focus(id);
@@ -7927,5 +7950,5 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 })();
 
 </script>
-<script>CI.BUILD = "2026-10-31 02:58"; CI.app.start();</script>
+<script>CI.BUILD = "2026-10-31 03:29"; CI.app.start();</script>
 </body></html>
