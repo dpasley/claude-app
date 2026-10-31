@@ -38,12 +38,16 @@
    * The stored id is the label in UPPER_SNAKE_CASE (Neo4j style). Any pair of file or item types is allowed;
    * the note on the connection says what kind. Added once to every data set by CI.addSuggestedLinkTypes. */
   CI.SUGGESTED_LINK_TYPES = [
+    { group: 'People', label: 'Spoke with', directed: false },
+    { group: 'People', label: 'Interviewed', directed: true },
     { group: 'People', label: 'Knows', directed: false },
     { group: 'People', label: 'Family of', directed: false },
     { group: 'People', label: 'Lives with', directed: false },
     { group: 'Work', label: 'Works for', directed: true },
     { group: 'Work', label: 'Works with', directed: false },
     { group: 'Work', label: 'Supervises', directed: true },
+    { group: 'Media', label: 'Hosts', directed: true },
+    { group: 'Media', label: 'Appeared on', directed: true },
     { group: 'Groups', label: 'Member of', directed: true },
     { group: 'Groups', label: 'Linked with', directed: false },
     { group: 'Groups', label: 'Part of', directed: true },
@@ -450,6 +454,27 @@
     if (dup) return { error: 'This report already asserts that connection.' };
     var l = { id: CI.nextId(d, 'link'), reportId: o.reportId, from: o.from, to: o.to, type: o.type, note: o.note || '', created: CI.today() };
     d.links.push(l);
+    return { link: l };
+  };
+
+  /* Change a connection in place. Same checks as adding, ignoring the link being edited. */
+  CI.updateLink = function (d, id, o) {
+    var l = d.links.filter(function (x) { return x.id === id; })[0];
+    if (!l) return { error: 'Connection not found.' };
+    var r = d.reports.filter(function (x) { return x.id === l.reportId; })[0];
+    if (!o.from || !o.to) return { error: 'Choose both entities.' };
+    if (o.from === o.to) return { error: 'A connection needs two different entities.' };
+    var has = function (e) { return r && r.entities.some(function (x) { return x.entityId === e; }); };
+    if (!has(o.from) || !has(o.to)) return { error: 'Both entities must be listed in this report first.' };
+    var lt = d.settings.linkTypes.filter(function (t) { return t.id === o.type; })[0];
+    if (!lt) return { error: 'Choose a connection type.' };
+    var dup = d.links.some(function (x) {
+      if (x.id === id || x.reportId !== l.reportId || x.type !== o.type) return false;
+      if (x.from === o.from && x.to === o.to) return true;
+      return !lt.directed && x.from === o.to && x.to === o.from;
+    });
+    if (dup) return { error: 'This report already asserts that connection.' };
+    l.from = o.from; l.to = o.to; l.type = o.type; l.note = o.note || '';
     return { link: l };
   };
 

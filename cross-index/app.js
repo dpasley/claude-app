@@ -104,8 +104,8 @@
   }
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
   function ensureSuggested() {
-    if (d.settings.suggestedTypes) return;
-    CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true;
+    if (d.settings.suggestedTypes && d.settings.suggestedRev >= 2) return;
+    CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true; d.settings.suggestedRev = 2;
   }
   /* Connection types as a grouped drop-down. Every label reads as "A [label] B". */
   function linkTypeOptions(sel, blank, all) {
@@ -218,6 +218,7 @@
     window.scrollTo(0, 0);
     view.className = '';
     if (CI.chart) CI.chart.destroy();
+    var bb = document.getElementById('back-btn'); if (bb) bb.hidden = !hist.length;
     var name = parts[0] || 'report-new';
     var gsr = document.getElementById('gs-results'); if (gsr) gsr.innerHTML = '';
     if (name === 'reports') viewReports();
@@ -387,21 +388,22 @@
     } else h += '<p class="callout-inline">No names yet. This report is not indexed until at least one is added.</p>';
     h += '</div>';
 
-    h += '<div class="card sec' + (r.entities.length >= 2 ? '' : ' dim') + '" id="sec-links"><h2>Connections this report shows</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
+    h += '<div class="card sec' + (r.entities.length >= 2 ? '' : ' dim') + '" id="sec-links"><h2>' + (ae.editLink ? 'Edit this connection' : 'Connections this report shows') + '</h2><p class="muted small">Each connection is tied to this report as its source. Read it as a sentence: <em>A — Member of → B</em> means A is a member of B. Two names can have several connections.</p>';
+    var el0 = ae.editLink ? mine.filter(function (x) { return x.id === ae.editLink; })[0] : null;
     if (r.entities.length >= 2) {
       var ents = r.entities.map(function (x) { var e = idx().entity[x.entityId]; return { value: x.entityId, label: e ? e.name : x.entityId }; });
-      h += '<div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label>' +
-        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? '' : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
-        '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, '', 'Choose…') + '</select></label></div>' +
-        '<label class="big-lbl">What is the connection? <span class="hint">required: brother, treasurer, owner of the plate…</span><input type="text" id="lk-note" class="big-in"></label>' +
+      h += '<div class="sentence"><label>From<select id="lk-from" data-on-change="lk-preview">' + options(ents, el0 ? el0.from : '', 'Choose…') + '</select></label>' +
+        '<label>Connection<select id="lk-type" data-on-change="lk-preview">' + linkTypeOptions(ae.allTypes ? (el0 ? el0.type : '') : 'CONNECTED_TO', 'Choose…', !!ae.allTypes) + '</select></label>' +
+        '<label>To<select id="lk-to" data-on-change="lk-preview">' + options(ents, el0 ? el0.to : '', 'Choose…') + '</select></label></div>' +
+        '<label class="big-lbl">What is the connection? <span class="hint">Needed for “Connected to”. For other types, add detail if it helps: how, when or where.</span><input type="text" id="lk-note" class="big-in" value="' + esc(el0 ? el0.note : '') + '"></label>' +
         '<div class="row between"><label class="row small"><input type="checkbox" id="lk-all"' + (ae.allTypes ? ' checked' : '') + ' data-on-change="lk-all"> Show the full list of connection types</label>' +
-        '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button><button class="btn primary" data-action="add-link">Add connection</button></span></div><div id="lk-msg" class="errors"></div>';
+        '<span class="row"><span id="lk-preview" class="muted"></span><button class="btn" data-action="lk-swap">Swap direction</button>' + (el0 ? '<button class="btn" data-action="lk-cancel">Cancel</button><button class="btn primary" data-action="add-link">Save changes</button>' : '<button class="btn primary" data-action="add-link">Add connection</button>') + '</span></div><div id="lk-msg" class="errors"></div>';
     } else h += '<p class="callout-inline">Add at least two names above to record a connection between them.</p>';
     if (mine.length) {
-      h += '<table class="fixed list spaced"><colgroup><col style="width:26%"><col style="width:17%"><col style="width:26%"><col style="width:22%"><col style="width:9%"></colgroup>' +
+      h += '<table class="fixed list spaced"><colgroup><col style="width:22%"><col style="width:16%"><col style="width:22%"><col style="width:22%"><col style="width:18%"></colgroup>' +
         '<thead><tr><th>Connections so far: from</th><th>Connection</th><th>To</th><th>What it is</th><th></th></tr></thead><tbody>' + mine.map(function (l) {
         var t = lt(l.type);
-        return '<tr><td>' + entLink(l.from) + '</td><td title="' + esc(t.label) + '">' + (t.directed ? '→ ' : '↔ ') + esc(t.label) + '</td><td>' + entLink(l.to) + '</td><td title="' + esc(l.note) + '">' + esc(l.note) + '</td><td class="right"><button class="btn small" data-action="del-link" data-id="' + esc(l.id) + '">Remove</button></td></tr>';
+        return '<tr><td>' + entLink(l.from) + '</td><td title="' + esc(t.label) + '">' + (t.directed ? '→ ' : '↔ ') + esc(t.label) + '</td><td>' + entLink(l.to) + '</td><td title="' + esc(l.note) + '">' + esc(l.note) + '</td><td class="right"><button class="btn small" data-action="edit-link" data-id="' + esc(l.id) + '">Edit</button> <button class="btn small" data-action="del-link" data-id="' + esc(l.id) + '">Remove</button></td></tr>';
       }).join('') + '</tbody></table>';
     } else if (r.entities.length >= 2) h += '<p class="muted">No connections recorded for this report yet.</p>';
     h += '</div>';
@@ -593,11 +595,14 @@
   };
   handlers['lk-all'] = function (el) { ae.allTypes = el.checked; viewReport(ae.reportId); };
   handlers['add-link'] = function () {
-    if (val('lk-type') === 'CONNECTED_TO' && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = 'Say what the connection is in the box on the right, for example “brother” or “owner of the plate”.'; return; }
-    var res = CI.addLink(d, { reportId: ae.reportId, from: val('lk-from'), to: val('lk-to'), type: val('lk-type'), note: val('lk-note').trim() });
+    if (val('lk-type') === 'CONNECTED_TO' && !val('lk-note').trim()) { document.getElementById('lk-msg').textContent = 'Say what the connection is in the box below, for example “brother” or “owner of the plate”.'; return; }
+    var o = { reportId: ae.reportId, from: val('lk-from'), to: val('lk-to'), type: val('lk-type'), note: val('lk-note').trim() };
+    var res = ae.editLink ? CI.updateLink(d, ae.editLink, o) : CI.addLink(d, o);
     if (res.error) { document.getElementById('lk-msg').textContent = res.error; return; }
-    persist(); viewReport(ae.reportId);
+    var was = ae.editLink; ae.editLink = ''; persist(); viewReport(ae.reportId); if (was) toast('Connection updated.');
   };
+  handlers['edit-link'] = function (el) { ae.editLink = el.getAttribute('data-id'); ae.allTypes = true; viewReport(ae.reportId); var s = document.getElementById('sec-links'); if (s) s.scrollIntoView({ block: 'start' }); handlers['lk-preview'](); };
+  handlers['lk-cancel'] = function () { ae.editLink = ''; viewReport(ae.reportId); };
   handlers['del-link'] = function (el) {
     d.links = d.links.filter(function (l) { return l.id !== el.getAttribute('data-id'); }); persist(); viewReport(ae.reportId);
   };
@@ -653,6 +658,7 @@
       '<div class="card flush"><table class="fixed"><colgroup><col style="width:58%"><col style="width:12%"><col style="width:16%"><col style="width:14%"></colgroup><thead><tr><th>' + (items ? 'Identifier' : 'Name') + '</th><th class="num">Reports</th><th>Last report</th><th class="num">Connections</th></tr></thead><tbody id="ent-rows">' + entRows() + '</tbody></table></div>';
   }
   /* New file: one small dialog, used from Files and from the Select a file box on New report. */
+  handlers['back'] = function () { if (hist.length) { cur = hist.pop(); route(); } };
   var nf = { then: '' };
   function newFile(name, type, then) {
     nf.then = then || '';
@@ -990,7 +996,7 @@
 
   CI.app.start = function () {
     if (!d.started && !d.reports.length && !d.entities.length) { d = CI.sampleData(); persist(); }
-    if (!d.settings.suggestedTypes) { ensureSuggested(); persist(); }
+    if (!d.settings.suggestedTypes || !(d.settings.suggestedRev >= 2)) { ensureSuggested(); persist(); }
     document.addEventListener('click', function (ev) { var m = document.getElementById('more'); if (m && m.open && !m.contains(ev.target)) m.open = false; });
     route();
     if (CI.views.backupBanner) CI.views.backupBanner();
