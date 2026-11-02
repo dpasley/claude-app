@@ -140,7 +140,7 @@ t('lead sheets and board produce real PDFs', async () => {});
   CI.mergeEntities(dd, m1.id, eid('Orrin Platt')); assert.equal(cc.pins.filter(p => p.entityId === eid('Orrin Platt')).length, 1); assert.ok(!cc.pins.some(p => p.entityId === m1.id));
   console.log('ok - case chart: pins, strings need reports, flags from open leads, cleanup on delete and merge'); n++;
   const olds = JSON.parse(JSON.stringify(CI.sampleData())); olds.schema = 3; olds.investigations[0].caseChart = { pins: [], strings: [] }; olds.leads = olds.leads.filter(l => l.bankId !== olds.investigations[0].bankId);
-  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 7); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2); const o6 = JSON.parse(JSON.stringify(CI.sampleData())); o6.schema = 6; o6.investigations[0].plan = { objective: "x" }; o6.investigations[0].status = "EXECUTING"; const m7 = CI.normalize(o6); assert.ok(m7.investigations[0].status === "ACTIVE" && !m7.investigations[0].plan && typeof m7.investigations[0].planFile.name === "string");
+  const migs = CI.normalize(olds); assert.equal(migs.investigations[0].caseChart.pins.length, 7); assert.equal(migs.investigations[0].caseChart.strings.length, 5); assert.equal(migs.schema, 8); assert.ok(migs.investigations[0].caseChart.title && migs.investigations[0].caseChart.notes.length === 2); const o6 = JSON.parse(JSON.stringify(CI.sampleData())); o6.schema = 6; o6.investigations[0].plan = { objective: "x" }; o6.investigations[0].status = "EXECUTING"; const m7 = CI.normalize(o6); assert.ok(m7.investigations[0].status === "ACTIVE" && !m7.investigations[0].plan && typeof m7.investigations[0].planFile.name === "string");
   const mid = JSON.parse(JSON.stringify(CI.sampleData())); mid.schema = 4; mid.investigations[0].caseChart.title = ''; mid.investigations[0].caseChart.notes = []; assert.equal(CI.normalize(mid).investigations[0].caseChart.notes.length, 2);
   console.log('ok - sample data saved before case charts gets its case chart on load'); n++;
   const d5 = CI.sampleData(), v5 = d5.investigations[0], c5 = CI.caseChartOf(v5);
@@ -182,4 +182,12 @@ t('time line of several files merges in date order', () => {
   CI.addTimeline(d, { fileId: a.id, date: '2026-09-09', text: 'A later' }); CI.addTimeline(d, { fileId: b.id, date: '2026-09-01', text: 'B earlier' });
   assert.deepEqual(CI.timelineMany(d, [a.id, b.id]).map(x => x.text), ['B earlier', 'A later']);
   assert.ok(CI.pdf.timelineSheet(d, idx, [a.id, b.id], { title: 'Both' }).size > 1500);
+});
+
+t('register prints and a lead raised from a name\u2019s page', () => {
+  const d = CI.sampleData(), who = d.entities[0];
+  const free = CI.addLead(d, { question: 'Where does he live now?', about: [who.id], origin: { kind: 'file', id: who.id } }).lead;
+  assert.ok(CI.pdf.leadList(d, '', { kind: 'lead', openOnly: true, scope: 'Open leads with no investigation', scopeTitle: 'Lead register', investigation: 'none' }).size > 1000);
+  assert.ok(CI.pdf.leadList(d, '', { kind: 'lead', openOnly: true, about: who.id, scope: 'About ' + who.name, scopeTitle: 'Open leads about ' + who.name }).size > 1000);
+  assert.ok(CI.pdf.leadSheets(d, [free.id]).size > 1000);
 });

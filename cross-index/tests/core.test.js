@@ -5,6 +5,26 @@ require('../core.js'); require('../sample.js'); require('./fixture-sample.js'); 
 const CI = globalThis.CI;
 let n = 0; const t = (name, fn) => { fn(); n++; console.log('ok -', name); };
 
+t('individual names split into given and family', () => {
+  const sp = CI.splitName;
+  assert.deepEqual(sp('John Smith'), { given: 'John', middle: '', family: 'Smith' });
+  assert.deepEqual(sp('Mary Ann Jones'), { given: 'Mary', middle: 'Ann', family: 'Jones' });
+  assert.deepEqual(sp('John Q. Public Jr'), { given: 'John', middle: 'Q.', family: 'Public Jr' });
+  assert.deepEqual(sp('Smith, John'), { given: 'John', middle: '', family: 'Smith' });
+  assert.deepEqual(sp('Smith, John Quincy'), { given: 'John', middle: 'Quincy', family: 'Smith' });
+  assert.deepEqual(sp('Ludwig van Beethoven'), { given: 'Ludwig', middle: '', family: 'van Beethoven' });
+  assert.deepEqual(sp('John Smith Jr'), { given: 'John', middle: '', family: 'Smith Jr' });
+  assert.deepEqual(sp('Madonna'), { given: '', middle: '', family: 'Madonna' });
+  const d = CI.sampleData();
+  d.entities.filter(e => e.type === 'individual').forEach(e => assert.ok(typeof e.given === 'string' && CI.joinName(e.given, e.family, e.middle) === e.name.replace(/\s+/g, ' ').trim() || e.family));
+  d.entities.filter(e => e.type !== 'individual').forEach(e => assert.ok(!('given' in e)));
+  const e = CI.addEntity(d, { type: 'individual', given: 'Ana', family: 'de la Cruz' });
+  assert.equal(e.name, 'Ana de la Cruz'); assert.equal(CI.sortKey(e), 'de la cruz ana');
+  const e2 = CI.addEntity(d, { type: 'individual', given: 'Ana', middle: 'Maria', family: 'Cruz' }); assert.equal(e2.name, 'Ana Maria Cruz');
+  const old = JSON.parse(JSON.stringify(d)); old.entities.forEach(x => { delete x.given; delete x.family; });
+  assert.equal(CI.normalize(old).entities.find(x => x.id === e.id).family, 'de la Cruz');
+});
+
 t('sample builds and validates', () => {
   const d = CI.sampleData();
   assert.equal(d.entities.length, 14);
@@ -431,4 +451,45 @@ t('older leads move to their investigation; data requests become requests; a ban
   assert.ok(CI.closeBank(d, b, ' ')); assert.equal(CI.closeBank(d, b, 'Routine activity only.'), '');
   assert.equal(b.outcome.kind, 'NO_SITUATION'); assert.equal(CI.handOver(d, b), null); assert.ok(!CI.investigationFor(d, b.id));
   CI.reopenBank(b); assert.ok(CI.handOver(d, b)); assert.ok(CI.closeBank(d, b, 'x'));
+});
+
+t('leads can sit outside an investigation; the register, a name\'s leads and the sheet home all follow', () => {
+  const d = CI.sampleData(), a = d.entities[0].id, b = d.entities[1].id;
+  const r = CI.addLead(d, { question: 'Who lives here?', about: [a], origin: { kind: 'file', id: a } });
+  assert.ok(!r.error); assert.equal(r.lead.investigationId, ''); assert.equal(r.lead.origin.kind, 'file');
+  assert.ok(CI.addLead(d, { investigationId: 'V-9999', question: 'x' }).error);
+  assert.ok(CI.leadsAbout(d, a).some(l => l.id === r.lead.id));
+  const reg = CI.leadRegister(d, { kind: 'lead', open: true, investigation: 'none' });
+  assert.ok(reg.some(l => l.id === r.lead.id) && reg.every(l => !l.investigationId));
+  assert.ok(/page of/.test(CI.leadHome(d, r.lead).from) && /register/i.test(CI.leadHome(d, r.lead).folder));
+  const v = d.investigations[0];
+  assert.ok(!CI.attachLead(d, r.lead.id, v.id).error); assert.equal(r.lead.investigationId, v.id);
+  assert.ok(/investigation/i.test(CI.leadHome(d, r.lead).folder));
+  CI.attachLead(d, r.lead.id, ''); assert.equal(r.lead.investigationId, '');
+  const old = JSON.parse(JSON.stringify(d)); old.schema = 7; old.leads.forEach(l => delete l.origin);
+  const n = CI.normalize(old); assert.equal(n.schema, 8); assert.ok(n.leads.every(l => l.origin && l.origin.kind));
+  CI.mergeEntities(d, a, b); assert.ok(d.leads.every(l => !l.origin || l.origin.id !== a));
+});
+
+t('folder mode: reports get the folder name, the summary lists what came out of it', () => {
+  const d = CI.sampleData(), e = d.entities.find(x => x.type === 'individual');
+  assert.equal(CI.folderOf(d), null); assert.ok(CI.openFolder(d, 'E-nope'));
+  assert.equal(CI.openFolder(d, e.id), null);
+  const r = { id: 'R-9001', received: '2026-10-01', subject: 'x', entities: [], created: '', updated: '' }; d.reports.push(r);
+  CI.folderAdd(d, r.id); CI.folderAdd(d, r.id);
+  assert.deepEqual(r.entities.map(x => x.entityId), [e.id]); assert.equal(CI.folderOf(d).reports.length, 1);
+  const other = d.entities.find(x => x.id !== e.id); CI.addEntityToReport(d, r.id, other.id, '', false, '');
+  CI.addLead(d, { question: 'Follow up', raisedBy: r.id, about: [other.id] });
+  const s = CI.folderSummary(d); assert.equal(s.reports.length, 1); assert.equal(s.names.length, 1); assert.ok(s.leads.some(l => l.question === 'Follow up'));
+  const keep = d.entities.find(x => x.id !== e.id && x.id !== other.id); CI.mergeEntities(d, e.id, keep.id); assert.equal(d.ui.folder.entityId, keep.id);
+  CI.finishFolder(d); assert.equal(CI.folderOf(d), null); assert.ok(CI.folderSummary(d)); assert.equal(CI.openFolder(d, keep.id), null); assert.equal(d.ui.finished, null); CI.closeFolder(d); assert.equal(CI.folderSummary(d), null);
+});
+
+t('backup reminder: due after many changes or a week, quiet right after a backup', () => {
+  const d = CI.sampleData(); d.ui.changes = 3; d.ui.lastBackup = ''; assert.ok(!CI.backupState(d).due);
+  d.ui.changes = 12; assert.ok(CI.backupState(d).due);
+  d.ui.snooze = 20; assert.ok(!CI.backupState(d).due);
+  CI.markBackup(d); assert.equal(d.ui.changes, 0); assert.ok(!CI.backupState(d).due);
+  d.ui.changes = 2; assert.ok(CI.backupState(d, Date.now() + 8 * 86400000).due);
+  assert.ok(!CI.backupState(CI.emptyData()).due);
 });

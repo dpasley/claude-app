@@ -392,17 +392,64 @@
     T('vera', 13, 3, 'At the same Chamber table as Quill, Platt and Fenn.', ['chamber1']);
     T('harbor', 46, 1, 'First of seven invoices paid in two weeks.', ['ledger']);
     T('harbor', 40, 1, 'Northwind money forwarded to Brightwater within a day.', ['wire']);
-    T('tobias', 27, 3, 'Appears as occasional Dark Grid spokesperson.', ['news2']);
-    T('tobias', 16, 1, 'GridWatch Now post predicts Depot 4 going dark.', ['gwpost']);
-    T('tobias', 15, 1, 'Posts a named attack on Dana Whitcomb.', ['attack']);
-    T('tobias', 4, 1, 'Posts the Depot 4 schedule with Whitcomb’s shifts circled.', ['sched']);
-    T('depot4', 36, 2, 'Meridian temps start; badges issued.', ['temps']);
-    T('depot4', 31, 2, 'Two temp badges used outside shifts.', ['badgeaud']);
-    T('depot4', 12, 1, 'Conveyor power failure; cabling cut.', ['cable']);
-    T('depot4', 2, 1, 'Gate sensor tampered with.', ['gate']);
-    T('protest', 27, 1, 'First call for a night action.', ['dgcall']);
-    T('protest', 6, 1, 'Phase two names Depots 4 and 7.', ['phase2']);
-    T('protest', 1, 1, 'Ashby Tower tagged “next”.', ['hqpost']);
+    // The ten days around the Depot 4 outage, one file at a time. Level 1 is a key event, 3 is background detail.
+    T('depot4', 36, 3, 'Meridian Staffing temps start; Sunil Desai issues their badges.', ['temps']);
+    T('depot4', 31, 2, 'Two Meridian temp badges used at the gate outside any scheduled shift.', ['badgeaud']);
+    T('depot4', 16, 1, 'GridWatch Now says Depot 4 “will be going dark soon”; reshared on a second platform.', ['gwpost', 'gwrepost']);
+    T('depot4', 12, 1, 'Cable room cabling cut, conveyor power fails; Keystone contractor on site the night before.', ['cable']);
+    T('depot4', 11, 2, 'Cal Brandt admitted two men in Keystone vests to the cable room at 2 a.m. on a valid card.', ['witness']);
+    T('depot4', 11, 2, 'GridWatch Now posts “told you” with a photo of the dark conveyor hall.', ['gwtold']);
+    T('depot4', 10, 1, 'Contractor’s badge found activated under an override entered by Sunil Desai.', ['override']);
+    T('depot4', 9, 2, 'Ironbridge bill for a cable inspection the week before the outage; work order unsigned.', ['ironb']);
+    T('depot4', 8, 3, 'Badge administration moves to Lakeview; Sunil Desai keeps his override rights.', ['lakeview']);
+    T('depot4', 6, 2, 'Dark Grid’s phase-two announcement names Depots 4 and 7 as next sites.', ['phase2']);
+    T('depot4', 4, 1, 'Tobias Crane posts the Depot 4 shift schedule with Dana Whitcomb’s shifts circled.', ['sched']);
+    T('depot4', 3, 2, 'Posted schedule traced to an export from Marcus Ellery’s Northwind account, never disabled.', ['meta']);
+    T('depot4', 2, 1, 'Gate sensor tampered with overnight; Cal Brandt finds the cover removed.', ['gate']);
+    T('depot4', 0, 2, 'Marcus Ellery recorded photographing the Depot 4 fence from the road at dusk.', ['photo']);
+
+    T('outage', 16, 1, 'First public warning: GridWatch Now says Depot 4 will be going dark soon.', ['gwpost']);
+    T('outage', 12, 1, 'The outage: cabling cut; Keystone contractor and Meridian temp on site the night before.', ['cable']);
+    T('outage', 11, 2, 'GridWatch Now claims the outage; gate officer describes admitting two men on a valid card.', ['gwtold', 'witness']);
+    T('outage', 10, 1, 'Contractor’s badge traced to an override entered by Sunil Desai.', ['override']);
+    T('outage', 9, 2, 'Ironbridge’s pre-outage cable inspection has an unsigned work order.', ['ironb']);
+    T('outage', 3, 2, 'Leaked Depot 4 schedule traced to a former scheduler’s account.', ['meta']);
+    T('outage', 2, 2, 'Gate sensor tampered with, the second incident at the depot in two weeks.', ['gate']);
+
+    T('tobias', 27, 3, 'Named in a newspaper interview as an occasional Dark Grid spokesperson.', ['news2']);
+    T('tobias', 16, 1, 'GridWatch Now, which he administers, posts that Depot 4 “will be going dark soon”.', ['gwpost']);
+    T('tobias', 15, 1, 'Posts a named attack on dispatcher Dana Whitcomb and tags GridWatch Now.', ['attack']);
+    T('tobias', 11, 2, 'GridWatch Now posts “told you” the day after the outage, with a photo of the dark hall.', ['gwtold']);
+    T('tobias', 4, 1, 'Posts the Depot 4 shift schedule with Dana Whitcomb’s shifts circled.', ['sched']);
+    T('tobias', 3, 1, 'Publicly thanks Marcus Ellery for “the inside view”.', ['reply']);
+
+    T('marcus', 150, 3, 'Dismissed from Northwind scheduling after a dispute over overtime.', ['marcusnews']);
+    T('marcus', 4, 3, 'A local reporter writes up his dismissal and names the overtime dispute.', ['marcusnews']);
+    T('marcus', 3, 1, 'Leaked schedule traced to an export from his Northwind account, still active.', ['meta']);
+    T('marcus', 3, 1, 'Tobias Crane thanks him in public for “the inside view”.', ['reply']);
+    T('marcus', 0, 1, 'Recorded photographing the Depot 4 fence from the road at dusk.', ['photo']);
+
+    T('dana', 15, 1, 'Named in an attack post by Tobias Crane, who tags GridWatch Now.', ['attack']);
+    T('dana', 14, 1, 'Reports unwanted messages to her personal phone that quote the post.', ['dm']);
+    T('dana', 4, 1, 'Her shifts are circled on the Depot 4 schedule posted online.', ['sched']);
+
+    T('sunil', 36, 3, 'Issues badges to the three Meridian temporary workers at Depot 4.', ['temps']);
+    T('sunil', 10, 1, 'His override activates the badge later used by the Keystone contractor.', ['override']);
+    T('sunil', 8, 3, 'Keeps his override rights when badge administration moves to Lakeview.', ['lakeview']);
+
+    T('cal', 11, 1, 'Says he let two men in Keystone vests into the cable room at about 2 a.m. on a valid card.', ['witness']);
+    T('cal', 2, 2, 'Finds the gate sensor cover removed at the start of his shift.', ['gate']);
+
+    T('keystone', 12, 2, 'A Keystone contractor appears in the Depot 4 badge log the night before the outage.', ['cable']);
+    T('keystone', 7, 3, 'Director Mara Quill meets Dark Grid’s organiser at a Millbrook café.', ['meet']);
+
+    T('protest', 27, 1, 'Jonas Weir calls for a “lights out for Northwind” night action, tagging Dark Grid.', ['dgcall']);
+    T('protest', 7, 2, 'Organiser Jonas Weir meets Keystone director Mara Quill; Gordon Tully joins for part.', ['meet']);
+    T('protest', 6, 1, 'Phase two announced, naming Depots 4 and 7.', ['phase2']);
+    T('protest', 1, 1, 'Dark Grid’s next post tags Ashby Tower with the word “next”.', ['hqpost']);
+
+    T('threats', 20, 1, 'Unsigned letter to a Depot 7 supervisor threatens harm if “the lights are not turned out”.', ['letter1']);
+    T('threats', 5, 1, 'A second letter repeats “lights out”, the phrase in Dark Grid’s slogan.', ['letter2']);
     // The Tobias summary stops before the “reply” and “dm” reports so that "reports since the last summary" has something to show.
 
     /* ---------------- special banks ---------------- */
@@ -412,43 +459,91 @@
     }
     function items(b, list) { list.forEach(function (it) { ok(CI.addEstimateItem(d, b, { kind: it[0], text: it[1], reportIds: it[2].map(function (k) { return rep[k].id; }).join(',') }), 'estimate item'); }); }
 
-    // Bank 1: invoice scheme (handed over)
+    // Bank 1: invoice scheme (handed over). Two estimates: the first as handed over, the second after new reports.
     var b1 = bankFor('Invoice scheme bank', ['invoice', 'shells'], 2, 44, 'Seven Harborline invoices paid in two weeks with no purchase orders, and a payment forwarded to Brightwater the next day.');
-    CI.currentEstimate(b1).summary = 'Northwind’s payments to Harborline and Pinnacle appear to pass through shell companies that share an address, a filing agent and a bank, and end at Brightwater and a former Harborline officer. An insider may be easing the approvals.';
+    CI.currentEstimate(b1).summary = 'Northwind has paid two vendors, Harborline Supply and Pinnacle Consulting, for work that has no purchase orders and no named deliverables. Money received by Harborline moved to Brightwater Holdings within a day, and Brightwater pays a monthly sum to Orrin Platt, who was Harborline’s officer until last year. All of the companies sit at one business park and share a filing agent. This fits a vendor-fraud scheme run through shell companies, probably with someone inside Northwind easing the approvals. We do not yet know who controls Brightwater or whether anyone at Northwind is being paid.';
     items(b1, [
-      ['ESTABLISHED', 'Harborline forwarded Northwind’s payment to Brightwater Holdings within a day.', ['wire']],
-      ['ESTABLISHED', 'Brightwater, Keystone and Pinnacle are all registered at the Harbor Street business park, and Harborline formerly was.', ['bw', 'hl', 'key', 'pin']],
-      ['ESTABLISHED', 'Fenn & Associates is the filing agent of record for Harborline and Brightwater, and Rosalind Fenn for Pinnacle.', ['fenn', 'pin']],
-      ['ESTABLISHED', 'Brightwater makes a monthly transfer to Orrin Platt, a former Harborline officer.', ['orrinpay']],
-      ['HYPOTHESIS', 'Harborline and Pinnacle exist only to pass money to Brightwater and Platt.', []],
-      ['HYPOTHESIS', 'Someone in Northwind accounts payable is helping the invoices through.', []]
+      ['ESTABLISHED', 'Seven consecutive Harborline invoices were paid in two weeks. All carry the same Dunmore PO box and none has a purchase order number.', ['ledger']],
+      ['ESTABLISHED', 'Money received from Northwind was forwarded by Harborline to Brightwater Holdings within a day. Both accounts are at First Lakeshore.', ['wire']],
+      ['ESTABLISHED', 'Brightwater, Keystone and Pinnacle are registered at the Harbor Street business park, and Harborline was until recently.', ['bw', 'hl', 'key', 'pin', 'prop']],
+      ['ESTABLISHED', 'Fenn & Associates is the filing agent of record for Harborline and Brightwater, and Rosalind Fenn is the agent for Pinnacle.', ['fenn', 'pin']],
+      ['ESTABLISHED', 'Vera Linden is the registered agent for Brightwater Holdings.', ['bw']],
+      ['ESTABLISHED', 'Brightwater makes a monthly transfer to an account in the name of Orrin Platt, who left Harborline last year.', ['orrinpay']],
+      ['ESTABLISHED', 'An email from Vera Linden pressed Northwind accounts payable to pay Harborline outside the normal approval cycle.', ['memo']],
+      ['ESTABLISHED', 'Elias Moreno approved two Harborline invoices himself, after hours, after Priya Raman had flagged both.', ['appr']],
+      ['HYPOTHESIS', 'Harborline and Pinnacle exist only to pass Northwind’s money on to Brightwater and to Orrin Platt.', ['ledger', 'wire']],
+      ['HYPOTHESIS', 'Vera Linden, not Orrin Platt, is the person directing the scheme.', ['bw', 'memo']],
+      ['HYPOTHESIS', 'Someone in Northwind accounts payable is helping the invoices through.', ['appr']],
+      ['HYPOTHESIS', 'Brightwater’s subcontract under Keystone is a second route for the same money.', ['foia']]
     ]);
     b1.estimates[0].created = ago(40); b1.estimates[0].updated = ago(22);
     CI.handOver(d, b1);
-    CI.newEstimate(b1, true); CI.currentEstimate(b1).label = 'Estimate 2'; CI.currentEstimate(b1).summary = 'After handover: the audit note ties Pinnacle to the same contact details, and signature cards connect Vera Linden to Rosalind Fenn.';
-    items(b1, [['ESTABLISHED', 'Harborline, Brightwater and Pinnacle share a phone number and a mailing address.', ['audit']]]);
-
-    // Bank 2: Depot 4 outage (handed over)
-    var b2 = bankFor('Depot 4 outage bank', ['outage', 'depot4'], 2, 12, 'A public post predicted the outage, and then the cabling was found cut.');
-    CI.currentEstimate(b2).summary = 'GridWatch Now named Depot 4 before the outage. A Keystone contractor and a Meridian temp were on site the night before, both with badges that opened the cable room.';
-    items(b2, [
-      ['ESTABLISHED', 'GridWatch Now announced the outage before it happened.', ['gwpost']],
-      ['ESTABLISHED', 'A Keystone contractor and a Meridian temp were on site the night before.', ['cable', 'witness']],
-      ['ESTABLISHED', 'The contractor’s badge was activated under an override entered by Sunil Desai.', ['override']],
-      ['HYPOTHESIS', 'The cabling was cut by people who were let in and who knew the schedule.', []],
-      ['HYPOTHESIS', 'Dark Grid and GridWatch Now coordinated, with help from inside Northwind.', []]
+    CI.newEstimate(b1, true); var b1e2 = CI.currentEstimate(b1); b1e2.label = 'Estimate 2'; b1e2.created = ago(9); b1e2.updated = ago(2);
+    b1e2.items = b1e2.items.filter(function (i) { return i.kind === 'ESTABLISHED'; });   // what stood up carries forward; the theories are restated below
+    b1e2.summary = 'Since handover the vendor master file has tied Harborline, Brightwater and Pinnacle to one phone number and mailing address, and Vera Linden and Rosalind Fenn turn out to be the two signatories on the Pinnacle account. A clerk at the Dunmore post office says a woman giving the name Vera collects the Harborline PO box every week. Two more Pinnacle invoices have arrived, the second for exactly the amount held back on the first. The scheme looks organised and still running. Open questions: who inside Northwind is easing approvals, and whether Orrin Platt is a participant or is being paid to stay quiet. A source inside Northwind finance is also sending invoice copies to a reporter, which is a risk to the handling of the matter.';
+    items(b1, [
+      ['ESTABLISHED', 'Harborline, Brightwater and Pinnacle share a contact phone number and mailing address in the vendor master file.', ['audit']],
+      ['ESTABLISHED', 'Vera Linden and Rosalind Fenn are the two signatories on the Pinnacle account.', ['bankco']],
+      ['ESTABLISHED', 'Priya Raman says Elias Moreno told her not to question Vera Linden’s invoices and that the two have known each other for years.', ['priyaint']],
+      ['ESTABLISHED', 'A clerk at the Dunmore post office says the Harborline PO box is collected weekly by a woman who gives the name Vera.', ['pobox']],
+      ['ESTABLISHED', 'A fifth Pinnacle invoice was held for lacking a deliverable; a sixth arrived for exactly the held amount.', ['pinv2', 'pinv3']],
+      ['ESTABLISHED', 'Orrin Platt is also the listed officer of Cobalt Freight Brokers, based in the Riverside Industrial District.', ['cobaltf']],
+      ['ESTABLISHED', 'An anonymous person inside Northwind finance has sent copies of the Harborline invoices to Teodora Banks.', ['source']],
+      ['HYPOTHESIS', 'Elias Moreno’s long acquaintance with Vera Linden explains his approvals and his instruction to Priya Raman.', ['priyaint', 'appr']],
+      ['HYPOTHESIS', 'The woman collecting the Harborline PO box is Vera Linden.', ['pobox']],
+      ['HYPOTHESIS', 'Orrin Platt’s monthly transfers are a pay-off for staying quiet, not a wage.', ['orrinpay', 'cobaltf']],
+      ['HYPOTHESIS', 'The sixth Pinnacle invoice was sized to match the held amount so that it would be paid as a resubmission.', ['pinv2', 'pinv3']]
     ]);
+
+    // Bank 2: Depot 4 outage (handed over). The second estimate follows the leak and the gate sensor.
+    var b2 = bankFor('Depot 4 outage bank', ['outage', 'depot4'], 2, 12, 'A public post predicted the outage, and then the cabling was found cut.');
+    CI.currentEstimate(b2).summary = 'The Depot 4 outage was not an accident. GridWatch Now said in public that the depot would go dark; days later the cable room cabling was cut, and the account posted “told you” with a photo of the dark hall. A Keystone contractor and a Meridian temp were on site the night before, admitted to the cable room on a valid gate card. The contractor’s badge had been activated under an override entered by Sunil Desai, and Ironbridge Maintenance billed for a cable inspection the week before on an unsigned work order. The evidence shows people were let in who knew where to go; it does not show who sent them, or whether GridWatch Now was told in advance or only guessed.';
+    items(b2, [
+      ['ESTABLISHED', 'GridWatch Now said Depot 4 “will be going dark soon” before the outage. The account is administered by Tobias Crane.', ['gwpost', 'gwrepost']],
+      ['ESTABLISHED', 'Power failed at Depot 4 because cabling was cut. The badge log shows a Keystone contractor and a Meridian temp on site the night before.', ['cable']],
+      ['ESTABLISHED', 'Cal Brandt let two men in Keystone vests into the cable room at about 2 a.m. because the gate card was valid.', ['witness']],
+      ['ESTABLISHED', 'The contractor’s badge was activated under an override entered by Sunil Desai.', ['override']],
+      ['ESTABLISHED', 'Two Meridian temp badges had already been used at the gate outside any scheduled shift.', ['temps', 'badgeaud']],
+      ['ESTABLISHED', 'Ironbridge Maintenance billed Northwind for a cable inspection at Depot 4 the week before the outage; the work order is unsigned.', ['ironb']],
+      ['ESTABLISHED', 'GridWatch Now posted “told you” with a photo of the dark conveyor hall the day after.', ['gwtold']],
+      ['HYPOTHESIS', 'The cable was cut by people let in on purpose, using knowledge of the cable room gained during the Ironbridge inspection.', ['ironb', 'witness']],
+      ['HYPOTHESIS', 'Dark Grid and GridWatch Now coordinated, with help from inside Northwind.', ['gwpost', 'cable']],
+      ['HYPOTHESIS', 'Sunil Desai entered the override at someone’s request rather than on his own initiative.', ['override']],
+      ['HYPOTHESIS', 'The Ironbridge “inspection” was a reconnaissance visit, not maintenance.', ['ironb']]
+    ]);
+    b2.estimates[0].created = ago(12); b2.estimates[0].updated = ago(11);
     CI.handOver(d, b2);
+    CI.newEstimate(b2, true); var b2e2 = CI.currentEstimate(b2); b2e2.label = 'Estimate 2'; b2e2.created = ago(2); b2e2.updated = ago(0);
+    b2e2.items = b2e2.items.filter(function (i) { return i.kind === 'ESTABLISHED'; });
+    b2e2.summary = 'Four later events change the picture. The Depot 4 shift schedule that Tobias Crane posted came from an export made by Marcus Ellery’s Northwind account, which was never disabled when he was dismissed. Crane has thanked Ellery in public for “the inside view”. The gate sensor at the depot was then tampered with, and Ellery was recorded photographing the fence from the road at dusk. The most likely reading is a dismissed insider feeding GridWatch Now and doing reconnaissance, which would also explain how the cable room became known. This does not remove the Keystone and override questions; those remain the best route to who sent the contractor. Priority now is closing the old account and protecting the staff named on the posted schedule.';
+    items(b2, [
+      ['ESTABLISHED', 'The leaked Depot 4 schedule came from an export made by Marcus Ellery’s Northwind account, which was not disabled when he left.', ['meta']],
+      ['ESTABLISHED', 'Tobias Crane publicly thanked Marcus Ellery for “the inside view”.', ['reply']],
+      ['ESTABLISHED', 'Marcus Ellery was dismissed after a dispute over overtime.', ['marcusnews']],
+      ['ESTABLISHED', 'The Depot 4 gate sensor was tampered with overnight; Cal Brandt found the cover removed at the start of his shift.', ['gate']],
+      ['ESTABLISHED', 'Marcus Ellery was recorded photographing the Depot 4 fence from the road at dusk.', ['photo']],
+      ['HYPOTHESIS', 'Marcus Ellery is the inside source for the leaked schedule and for GridWatch Now’s advance knowledge of the outage.', ['meta', 'reply']],
+      ['HYPOTHESIS', 'The gate sensor tampering and the photographs are preparation for a second incident.', ['gate', 'photo']],
+      ['HYPOTHESIS', 'Ellery’s access explains the cable room knowledge, and the Keystone contractor was a separate, later tool.', ['cable', 'meta']]
+    ]);
 
     // Bank 3: Dark Grid campaign (open, with news since last seen)
     var b3 = bankFor('Dark Grid campaign bank', ['protest', 'darkgrid'], 2, 8, 'Phase-two announcement names Depots 4 and 7, and a letter at Depot 7 repeats Dark Grid’s slogan.');
-    CI.currentEstimate(b3).summary = 'Dark Grid is escalating from posts to site visits. Its organiser meets a Keystone director, and GridWatch Now amplifies it.';
+    CI.currentEstimate(b3).summary = 'Dark Grid Collective has moved from posts to named targets. Its phase-two announcement names Depots 4 and 7, a second letter to a Depot 7 supervisor repeats its slogan, and its latest post tags Ashby Tower with the word “next”. Its organiser, Jonas Weir, was seen meeting Mara Quill, a Keystone director, with Gordon Tully joining for part of it. GridWatch Now amplifies the campaign. Whether Dark Grid has carried out any damage, as opposed to claiming it, is not established; the Depot 4 matter is being handled in its own bank.';
     items(b3, [
+      ['ESTABLISHED', 'Jonas Weir called for a “lights out for Northwind” night action and tagged Dark Grid Collective.', ['dgcall']],
+      ['ESTABLISHED', 'Tobias Crane of GridWatch Now is named in a newspaper interview as an occasional Dark Grid spokesperson.', ['news2']],
       ['ESTABLISHED', 'Dark Grid announced phase two of its campaign naming Depots 4 and 7.', ['phase2']],
-      ['ESTABLISHED', 'Mara Quill and Jonas Weir met, with Gordon Tully joining for part of it.', ['meet']],
-      ['HYPOTHESIS', 'Dark Grid wrote the Depot 7 letters.', []]
+      ['ESTABLISHED', 'Two unsigned letters reached Depot 7 supervisors; the second repeats “lights out”, Dark Grid’s slogan.', ['letter1', 'letter2']],
+      ['ESTABLISHED', 'Mara Quill and Jonas Weir met at a Millbrook café, with Gordon Tully joining for part of it.', ['meet']],
+      ['ESTABLISHED', 'Dark Grid’s latest post tags Ashby Tower with the word “next”.', ['hqpost']],
+      ['HYPOTHESIS', 'Dark Grid wrote the Depot 7 letters.', ['letter1', 'letter2', 'phase2']],
+      ['HYPOTHESIS', 'The meeting with Keystone leadership was about contracts and not about the campaign.', ['meet']],
+      ['HYPOTHESIS', 'Ashby Tower is the next target, and the schedule leak shows the group already has inside help.', ['hqpost', 'meta']]
     ]);
+    b3.estimates[0].created = ago(8); b3.estimates[0].updated = ago(1);
     CI.newEstimate(b3, true);
+    CI.currentEstimate(b3).items = []; CI.currentEstimate(b3).label = 'Estimate 2 (draft)'; CI.currentEstimate(b3).summary = 'Draft for the next review. Security should be warned that Ashby Tower has been named. Hold the contract question for the Keystone matter.';
     CI.addChart(b3, 'Campaign ties', false);
     CI.switchChart(b3, b3.charts[0].id);
     // New since last seen: the last few reports and links
@@ -462,7 +557,15 @@
 
     // Bank 5: Depot 7 letters (just opened)
     var b5 = bankFor('Depot 7 letters bank', ['threats', 'depot7'], 1, 5, 'Two threatening letters to supervisors; author unknown.');
-    CI.currentEstimate(b5).summary = 'Nothing established yet.';
+    CI.currentEstimate(b5).summary = 'Two unsigned letters have reached supervisors at Depot 7. The first threatened harm if “the lights are not turned out”; the second, about two weeks later, repeats the phrase “lights out” used in Dark Grid’s slogan. Nothing links the writer to a person yet. The wording overlap is weak evidence on its own, because the slogan is widely repeated online. Next step is to learn who handled the letters and where they were posted.';
+    b5.estimates[0].created = ago(5); b5.estimates[0].updated = ago(5);
+    items(b5, [
+      ['ESTABLISHED', 'A Depot 7 supervisor received an unsigned letter threatening harm if “the lights are not turned out”.', ['letter1']],
+      ['ESTABLISHED', 'A second letter repeats the phrase “lights out”, which is part of Dark Grid’s slogan.', ['letter2']],
+      ['HYPOTHESIS', 'The same person wrote both letters.', ['letter1', 'letter2']],
+      ['HYPOTHESIS', 'The writer works at or near Depot 7 and knows the supervisors by name.', ['letter1']],
+      ['HYPOTHESIS', 'The writer is borrowing Dark Grid’s slogan and is not part of the group.', ['letter2', 'phase2']]
+    ]);
 
     d.banks.forEach(function (b) { if (!Array.isArray(b.files)) b.files = CI.computeGraph(d, b, CI.buildIndex(d)).nodes.map(function (n) { return n.id; }); });
     d.ui.bankId = b3.id;
@@ -481,7 +584,7 @@
     ['marcus', 'tobias', 'dana', 'leak', 'harass', 'depot4'].forEach(function (k) { ok(CI.addInvFile(d, v3, ent[k].id), 'inv file ' + k); });
 
     function L(inv, kind, question, repKey, aboutKeys, status, extra) {
-      var res = ok(CI.addLead(d, { investigationId: inv.id, kind: kind, question: question, raisedBy: repKey ? rep[repKey].id : '', about: (aboutKeys || []).map(function (k) { return ent[k].id; }), issued: ago((extra && extra.issued) || 5), assigned: (extra && extra.assigned) || '', forLead: (extra && extra.forLead) || '' }), 'lead');
+      var res = ok(CI.addLead(d, { investigationId: inv ? inv.id : '', origin: extra && extra.originKey ? { kind: extra.originKind || 'file', id: ent[extra.originKey].id } : null, kind: kind, question: question, raisedBy: repKey ? rep[repKey].id : '', about: (aboutKeys || []).map(function (k) { return ent[k].id; }), issued: ago((extra && extra.issued) || 5), assigned: (extra && extra.assigned) || '', forLead: (extra && extra.forLead) || '' }), 'lead');
       var l = res.lead; l.status = status;
       if (status === 'DONE' || status === 'NO_RESULT') { l.response = extra.response; l.returnedBy = extra.by; l.returnedDate = ago(extra.back); }
       if (extra && extra.result) extra.result.forEach(function (k) { rep[k].leadId = l.id; });
@@ -506,6 +609,12 @@
     L(v3, 'INVESTIGATION', 'Is Tobias Crane being fed material by anyone besides Marcus Ellery?', 'reply', ['tobias', 'marcus'], 'NOT_STARTED', { issued: 2, assigned: 'Nadia Reyes' });
     L(v3, 'DATA_REQUEST', 'The login history for the Marcus Ellery account since his dismissal.', 'meta', ['marcus'], 'IN_PROGRESS', { issued: 3, forLead: n1.id });
     L(v3, 'DATA_REQUEST', 'All public posts of tcrane_speaks mentioning Northwind staff, preserved with timestamps.', 'attack', ['tobias', 'dana'], 'NOT_STARTED', { issued: 2 });
+
+    // Leads with no investigation: raised from an individual's page, from indexing a report, or in the register
+    L(null, 'INVESTIGATION', 'Where does Orrin Platt live now, and does he still hold the Dunmore lease?', null, ['orrin'], 'NOT_STARTED', { issued: 3, assigned: 'Dev Patel', originKey: 'orrin' });
+    L(null, 'INVESTIGATION', 'Is Vera Lindqvist the same person who appears as agent for two other filings?', 'bw', ['vera'], 'IN_PROGRESS', { issued: 6, assigned: 'Analyst Rhee', originKey: 'vera' });
+    L(null, 'INVESTIGATION', 'Who runs the tcrane_speaks account outside working hours?', 'attack', ['tobias'], 'NOT_STARTED', { issued: 1 });
+    L(null, 'DATA_REQUEST', 'Property records for the Dunmore PO box address.', null, ['dunmore'], 'NOT_STARTED', { issued: 3, originKey: 'dunmore' });
 
     // Case charts (the investigators’ boards)
     function pins(inv, list) { list.forEach(function (p) { ok(CI.addPin(d, inv, ent[p[0]].id, { x: p[1], y: p[2] }), 'pin ' + p[0]); }); }
