@@ -2,23 +2,24 @@
 (function () {
   'use strict';
   var A = CI.app, H = A.handlers, esc = A.esc;
-  var st = { hops: 1, labels: 'auto', fileId: '', pos: {} };
+  var st = { hops: 1, labels: 'on', leads: true, fileId: '', pos: {} };
   function D() { return A.data(); }
 
   CI.views.fileChart = function (e) {
-    if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'auto'; st.pos = {}; }
+    if (st.fileId !== e.id) { st.fileId = e.id; st.hops = 1; st.labels = 'on'; st.pos = {}; }
     return '<div class="card"><div class="row wrap"><label class="row" style="margin:0">Steps out <select id="fc-hops" data-on-change="fc-hops">' + A.options([{ value: '1', label: '1: direct connections' }, { value: '2', label: '2: and theirs' }, { value: '3', label: '3: three steps' }], String(st.hops)) + '</select></label>' +
-      '<label class="chk"><input type="checkbox" id="fc-labels" data-on-change="fc-labels"> Label the connections</label><span id="fc-sum" class="muted small"></span><span class="spacer" style="flex:1"></span>' +
+      '<label class="chk"><input type="checkbox" id="fc-labels" data-on-change="fc-labels"> Label the connections</label><label class="chk"><input type="checkbox" id="fc-leads" data-on-change="fc-leads"> Show lead counts</label><span id="fc-sum" class="muted small"></span><span class="spacer" style="flex:1"></span>' +
       '' + CI.views.chartFind() + '<span class="zgrp"><button class="btn small" data-action="cv-zoom" data-f="0.8" aria-label="Zoom out">\u2212</button><button class="btn small" data-action="cv-zoom" data-f="1.25" aria-label="Zoom in">+</button><button class="btn small" data-action="fc-fit">Fit</button></span><button class="btn small" data-action="chart-entity" data-id="' + esc(e.id) + '">Open as a special bank</button></div>' +
       '<div id="fc-sel" class="muted small" style="margin-top:8px">Click a name to see what it is.</div></div>' +
       '<div class="card flush"><div id="cy" style="height:560px"></div>' + CI.views.chartLegend() + '</div>';
   };
   CI.views.fileChartDraw = function (e) {
     var d = D(), idx = A.idx(), g = CI.computeGraph(d, CI.newBank(d, 'tmp', [e.id], st.hops), idx);
-    var flags = CI.openLeadFlags(d, g.nodes.map(function (n) { return n.id; })), nLeads = Object.keys(flags).reduce(function (m, k) { flags[k].forEach(function (l) { m[l] = 1; }); return m; }, {});
-    var on = st.labels === 'auto' ? g.edges.length <= 15 : st.labels === 'on';
+    var flags = st.leads ? CI.openLeadFlags(d, g.nodes.map(function (n) { return n.id; })) : {}, nLeads = Object.keys(flags).reduce(function (m, k) { flags[k].forEach(function (l) { m[l] = 1; }); return m; }, {});
+    var on = st.labels !== 'off';
     var cb = document.getElementById('fc-labels'); if (cb) cb.checked = on;
-    var sum = document.getElementById('fc-sum'); if (sum) sum.textContent = g.nodes.length + ' names · ' + g.edges.length + ' connections' + (g.edges.length > 15 && st.labels === 'auto' ? ' · labels are off on a busy chart' : '') + (Object.keys(nLeads).length ? ' · ' + Object.keys(nLeads).length + ' open lead' + (Object.keys(nLeads).length === 1 ? '' : 's') + ' (click an orange count to list them)' : '');
+    var lc = document.getElementById('fc-leads'); if (lc) lc.checked = st.leads;
+    var sum = document.getElementById('fc-sum'); if (sum) sum.textContent = g.nodes.length + ' names · ' + g.edges.length + ' connections' + (Object.keys(nLeads).length ? ' · ' + Object.keys(nLeads).length + ' open lead' + (Object.keys(nLeads).length === 1 ? '' : 's') + ' (click an orange count to list them)' : '');
     CI.chart.render(document.getElementById('cy'), g, {
       layout: 'cose', positions: st.pos, edgeLabels: on, viewKey: 'file|' + e.id,
       onLaidOut: function (all) { Object.keys(all).forEach(function (k) { st.pos[k] = all[k]; }); },
@@ -33,6 +34,7 @@
     CI.chart.flagBadges(flags);
   };
   H['fc-hops'] = function (el) { st.hops = Number(el.value) || 1; A.viewEntity(st.fileId, 'chart'); };
+  H['fc-leads'] = function (el) { st.leads = el.checked; A.viewEntity(st.fileId, 'chart'); };
   H['fc-labels'] = function (el) { st.labels = el.checked ? 'on' : 'off'; A.viewEntity(st.fileId, 'chart'); };
   H['fc-fit'] = function () { if (CI.chart.cy) CI.chart.cy.fit(undefined, 30); };
 })();
