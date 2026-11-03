@@ -24,52 +24,107 @@
 
   function isReq(l) { return CI.isRequest(l); }
   function invOfLead(l) { return D().investigations.filter(function (v) { return v.id === l.investigationId; })[0]; }
-  function backHref(l) { return l.investigationId ? '#/investigation/' + l.investigationId + '/' + (isReq(l) ? 'requests' : 'leads') : '#/investigations'; }
+  function backHref(l) { return l.investigationId ? '#/investigation/' + l.investigationId + '/' + (isReq(l) ? 'requests' : 'leads') : '#/investigations/register'; }
   /* A report box with suggestions you can walk through with the arrow keys. The value is picked up as the report number. */
   function reportBox(id, value) {
     var reps = A.data().reports.slice().sort(function (a, b) { return b.id.localeCompare(a.id); }).slice(0, 300);
     return '<input type="text" id="' + id + '" list="' + id + '-dl" autocomplete="off" value="' + esc(value || '') + '" placeholder="Optional: start typing a report number or subject"><datalist id="' + id + '-dl">' +
       reps.map(function (r) { return '<option value="' + esc(r.id + ' – ' + A.trunc(r.subject || r.summary || r.sourceRef || '', 60)) + '">'; }).join('') + '</datalist>';
   }
+  /* A type-to-search box for the investigation. Nothing drops down until you type; arrow keys and Enter pick.
+     The chosen value is kept on the box (data-value). Empty text means no investigation (or all, on the register). */
+  var pickers = {};
+  function invBox(id, list, selId, extra, placeholder) {
+    var all = (extra || []).concat(list.map(function (v) { return { value: v.id, label: v.id + ' \u2013 ' + CI.views.invName(v) }; }));
+    pickers[id] = all;
+    var sel = all.filter(function (x) { return x.value === selId && selId; })[0];
+    return '<input type="search" id="' + id + '" class="ip-in" data-lookup="#' + id + '-res" data-on-input="ip-find" autocomplete="off" data-value="' + esc(sel ? sel.value : '') + '" value="' + esc(sel ? sel.label : '') + '" placeholder="' + esc(placeholder || 'No investigation: start typing to search') + '"><div id="' + id + '-res" class="ip-res"></div>';
+  }
+  CI.views.invBox = invBox;
+  function readInv(id) { var e = document.getElementById(id); if (!e || !e.value.trim()) return ''; return e.getAttribute('data-value') || '?'; }
+  CI.views.readInv = readInv;
+  H['ip-find'] = function (el) {
+    var res = document.getElementById(el.id + '-res'), q = el.value.trim().toLowerCase();
+    el.setAttribute('data-value', '');
+    if (!q) { res.innerHTML = ''; if (el.getAttribute('data-on-pick')) { var f = H[el.getAttribute('data-on-pick')]; if (f) f(el, ''); } return; }
+    var hits = (pickers[el.id] || []).filter(function (x) { return x.label.toLowerCase().indexOf(q) !== -1; }).slice(0, 8);
+    res.innerHTML = hits.length ? hits.map(function (x) { return '<div class="cand pick"><button type="button" class="btn small" data-action="ip-pick" data-for="' + esc(el.id) + '" data-value="' + esc(x.value) + '" data-label="' + esc(x.label) + '">' + esc(x.label) + '</button></div>'; }).join('') : '<p class="muted small">No investigation matches.</p>';
+  };
+  H['ip-pick'] = function (el) {
+    var inp = document.getElementById(el.getAttribute('data-for')); if (!inp) return;
+    inp.value = el.getAttribute('data-label'); inp.setAttribute('data-value', el.getAttribute('data-value'));
+    document.getElementById(inp.id + '-res').innerHTML = '';
+    var f = inp.getAttribute('data-on-pick'); if (f && H[f]) H[f](inp, el.getAttribute('data-value'));
+  };
   function readReport(id) { var m = val(id).match(/R-\d+/i); return m ? m[0].toUpperCase() : (val(id).trim() ? '?' + val(id).trim() : ''); }
   function repLabel(rid) { var r = A.idx().report[rid]; return r ? rid + ' – ' + A.trunc(r.subject || r.summary || r.sourceRef || '', 60) : (rid || ''); }
+
+
+  /* ---------- the Leads tab on an individual's page ---------- */
+  CI.views.fileLeads = function (e, list) {
+    var d = D(), nOpen = list.filter(function (l) { return !CI.isClosed(l); }).length;
+    var h = '<div class="card flush"><div class="row spread" style="padding:14px 16px 6px"><h2 style="margin:0">Leads about ' + esc(e.name) + '</h2><div class="row"><button class="btn small primary" data-action="fl-new" data-id="' + esc(e.id) + '">New lead</button><button class="btn small" data-action="fl-print" data-id="' + esc(e.id) + '"' + (nOpen ? '' : ' disabled') + '>Print open leads</button></div></div>' +
+      '<p class="muted small" style="padding:0 16px">Every lead and request that is about this name, whether it was raised here or inside an investigation. A lead raised here belongs to no investigation unless you pick one.</p>';
+    if (!list.length) return h + '<p class="muted" style="padding:0 16px 14px">No leads about this name yet.</p></div>';
+    h += '<table class="fixed"><colgroup><col style="width:8%"><col style="width:32%"><col style="width:14%"><col style="width:16%"><col style="width:15%"><col style="width:15%"></colgroup><thead><tr><th>Lead</th><th>Reason</th><th>Raised from</th><th>Assigned to</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + list.map(function (l) {
+      var home = CI.leadHome(d, l);
+      return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip" title="' + esc(home.from) + '">' + (l.investigationId ? esc(l.investigationId) : 'This page') + '</td><td class="ellip">' + esc(isReq(l) ? l.with : (l.assigned || '')) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+    return h;
+  };
+  H['fl-new'] = function (el) {
+    var id = el.getAttribute('data-id');
+    CI.views.openLead({ about: [id], aboutChoices: [id], kind: 'INVESTIGATION', origin: { kind: 'file', id: id } });
+  };
+  H['fl-print'] = function (el) {
+    var id = el.getAttribute('data-id'), e = A.idx().entity[id];
+    saveBlob('Leads-' + id + '.pdf', function () { return CI.pdf.leadList(D(), '', { kind: 'lead', openOnly: true, about: id, scope: 'About ' + e.name, scopeTitle: 'Open leads about ' + e.name }); });
+  };
 
   /* ---------- create (from inside an investigation) ---------- */
   CI.views.openLead = function (pre) {
     pre = pre || {};
-    var d = D(), inv = d.investigations.filter(function (v) { return v.id === pre.investigationId; })[0];
-    if (!inv) { A.toast('Leads and requests are made inside an investigation.', true); return; }
-    var req = pre.kind === 'DATA_REQUEST', leads = CI.leadsOf(d, inv.id);
-    A.modal('<h2>' + (req ? 'New request to Collection' : 'New lead') + ' <span class="muted small">' + esc(inv.id) + '</span></h2><div class="form">' +
+    var d = D(), inv = d.investigations.filter(function (v) { return v.id === pre.investigationId; })[0] || null;
+    var req = pre.kind === 'DATA_REQUEST', leads = inv ? CI.leadsOf(d, inv.id) : [], pick = !pre.fixInvestigation;
+    var hold = '<label>Investigation <span class="hint">optional: leave empty if there is none</span>' + invBox('nl-inv', d.investigations.filter(function (v) { return v.status !== 'CLOSED' || (inv && v.id === inv.id); }), inv ? inv.id : '') + '</label>';
+    var choices = pre.aboutChoices && pre.aboutChoices.length ? '<div class="group-label">About <span class="hint">tick the names this is about</span></div><div class="chips">' + pre.aboutChoices.map(function (id) { var e = A.idx().entity[id]; return e ? '<label class="chk"><input type="checkbox" class="nl-ab" data-id="' + esc(id) + '"' + ((pre.about || []).indexOf(id) !== -1 ? ' checked' : '') + '> ' + esc(e.name) + '</label>' : ''; }).join(' ') + '</div>' : '';
+    A.modal('<h2>' + (req ? 'New request to Collection' : 'New lead') + (inv ? ' <span class="muted small">' + esc(inv.id) + '</span>' : '') + '</h2><div class="form">' + (pick ? hold : '') +
       '<label>' + (req ? 'What is to be retrieved' : 'Reason for the lead') + ' <span class="hint">' + (req ? 'retrieve and preserve only; no interpretation' : 'what we want to find out, and why') + '</span><textarea id="nl-q" rows="3">' + esc(pre.question || '') + '</textarea></label>' +
-      '<div class="grid2">' + (req ? '<label>For lead <span class="hint">optional</span><select id="nl-for">' + A.options(leads.map(function (l) { return { value: l.id, label: l.id + ' – ' + A.trunc(l.question, 50) }; }), pre.forLead || '', 'No particular lead') + '</select></label>'
-        : '<label>Assigned to <span class="hint">optional</span><input type="text" id="nl-who" value="' + esc(pre.assigned || inv.investigator || '') + '"></label>') +
+      '<div class="grid2">' + (req && inv ? '<label>For lead <span class="hint">optional</span><select id="nl-for">' + A.options(leads.map(function (l) { return { value: l.id, label: l.id + ' – ' + A.trunc(l.question, 50) }; }), pre.forLead || '', 'No particular lead') + '</select></label>'
+        : '<label>Assigned to <span class="hint">optional</span><input type="text" id="nl-who" value="' + esc(pre.assigned || (inv && inv.investigator) || '') + '"></label>') +
       '<label>Issued ' + A.dateInput('nl-issued', pre.issued || CI.today()) + '</label></div>' +
       '<label>Prompted by report ' + reportBox('nl-rep', repLabel(pre.raisedBy)) + '</label>' +
-      '<p class="muted small" id="nl-note">' + (pre.about && pre.about.length ? 'About: ' + esc(pre.about.map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ')) : '') + '</p>' +
-      '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="lead-create" data-inv="' + esc(inv.id) + '" data-kind="' + (req ? 'DATA_REQUEST' : 'INVESTIGATION') + '">' + (req ? 'Create request' : 'Create lead') + '</button></div>');
-    CI.views._leadAbout = pre.about || [];
+      choices + '<p class="muted small" id="nl-note">' + (!choices && pre.about && pre.about.length ? 'About: ' + esc(pre.about.map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ')) : '') + '</p>' +
+      '</div><div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="lead-create" data-inv="' + esc(inv ? inv.id : '') + '" data-pick="' + (pick ? '1' : '') + '" data-kind="' + (req ? 'DATA_REQUEST' : 'INVESTIGATION') + '">' + (req ? 'Create request' : 'Create lead') + '</button></div>');
+    CI.views._leadAbout = pre.about || []; CI.views._leadOrigin = pre.origin || null;
     var q = document.getElementById('nl-q'); if (q) q.focus();
   };
   H['lead-create'] = function (el) {
     var iss = A.readDate('nl-issued');
     if (iss === null) { A.toast('Issued: ' + A.dateHelp, true); return; }
     var who = document.getElementById('nl-who'), fl = document.getElementById('nl-for');
-    var res = CI.addLead(D(), { investigationId: el.getAttribute('data-inv'), kind: el.getAttribute('data-kind'), question: val('nl-q'), raisedBy: readReport('nl-rep'), assigned: who ? who.value : '', forLead: fl ? fl.value : '', issued: iss || CI.today(), about: CI.views._leadAbout });
+    var abs = document.querySelectorAll('.nl-ab'), about = abs.length ? Array.prototype.filter.call(abs, function (c) { return c.checked; }).map(function (c) { return c.getAttribute('data-id'); }) : CI.views._leadAbout;
+    var invId = el.getAttribute('data-pick') ? readInv('nl-inv') : el.getAttribute('data-inv');
+    if (invId === '?') { A.toast('Pick an investigation from the list, or leave it empty.', true); return; }
+    var res = CI.addLead(D(), { investigationId: invId, origin: CI.views._leadOrigin, kind: el.getAttribute('data-kind'), question: val('nl-q'), raisedBy: readReport('nl-rep'), assigned: who ? who.value : '', forLead: fl ? fl.value : '', issued: iss || CI.today(), about: about });
     if (res.error) { A.toast(res.error, true); return; }
     if (CI.views._leadTheory && !isReq(res.lead)) res.lead.theory = CI.views._leadTheory; CI.views._leadTheory = '';
-    A.persist(); A.closeModal(); A.toast((isReq(res.lead) ? 'Request ' : 'Lead ') + res.lead.id + ' created.'); A.go('#/' + (isReq(res.lead) ? 'lead/' : 'lead/') + res.lead.id);
+    var org = res.lead.origin || {}, word = (isReq(res.lead) ? 'Request ' : 'Lead ') + res.lead.id + ' created.';
+    A.persist(); A.closeModal(); A.toast(word);
+    if (org.kind === 'file' && A.idx().entity[org.id]) { A.viewEntity(org.id, 'leads'); return; }   /* stay on the individual's page */
+    if (org.kind === 'report') return;                                                              /* stay on the indexing page */
+    A.go('#/lead/' + res.lead.id);
   };
 
   /* ---------- one lead or request ---------- */
   CI.views.lead = function (id) {
     var d = D(), l = CI.findLead(d, id);
-    if (!l) { A.view.innerHTML = '<div class="card callout">No such lead. <a href="#/investigations">Back to investigations</a></div>'; return; }
+    if (!l) { A.view.innerHTML = '<div class="card callout">No such lead. <a href="#/investigations/register">Back to the lead register</a></div>'; return; }
     var req = isReq(l), inv = invOfLead(l), bank = inv && d.banks.filter(function (b) { return b.id === inv.bankId; })[0];
     var results = CI.leadResults(d, l.id), raised = A.idx().report[l.raisedBy], word = req ? 'Request' : 'Lead';
     var forLead = req && l.forLead ? d.leads.filter(function (x) { return x.id === l.forLead; })[0] : null;
-    var h = '<div class="page-head"><h1>' + word + ' ' + esc(l.id) + ' ' + statusTag(l) + '</h1><div class="row wrap"><button class="btn" data-action="lead-sheet-one" data-id="' + esc(l.id) + '">' + word + ' sheet (PDF)</button><a class="btn" href="' + backHref(l) + '">' + (inv ? 'Back to ' + esc(inv.id) : 'Investigations') + '</a></div></div>' +
-      '<p class="muted">' + (inv ? 'Investigation <a href="#/investigation/' + esc(inv.id) + '">' + esc(inv.id) + '</a>' + (inv ? ' · ' + esc(CI.views.invName(inv)) : '') : 'Not attached to an investigation.') + '</p>' +
+    var h = '<div class="page-head"><h1>' + word + ' ' + esc(l.id) + ' ' + statusTag(l) + '</h1><div class="row wrap"><button class="btn" data-action="lead-sheet-one" data-id="' + esc(l.id) + '">' + word + ' sheet (PDF)</button><a class="btn" href="' + backHref(l) + '">' + (inv ? 'Back to ' + esc(inv.id) : 'Lead register') + '</a></div></div>' +
+      '<p class="muted">' + (inv ? 'Investigation <a href="#/investigation/' + esc(inv.id) + '">' + esc(inv.id) + '</a>' + (inv ? ' · ' + esc(CI.views.invName(inv)) : '') : 'Not attached to an investigation.') + ' <span class="muted small">' + esc(CI.leadHome(d, l).from) + '. ' + esc(CI.leadHome(d, l).folder) + '.</span></p>' +
       '<form class="card form" onsubmit="return false"><div class="grid2"><label>Issued ' + A.dateInput('ld-f-issued', l.issued) + '</label>' +
       (req ? '<label>With<input type="text" value="Collection" disabled></label>' : '<label>Assigned to<input type="text" id="ld-f-who" value="' + esc(l.assigned || '') + '"></label>') + '</div>' +
       '<label>' + (req ? 'What is to be retrieved' : 'Reason for the lead') + '<textarea id="ld-f-q" rows="3">' + esc(l.question) + '</textarea></label>' +
@@ -78,6 +133,7 @@
       (raised ? '<p class="muted small" style="margin-top:-6px">' + esc(raised.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(raised))) + ' · ' + esc(A.trunc(raised.summary || '', 140)) + ' <a href="#/report/' + esc(raised.id) + '">Open report</a></p>' : '') +
       (forLead ? '<p class="small">For lead <a href="#/lead/' + esc(forLead.id) + '">' + esc(forLead.id) + '</a> ' + esc(A.trunc(forLead.question, 100)) + '</p>' : '') +
       (l.about && l.about.length ? '<p class="small">About: ' + l.about.map(function (e) { return A.entLink(e); }).join(', ') + '</p>' : '') +
+      '<label>Investigation <span class="hint">optional</span>' + invBox('ld-f-inv', d.investigations.filter(function (v) { return v.status !== 'CLOSED' || v.id === l.investigationId; }), l.investigationId || '') + '</label>' +
       '<label>Status<select id="ld-f-status">' + A.options(CI.LEAD_STATUS.map(function (s) { return { value: s.id, label: s.label }; }), l.status) + '</select></label>' +
       '<label>Response <span class="hint">what came back, in a few words</span><textarea id="ld-f-resp" rows="4">' + esc(l.response) + '</textarea></label>' +
       '<div class="grid2"><label>Returned by<input type="text" id="ld-f-by" value="' + esc(l.returnedBy) + '"></label><label>Returned on ' + A.dateInput('ld-f-ret', l.returnedDate) + '</label></div>' +
@@ -97,11 +153,12 @@
     l.issued = iss || l.issued; l.question = q; l.raisedBy = rep;
     var who = document.getElementById('ld-f-who'); if (who) l.assigned = who.value.trim();
     var fl = document.getElementById('ld-f-for'); if (fl) l.forLead = fl.value;
+    var ivs = document.getElementById('ld-f-inv'), ivv = ivs ? readInv('ld-f-inv') : null; if (ivv === '?') { A.toast('Pick an investigation from the list, or leave it empty.', true); return; } if (ivs && ivv !== (l.investigationId || '')) CI.attachLead(d, l.id, ivv);
     l.status = val('ld-f-status'); l.response = val('ld-f-resp').trim(); l.returnedBy = val('ld-f-by').trim(); l.returnedDate = ret;
     A.persist(); A.toast('Saved.'); CI.views.lead(l.id);
   };
   H['lead-del'] = function (el) {
-    var id = el.getAttribute('data-id'), l = CI.findLead(D(), id), back = l ? backHref(l) : '#/investigations';
+    var id = el.getAttribute('data-id'), l = CI.findLead(D(), id), back = l ? backHref(l) : '#/investigations/register';
     A.confirm('Delete ' + id + '? Reports filed against it are kept.', function () { CI.deleteLead(D(), id); A.persist(); A.closeModal(); A.go(back); }, { title: 'Delete', yes: 'Delete', danger: true });
   };
   H['lead-sheet-one'] = function (el) { var id = el.getAttribute('data-id'); saveBlob((id.charAt(0) === 'Q' ? 'Request-' : 'Lead-') + id + '.pdf', function () { return CI.pdf.leadSheets(D(), [id]); }); };
