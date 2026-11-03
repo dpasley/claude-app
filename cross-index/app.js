@@ -104,8 +104,8 @@
   }
   function kindTag(e) { return e ? tag(e.type) + (e.itemType ? ' <span class="muted small">' + esc(e.itemType) + '</span>' : '') : ''; }
   function ensureSuggested() {
-    if (d.settings.suggestedTypes && d.settings.suggestedRev >= 3) return;
-    CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true; d.settings.suggestedRev = 3;
+    if (d.settings.suggestedTypes && d.settings.suggestedRev >= 4) return;
+    CI.addSuggestedLinkTypes(d); d.settings.suggestedTypes = true; d.settings.suggestedRev = 4;
   }
   /* Connection types as a grouped drop-down. Every label reads as "A [label] B". */
   function linkTypeOptions(sel, blank, all) {
@@ -1048,7 +1048,7 @@
 
   CI.app.start = function () {
     if (!d.started && !d.reports.length && !d.entities.length) { d = CI.sampleData(); persist(); }
-    if (!d.settings.suggestedTypes || !(d.settings.suggestedRev >= 3)) { ensureSuggested(); persist(); }
+    if (!d.settings.suggestedTypes || !(d.settings.suggestedRev >= 4)) { ensureSuggested(); persist(); }
     document.addEventListener('click', function (ev) { var m = document.getElementById('more'); if (m && m.open && !m.contains(ev.target)) m.open = false; });
     route();
     if (CI.views.backupBanner) CI.views.backupBanner();

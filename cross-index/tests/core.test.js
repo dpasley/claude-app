@@ -229,6 +229,7 @@ t('suggested plain-language connection types are added once and read as sentence
   assert.equal(d.settings.linkTypes.find(t => t.id === 'MEMBER_OF').label, 'Member of');   // older default takes the plain label
   assert.equal(d.settings.linkTypes.length, before + n);
   assert.equal(CI.addSuggestedLinkTypes(d), 0);                       // nothing added the second time
+  const clientOf = d.settings.linkTypes.find(t => t.id === 'CLIENT_OF'); assert.ok(clientOf && clientOf.directed && clientOf.group === 'Professional services', 'Client of: a directed type in Professional services');
   const ids = d.settings.linkTypes.map(t => t.id);
   assert.equal(new Set(ids).size, ids.length);                         // no duplicate ids
   const co = d.settings.linkTypes.find(t => t.label === 'Co-offender with');

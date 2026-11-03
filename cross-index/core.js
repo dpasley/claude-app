@@ -65,6 +65,7 @@
     { group: 'Finance', label: 'Pays', directed: true },
     { group: 'Finance', label: 'Lends to', directed: true },
     { group: 'Finance', label: 'Funds', directed: true },
+    { group: 'Professional services', label: 'Client of', directed: true },
     { group: 'Property and items', label: 'Rents', directed: true },
     { group: 'Property and items', label: 'Uses', directed: true },
     { group: 'Property and items', label: 'Registered with', directed: true },
