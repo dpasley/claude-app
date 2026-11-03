@@ -753,7 +753,7 @@
       id: CI.nextId(d, 'bank'), name: name || 'Untitled bank', seeds: seeds || [], hops: hops == null ? 1 : hops,
       minWeight: 1, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '',
       showMentions: false, hubStop: true, excluded: [], snapshots: [], viewMode: 'live', compareId: '',
-      layout: 'cose', edgeLabels: 'auto', topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
+      layout: 'cose', edgeLabels: true, topN: 0, positions: {}, handedOver: '', opened: { date: '', reason: '' }, files: null, outcome: null, seen: { report: d.counters.report || 0, link: d.counters.link || 0 },
       estimates: [{ id: 'EST-1', label: 'Estimate 1', created: '', summary: '', items: [], updated: '' }],
       charts: [{ id: 'CH-1', name: 'Chart', state: null }], chartId: 'CH-1', chartSeq: 1
     };
@@ -1090,7 +1090,7 @@
    * into the chart being left and loads the other's, so the rest of the app keeps reading them straight off the bank. */
   CI.CHART_KEYS = ['minWeight', 'topN', 'linkTypes', 'entityTypes', 'dateFrom', 'dateTo', 'showMentions', 'hubStop', 'excluded', 'layout', 'edgeLabels', 'positions', 'snapshots', 'viewMode', 'frozenId', 'compareId', 'sizeByLinks', 'zoomLabels', 'groups', 'collapsed', 'groupNames'];
   function chartDefaults() {
-    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: 'auto', positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '', sizeByLinks: true, zoomLabels: true, groups: true, collapsed: {}, groupNames: {} };
+    return { minWeight: 1, topN: 0, linkTypes: null, entityTypes: null, dateFrom: '', dateTo: '', showMentions: false, hubStop: true, excluded: [], layout: 'cose', edgeLabels: true, positions: {}, snapshots: [], viewMode: 'live', frozenId: '', compareId: '', sizeByLinks: true, zoomLabels: true, groups: true, collapsed: {}, groupNames: {} };
   }
   CI.ensureCharts = function (b) {
     if (b.quick) return;

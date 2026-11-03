@@ -80,7 +80,7 @@
   };
 
   /* Labels default to automatic: on for small charts, off once there are more than 15 connections (they pile up). */
-  function labelsOn(bank, graph) { return bank.edgeLabels === true ? true : bank.edgeLabels === false ? false : (graph.edges || []).length <= 15; }
+  function labelsOn(bank) { return bank.edgeLabels !== false; }
   function currentGraph(bank) {
     if (bank.viewMode === 'frozen') {
       var s = snapOf(bank, bank.frozenId);
@@ -141,7 +141,8 @@
       }).join('') + '</div>' +
       '<div class="grid2 tight-grid"><label>From ' + A.dateInput('cv-from', bank.dateFrom, 'cv-date', ' data-k="dateFrom"') + '</label><label>To ' + A.dateInput('cv-to', bank.dateTo, 'cv-date', ' data-k="dateTo"') + '</label></div>' +
       chk('m', bank.showMentions, 'Show “mentioned together” (dashed)', 'data-on-change="cv-mentions"') +
-      chk('l', labelsOn(bank, currentGraph(bank).graph), 'Label the connections' + (bank.edgeLabels === true || bank.edgeLabels === false ? '' : ' (automatic)'), 'data-on-change="cv-labels"') + '</div>';
+      chk('l', labelsOn(bank), 'Label the connections', 'data-on-change="cv-labels"') +
+      chk('lc', bank.showLeads !== false, 'Show lead counts', 'data-on-change="cv-leads"') + '</div>';
     h += '<div' + (frozen ? ' class="off"' : '') + '><h3>Look</h3>' +
       chk('sz', bank.sizeByLinks !== false, 'Bigger names for more connections', 'data-on-change="cv-size"') +
       chk('zl', bank.zoomLabels !== false, 'Labels follow the zoom', 'data-on-change="cv-zoomlabels"') +
@@ -208,13 +209,13 @@
       onMoved: function (id, p) { posMap[id] = p; A.persist(); },
       sizeByLinks: bank.sizeByLinks !== false, zoomLabels: bank.zoomLabels !== false, hulls: bank.groups !== false, collapsed: cur.frozen ? null : (bank.collapsed || {}), groupNames: bank.groupNames || {},
       onGroup: function (gid) { mutate(function (b) { b.collapsed = b.collapsed || {}; delete b.collapsed[gid]; }, true); },
-      edgeLabels: labelsOn(bank, graph), diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
+      edgeLabels: labelsOn(bank), diff: diff, hl: hl, extraNodes: extraNodes, extraEdges: extraEdges, highlightFit: st.fitPath,
       onNode: function (id) { st.sel = { kind: 'node', id: id }; renderDetail(); },
       onEdge: function (id) { st.sel = { kind: 'edge', id: id }; renderDetail(); },
       onBackground: function () { st.sel = null; renderDetail(); }
     });
     st.fitPath = false;
-    var flags = cur.frozen ? {} : CI.openLeadFlags(d, graph.nodes.map(function (n) { return n.id; })), nLeads = {};
+    var flags = cur.frozen || bank.showLeads === false ? {} : CI.openLeadFlags(d, graph.nodes.map(function (n) { return n.id; })), nLeads = {};
     Object.keys(flags).forEach(function (k) { flags[k].forEach(function (l) { nLeads[l] = 1; }); });
     if (!cur.frozen) CI.chart.flagBadges(flags);
     var cn = document.getElementById('cmpnote');
@@ -364,6 +365,7 @@
   };
   H['cv-mentions'] = function (el) { mutate(function (b) { b.showMentions = el.checked; }); };
   H['cv-hubstop'] = function (el) { mutate(function (b) { b.hubStop = el.checked; }); };
+  H['cv-leads'] = function (el) { mutate(function (b) { b.showLeads = el.checked; }); recompute(); };
   H['cv-labels'] = function (el) { mutate(function (b) { b.edgeLabels = el.checked; }); recompute(); };
   H['cv-layout'] = function (el) { st.forceLayout = true; st.forceFit = true; mutate(function (b) { b.layout = el.value; }); };
   H['cv-size'] = function (el) { mutate(function (b) { b.sizeByLinks = el.checked; }); };

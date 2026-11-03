@@ -40,7 +40,7 @@
       '<button class="btn small" data-action="cc-fit">Fit</button><button class="btn small" data-action="cc-relayout">Auto-arrange</button><button class="btn small" data-action="cc-png">Image</button><button class="btn small" data-action="cc-print">Print for the wall…</button>' +
        (b ? '<a class="btn small" href="#/chart/' + esc(b.id) + '">Working chart</a>' : '') +
       '<button class="btn small primary" data-action="cc-raise">Raise a lead</button></div>' +
-      '<div id="cy"></div><div class="legend"><span>photo or logo tile = individual / group</span><span>every connection cites the reports behind it</span><span>orange badge = an open lead is about this name</span><span>yellow = label</span><span>drag to arrange; the arrangement is kept and prints</span></div></section><aside class="panel" id="detail"></aside></div>';
+      '<div id="cy"></div><div class="legend"><span>photo or logo tile = individual / group</span><span>every connection cites the reports behind it</span><span>orange count = open leads about this name</span><span>yellow = label</span><span>drag to arrange; the arrangement is kept and prints</span></div></section><aside class="panel" id="detail"></aside></div>';
     A.view.className = 'wide'; A.view.innerHTML = h;
     ctl(); draw();
   }
@@ -52,11 +52,12 @@
       '<h3>Connections</h3><div class="stack"><button class="btn small primary" data-action="cc-string-new"' + (cc.pins.length < 2 ? ' disabled' : '') + '>Draw a connection</button>' +
       '<button class="btn small" data-action="cc-index-add"' + (avail ? '' : ' disabled') + '>Add the ' + avail + ' already in the main files</button></div>' +
       '<p class="muted small">A connection you draw must cite at least one report. Click one to see its reports.</p>' +
+      '<h3>Look</h3><label class="chk"><input type="checkbox" data-on-change="cc-leads"' + (st.leads === false ? '' : ' checked') + '> Show lead counts</label>' +
       '<h3>Labels</h3><div class="stack"><button class="btn small" data-action="cc-note-new">Add a label</button><button class="btn small" data-action="cc-title">Set the title</button></div>' +
       '<p class="muted small">Labels and the title print on the wall copy. Anyone working the investigation can edit this board.</p>';
   }
 
-  function flagBadges(g) { CI.chart.flagBadges(g.flags.nodes); }
+  function flagBadges(g) { CI.chart.flagBadges(st.leads === false ? {} : g.flags.nodes); }
   function decorate(g) {
     var cy = CI.chart.cy; if (!cy) return;
     cy.nodes('.note').remove();
@@ -233,6 +234,7 @@
   };
 
   /* ---------- view tools ---------- */
+  H['cc-leads'] = function (el) { st.leads = el.checked; if (CI.chart.cy && st.graph) flagBadges(st.graph); };
   H['cc-fit'] = function () { CI.chart.fit(); };
   H['cc-relayout'] = function () {
     var cy = CI.chart.cy; if (!cy || !st.graph) return;
