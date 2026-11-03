@@ -138,6 +138,36 @@
     });
   };
 
+  /* Everything the system knows about one file, for the printed profile: counts, connections (one row per name and kind of
+     connection, most reports behind it first), the latest summary, key events, banks, investigations and open leads. */
+  CI.fileOverview = function (d, idx, id) {
+    idx = idx || CI.buildIndex(d);
+    var reps = (idx.reportsByEntity[id] || []).map(function (r) { return idx.report[r]; }).filter(Boolean), dates = reps.map(CI.reportDate).filter(Boolean).sort();
+    var by = {}, names = {};
+    CI.connectionIndex(d, id, idx).forEach(function (g) {
+      g.rows.forEach(function (r) {
+        var k = r.other.id + '|' + r.phrase; names[r.other.id] = 1;
+        var c = by[k] = by[k] || { other: r.other, phrase: r.phrase, reports: {}, note: '', noteDate: '' };
+        c.reports[r.reportId] = 1;
+        if (r.note && (!c.note || (r.date || '') >= c.noteDate)) { c.note = r.note; c.noteDate = r.date || ''; }
+      });
+    });
+    var conns = Object.keys(by).map(function (k) { var c = by[k]; c.count = Object.keys(c.reports).length; return c; })
+      .sort(function (a, b) { return b.count - a.count || a.other.name.localeCompare(b.other.name) || a.phrase.localeCompare(b.phrase); });
+    var banks = d.banks.filter(function (b) { return (Array.isArray(b.files) ? b.files : (b.seeds || [])).indexOf(id) !== -1; });
+    var invs = {}; banks.forEach(function (b) { var v = CI.investigationFor(d, b.id); if (v) invs[v.id] = v; });
+    var openLeads = d.leads.filter(function (l) { return !CI.isClosed(l) && (l.about || []).indexOf(id) !== -1; });
+    openLeads.forEach(function (l) { if (l.investigationId) { var v = d.investigations.filter(function (x) { return x.id === l.investigationId; })[0]; if (v) invs[v.id] = v; } });
+    var sums = CI.summariesFor(d, id);
+    return {
+      reports: reps.length, first: dates[0] || '', last: dates[dates.length - 1] || '',
+      connections: conns, connectionCount: conns.length, namesConnected: Object.keys(names).length,
+      openLeads: openLeads.length, banks: banks, investigations: Object.keys(invs).map(function (k) { return invs[k]; }),
+      latestSummary: sums.length ? sums[sums.length - 1] : null,
+      keyEvents: CI.timelineFor(d, id, 1)
+    };
+  };
+
   /* The files that appear in the same reports as one file, grouped by what they are. A recorded connection is noted but not needed. */
   CI.sharedReportIndex = function (d, id, idx) {
     idx = idx || CI.buildIndex(d);

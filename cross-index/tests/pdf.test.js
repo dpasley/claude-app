@@ -168,6 +168,16 @@ t('profile, connections, report and estimate sheets build', () => {
   const f = d.entities.find(e => (idx.reportsByEntity[e.id] || []).length >= 2 && e.type === 'individual');
   f.profile = { dob: '1981-03-04', occupation: 'Driver', role: 'Long text. '.repeat(40) };
   assert.ok(CI.pdf.profileSheet(d, idx, f.id).size > 1500);
+  const ov = CI.fileOverview(d, idx, f.id);
+  assert.equal(ov.reports, (idx.reportsByEntity[f.id] || []).length);
+  assert.ok(ov.connectionCount >= 1 && ov.namesConnected >= 1 && ov.first <= ov.last);
+  for (let i = 1; i < ov.connections.length; i++) assert.ok(ov.connections[i - 1].count >= ov.connections[i].count, 'most reports behind it first');
+  CI.addSummary(d, { fileId: f.id, date: '2026-10-01', author: 'JT', text: 'Summary text. '.repeat(120), covers: [] });
+  CI.addTimeline(d, { fileId: f.id, date: '2026-09-05', text: 'Key event', level: 1, reportIds: [] });
+  CI.addLead(d, { question: 'q', about: [f.id] });
+  const ov2 = CI.fileOverview(d, CI.buildIndex(d), f.id);
+  assert.equal(ov2.latestSummary.author, 'JT'); assert.equal(ov2.keyEvents.length, 1); assert.equal(ov2.openLeads, 1);
+  const big = CI.pdf.profileSheet(d, CI.buildIndex(d), f.id); assert.ok(big.size > 3000, 'full profile builds with summary, key events and leads');
   assert.ok(CI.pdf.connectionsSheet(d, idx, f.id).size > 1500);
   const lone = CI.addEntity(d, { type: 'area', name: 'Nowhere' });
   assert.ok(CI.pdf.connectionsSheet(d, CI.buildIndex(d), lone.id).size > 1000);

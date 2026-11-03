@@ -383,17 +383,50 @@
   CI.pdf.profileSheet = function (d, idx, fileId) {
     var e = idx.entity[fileId]; if (!e) throw new Error('No such file.');
     var doc = CI.pdf.begin(), again = function () { return CI.pdf.top(doc, 'PROFILE (continued)', e.name); };
-    var y = CI.pdf.top(doc, 'PROFILE', e.name), p = e.profile || {};
+    var y = CI.pdf.top(doc, 'PROFILE', e.name), p = e.profile || {}, ov = CI.fileOverview(d, idx, fileId), CAP = 25;
     y = facts(doc, [['Kind of file', CI.TYPE_LABEL[e.type]], ['Identifying details', e.details], ['Also known as', (e.aliases || []).join(', ')]], y);
+    var filled = 0;
     CI.profileFields(e.type).forEach(function (f) {
       var v = f.kind === 'date' ? CI.fmtDate(p[f.id] || '') : (p[f.id] || '');
+      if (!String(v).trim()) return; filled++;
       var ls = doc.splitTextToSize(plain(v) || '', 290).length;
       if (y + 20 + Math.max(1, ls) * 15 > 735) { doc.addPage('letter', 'portrait'); y = again(); }
       lab(doc, f.label, X0, y); doc.setFont('helvetica', 'normal'); doc.setFontSize(11.5);
       y = CI.pdf.flow(doc, plain(v), { x: X0 + 200, w: 290, y: y, size: 11.5, lead: 15, again: again });
       doc.setDrawColor(215); doc.setLineWidth(0.5); doc.line(X0, y - 8, X1, y - 8); y += 8;
     });
-    if (e.notes) { y += 6; lab(doc, 'Notes', X0, y); y = CI.pdf.flow(doc, plain(e.notes), { x: X0 + 200, w: 290, y: y, size: 11.5, lead: 15, again: again }); }
+    if (!filled) { doc.setFont('helvetica', 'italic'); doc.setFontSize(11); doc.text('No profile details entered yet.', X0, y); y += 10; }
+    function room(n) { if (y + n > 735) { doc.addPage('letter', 'portrait'); y = again(); } }
+    function heading(t) { room(60); y += 12; doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(plain(t).toUpperCase(), X0, y, { charSpace: 0.8 }); y += 8; doc.setDrawColor(17); doc.setLineWidth(1.2); doc.line(X0, y, X1, y); y += 18; }
+    // At a glance: what the system can count from the main files
+    heading('At a glance (as of ' + CI.fmtDate(CI.today()) + ')');
+    var inv = ov.investigations.map(function (v) { return v.id; }).join(', ');
+    room(120);
+    y = facts(doc, [['Reports on file', String(ov.reports)], ['First report', ov.first ? CI.fmtDate(ov.first) : ''], ['Latest report', ov.last ? CI.fmtDate(ov.last) : ''],
+      ['Connections', String(ov.connectionCount)], ['Names connected', String(ov.namesConnected)], ['Open leads', String(ov.openLeads)],
+      ['Special banks', String(ov.banks.length)], ['Investigations', inv || '0']], y);
+    // Latest staff summary
+    if (ov.latestSummary) {
+      var sm = ov.latestSummary; heading('Latest summary (written ' + CI.fmtDate(sm.date) + (sm.author ? ' by ' + sm.author : '') + ')');
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(9.5); doc.text('Covers only what was new when it was written; later reports are not included.', X0, y - 6); y += 8;
+      doc.setFont('helvetica', 'normal'); y = CI.pdf.flow(doc, plain(String(sm.text || '').slice(0, 1800)) + (String(sm.text || '').length > 1800 ? '...' : ''), { y: y, size: 11, lead: 15, again: again }) + 4;
+    }
+    // Connections, most reports behind each first
+    room(110); heading('Connections (' + ov.connectionCount + ')');
+    if (!ov.connections.length) { doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.text('No connections recorded for this name.', X0, y); y += 20; }
+    else {
+      var rows = ov.connections.slice(0, CAP).map(function (c) { return [c.other.name + ' (' + (CI.TYPE_LABEL[c.other.type] || '') + ')', c.phrase, c.note, String(c.count)]; });
+      y = table(doc, [{ w: 160, head: 'Name' }, { w: 120, head: 'Connection' }, { w: 160, head: 'What it is' }, { w: 50, head: 'Reports' }], rows, y, again);
+      if (ov.connections.length > CAP) { room(24); doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.text('Plus ' + (ov.connections.length - CAP) + ' more with fewer reports behind them: see the Connections sheet.', X0, y + 4); y += 22; }
+    }
+    // Key events from the time line
+    if (ov.keyEvents.length) {
+      heading('Key events (' + ov.keyEvents.length + ')');
+      var ev = ov.keyEvents.slice(0, 12).map(function (x) { return [CI.fmtDate(x.date), x.text]; });
+      y = table(doc, [{ w: 110, head: 'Date' }, { w: 380, head: 'What happened' }], ev, y, again);
+      if (ov.keyEvents.length > 12) { room(24); doc.setFont('helvetica', 'italic'); doc.setFontSize(10); doc.text('Plus ' + (ov.keyEvents.length - 12) + ' more: see the Time line sheet.', X0, y + 4); y += 22; }
+    }
+    if (e.notes) { room(60); y += 6; lab(doc, 'Notes', X0, y); y = CI.pdf.flow(doc, plain(e.notes), { x: X0 + 200, w: 290, y: y, size: 11.5, lead: 15, again: again }); }
     CI.pdf.stamp(doc, 'Profile · ' + e.name); return doc.output('blob');
   };
 
