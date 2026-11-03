@@ -74,6 +74,8 @@
           '<td><div class="row" style="gap:6px;flex-wrap:nowrap">' + CI.leadResults(D(), l.id).map(function (r) { return '<a href="#/report/' + esc(r.id) + '">' + esc(r.id) + '</a>'; }).join(' ') + '<input type="text" data-ret="report" data-id="' + esc(l.id) + '" placeholder="Add: R-0012" aria-label="Report that answers ' + esc(l.id) + '"></div></td></tr>';
       }).join('') + '</tbody></table><div class="row spread" style="padding:12px 16px"><span class="muted small">Go down the stack in order. Done, or Checked, nothing found, closes a ' + (req ? 'request' : 'lead') + ' today and takes it off this list. Enter the report that answers it in Report no. (its number, such as R-0012); the report is filed through New report as usual.</span><button class="btn primary" data-action="reg-returns-save">Save returns</button></div></div>';
   }
+  /* From an orange count on a chart: the open leads about that name. */
+  CI.views.leadsAbout = function (entityId) { lr.kind = 'lead'; lr.open = true; lr.inv = ''; lr.who = ''; lr.about = entityId; lr.returns = false; A.go('#/investigations/register'); };
   H['reg-returns'] = function () { lr.returns = !lr.returns; register(); };
   H['reg-returns-save'] = function () {
     var by = {};

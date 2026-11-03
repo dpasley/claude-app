@@ -18,7 +18,7 @@
     var flags = CI.openLeadFlags(d, g.nodes.map(function (n) { return n.id; })), nLeads = Object.keys(flags).reduce(function (m, k) { flags[k].forEach(function (l) { m[l] = 1; }); return m; }, {});
     var on = st.labels === 'auto' ? g.edges.length <= 15 : st.labels === 'on';
     var cb = document.getElementById('fc-labels'); if (cb) cb.checked = on;
-    var sum = document.getElementById('fc-sum'); if (sum) sum.textContent = g.nodes.length + ' names · ' + g.edges.length + ' connections' + (g.edges.length > 15 && st.labels === 'auto' ? ' · labels are off on a busy chart' : '') + (Object.keys(nLeads).length ? ' · ' + Object.keys(nLeads).length + ' open lead' + (Object.keys(nLeads).length === 1 ? '' : 's') + ' shown as orange tags' : '');
+    var sum = document.getElementById('fc-sum'); if (sum) sum.textContent = g.nodes.length + ' names · ' + g.edges.length + ' connections' + (g.edges.length > 15 && st.labels === 'auto' ? ' · labels are off on a busy chart' : '') + (Object.keys(nLeads).length ? ' · ' + Object.keys(nLeads).length + ' open lead' + (Object.keys(nLeads).length === 1 ? '' : 's') + ' (click an orange count to list them)' : '');
     CI.chart.render(document.getElementById('cy'), g, {
       layout: 'cose', positions: st.pos, edgeLabels: on, viewKey: 'file|' + e.id,
       onLaidOut: function (all) { Object.keys(all).forEach(function (k) { st.pos[k] = all[k]; }); },

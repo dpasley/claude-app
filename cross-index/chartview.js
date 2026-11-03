@@ -229,7 +229,7 @@
     if (s) {
       var txt = graph.nodes.length + ' entities · ' + graph.edges.length + ' connections';
       if (graph.trimmed) txt += ' · ' + graph.trimmed + ' lighter name' + (graph.trimmed === 1 ? '' : 's') + ' not shown';
-      if (Object.keys(nLeads).length) txt += ' · ' + Object.keys(nLeads).length + ' open lead' + (Object.keys(nLeads).length === 1 ? '' : 's') + ' shown as orange tags';
+      if (Object.keys(nLeads).length) txt += ' · ' + Object.keys(nLeads).length + ' open lead' + (Object.keys(nLeads).length === 1 ? '' : 's') + ' (click an orange count to list them)';
       if (graph.hiddenWeak && !cur.frozen) txt += ' · ' + graph.hiddenWeak + ' hidden below the minimum of ' + bank.minWeight;
       if (diff) txt += ' · since “' + esc(snapOf(bank, bank.compareId).label) + '”: ' + Object.keys(diff.newNodes).length + ' new entities, ' + Object.keys(diff.newEdges).length + ' new connections, ' + Object.keys(diff.grownEdges).length + ' strengthened';
       if (!bank.quick && Array.isArray(bank.files) && !cur.frozen) {
