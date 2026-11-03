@@ -456,12 +456,26 @@ t('returns: status, response and who returned it are saved down the stack; closi
   const { d, lead, a } = stackData();
   const l1 = lead('One', [a.id]), l2 = lead('Two', [a.id]), l3 = lead('Three', [a.id]);
   const r = CI.returnLeads(d, [{ id: l1.id, status: 'DONE', response: ' Van is leased. ', by: 'JT' }, { id: l2.id, status: 'IN_PROGRESS' }, { id: l3.id, status: 'NOT_STARTED', response: '' }, { id: 'L-9999', status: 'DONE' }]);
-  assert.deepEqual(r, { saved: 2, closed: 1 });
+  assert.deepEqual(r, { saved: 2, closed: 1, bad: [] });
   assert.equal(l1.status, 'DONE'); assert.equal(l1.response, 'Van is leased.'); assert.equal(l1.returnedBy, 'JT'); assert.equal(l1.returnedDate, CI.today());
   assert.equal(l2.status, 'IN_PROGRESS'); assert.equal(l2.returnedDate, '');
-  assert.deepEqual(CI.returnLeads(d, [{ id: l1.id, status: 'DONE', response: 'Van is leased.', by: 'JT' }]), { saved: 0, closed: 0 }, 'nothing changed');
+  assert.deepEqual(CI.returnLeads(d, [{ id: l1.id, status: 'DONE', response: 'Van is leased.', by: 'JT' }]), { saved: 0, closed: 0, bad: [] }, 'nothing changed');
   assert.equal(CI.returnLeads(d, [{ id: l2.id, status: 'NOT_A_STATUS' }]).saved, 0, 'an unknown status is ignored');
   l1.returnedDate = '2026-01-02'; CI.returnLeads(d, [{ id: l1.id, status: 'NO_RESULT' }]); assert.equal(l1.returnedDate, '2026-01-02', 'an existing date is kept');
+});
+t('a report is linked to the lead it answers, by id or number, one lead per report; returns can link it', () => {
+  const { d, lead, a } = stackData();
+  const l1 = lead('One', [a.id]), l2 = lead('Two', [a.id]);
+  const rep = n => { const r = { id: 'R-' + String(n).padStart(4, '0'), leadId: '', entities: [] }; d.reports.push(r); return r; };
+  const r1 = rep(1), r2 = rep(2);
+  assert.equal(CI.linkReport(d, l1.id, 'R-0001').ok, true); assert.equal(r1.leadId, l1.id);
+  assert.equal(CI.linkReport(d, l1.id, '2').ok, true, 'a bare number works'); assert.equal(r2.leadId, l1.id);
+  assert.equal(CI.linkReport(d, l2.id, 'R-0001').ok, false, 'a report answers one lead only');
+  assert.match(CI.linkReport(d, l2.id, 'R-0099').why, /No such report/);
+  const r3 = rep(3), out = CI.returnLeads(d, [{ id: l2.id, status: 'DONE', report: 'R-0003' }, { id: l1.id, report: 'R-0099' }]);
+  assert.equal(r3.leadId, l2.id); assert.equal(out.saved, 1); assert.equal(out.closed, 1); assert.equal(out.bad.length, 1);
+  assert.deepEqual(CI.leadResults(d, l1.id).map(r => r.id), ['R-0001', 'R-0002']);
+  assert.equal(CI.returnLeads(d, [{ id: l2.id, report: 'R-0003' }]).saved, 0, 'already linked changes nothing');
 });
 t('hand over offers open leads with no investigation about the bank\'s names, and attaches them when asked', () => {
   const { d, a, b, bank, lead } = stackData();

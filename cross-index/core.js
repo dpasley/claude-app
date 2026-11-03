@@ -1012,18 +1012,37 @@
   /* Staff results entered from the returned sheets. entries: [{ id, status, response, by }] (any field may be left out).
    * A lead that is closed by this (Done, or Checked, nothing found) gets today as its returned date unless it has one.
    * Returns { saved: how many changed, closed: how many were closed by this }. */
+  /* The report that answers a lead: a report carries the number of the lead it answers (report.leadId). ref is a report id or just its number.
+     Returns { ok, report } or { ok:false, why }. A report answers one lead only. */
+  CI.linkReport = function (d, leadId, ref) {
+    var l = CI.findLead(d, leadId), s = String(ref || '').trim().toUpperCase(); if (!l || !s) return { ok: false, why: 'Nothing to link.' };
+    var n = /^\d+$/.test(s) ? parseInt(s, 10) : null;
+    var r = d.reports.filter(function (x) { return x.id.toUpperCase() === s || (n !== null && idNum(x.id) === n); })[0];
+    if (!r) return { ok: false, why: 'No such report: ' + ref + '.' };
+    if (r.leadId && r.leadId !== l.id) return { ok: false, why: r.id + ' already answers ' + r.leadId + '.' };
+    var already = r.leadId === l.id; r.leadId = l.id; return { ok: true, report: r, already: already };
+  };
   CI.returnLeads = function (d, entries) {
-    var saved = 0, closed = 0;
+    var saved = 0, closed = 0, bad = [];
     (entries || []).forEach(function (en) {
       var l = CI.findLead(d, en.id); if (!l) return;
+      var changed = false, rep = en.report != null ? String(en.report).trim() : '';
+      if (rep) {
+        var lk = CI.linkReport(d, l.id, rep);
+        if (!lk.ok) { bad.push(lk.why); return; }
+        if (!lk.already) changed = true;
+      }
       var st = en.status != null ? en.status : l.status, rs = en.response != null ? String(en.response).trim() : l.response, by = en.by != null ? String(en.by).trim() : l.returnedBy;
       if (!CI.LEAD_STATUS.some(function (s) { return s.id === st; })) st = l.status;
-      if (st === l.status && rs === (l.response || '') && by === (l.returnedBy || '')) return;
-      var was = CI.isClosed(l); l.status = st; l.response = rs; l.returnedBy = by;
-      if (CI.isClosed(l) && !l.returnedDate) l.returnedDate = CI.today();
-      saved++; if (!was && CI.isClosed(l)) closed++;
+      if (st !== l.status || rs !== (l.response || '') || by !== (l.returnedBy || '')) {
+        var was = CI.isClosed(l); l.status = st; l.response = rs; l.returnedBy = by;
+        if (CI.isClosed(l) && !l.returnedDate) l.returnedDate = CI.today();
+        if (!was && CI.isClosed(l)) closed++;
+        changed = true;
+      }
+      if (changed) saved++;
     });
-    return { saved: saved, closed: closed };
+    return { saved: saved, closed: closed, bad: bad };
   };
   /* Open leads and requests with no investigation that are about names in this special bank: offered to its investigation on hand over. */
   CI.looseLeadsFor = function (d, bank) {

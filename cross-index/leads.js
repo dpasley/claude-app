@@ -139,7 +139,7 @@
       '<div class="grid2"><label>Returned by<input type="text" id="ld-f-by" value="' + esc(l.returnedBy) + '"></label><label>Returned on ' + A.dateInput('ld-f-ret', l.returnedDate) + '</label></div>' +
       '<div class="row"><button class="btn primary" data-action="lead-save" data-id="' + esc(l.id) + '">Save</button></div></form>' +
       '<div class="card"><h3>Results that came back</h3>' + (results.length ? '<ul class="plain">' + results.map(function (r) { return '<li>' + A.repLink(r.id) + ' <span class="muted">' + esc(r.sourceType || '') + ' · ' + esc(CI.fmtDate(CI.reportDate(r))) + '</span><div class="small">' + esc(A.trunc(r.summary || '', 140)) + '</div></li>'; }).join('') + '</ul>' : '<p class="muted small">None yet. Whatever comes back is filed through Intake as a report that carries this number.</p>') +
-      '<div class="row"><button class="btn" data-action="lead-result" data-id="' + esc(l.id) + '">File a result as a new report</button></div></div>' +
+      '<div class="row wrap"><button class="btn" data-action="lead-result" data-id="' + esc(l.id) + '">File a result as a new report</button><span class="row" style="gap:6px;margin:0"><input type="text" id="ld-link" placeholder="Or link a report already filed: R-0012" style="width:260px" autocomplete="off"><button class="btn" data-action="lead-link" data-id="' + esc(l.id) + '">Link</button></span></div></div>' +
       '<div class="card"><h3>Housekeeping</h3><button class="btn danger" data-action="lead-del" data-id="' + esc(l.id) + '">Delete this ' + word.toLowerCase() + '</button></div>';
     A.view.className = ''; A.view.innerHTML = h;
   };
@@ -162,6 +162,11 @@
     A.confirm('Delete ' + id + '? Reports filed against it are kept.', function () { CI.deleteLead(D(), id); A.persist(); A.closeModal(); A.go(back); }, { title: 'Delete', yes: 'Delete', danger: true });
   };
   H['lead-sheet-one'] = function (el) { var id = el.getAttribute('data-id'); saveBlob((id.charAt(0) === 'Q' ? 'Request-' : 'Lead-') + id + '.pdf', function () { return CI.pdf.leadSheets(D(), [id]); }); };
+  H['lead-link'] = function (el) {
+    var id = el.getAttribute('data-id'), r = CI.linkReport(D(), id, val('ld-link'));
+    if (!r.ok) { A.toast(r.why, true); return; }
+    A.persist(); A.toast(r.report.id + ' linked to ' + id + '.'); CI.views.lead(id);
+  };
   H['lead-result'] = function (el) {
     var l = CI.findLead(D(), el.getAttribute('data-id')); if (!l) return;
     A.startReport({ leadId: l.id, sourceType: isReq(l) ? '' : 'Investigator report' });

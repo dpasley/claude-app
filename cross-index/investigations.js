@@ -48,9 +48,9 @@
       '<div class="row" style="margin:0">Investigation <span class="ip-wrap">' + CI.views.invBox('rg-inv', d.investigations, lr.inv, [{ value: 'none', label: 'No investigation' }], 'All: type to search').replace('data-on-input="ip-find"', 'data-on-input="ip-find" data-on-pick="reg-inv"') + '</span></div>' +
       '<label class="row" style="margin:0">Assigned to <select id="rg-who" data-on-change="reg-filter">' + A.options([{ value: '', label: 'Anyone' }].concat(Object.keys(people).sort().map(function (p) { return { value: p, label: p }; })), lr.who) + '</select></label>' + aboutBox() + '</div>' +
       '<p class="muted small" style="margin:8px 0 0">A lead or request can belong to an investigation or to none. The sheet prints where it belongs: an investigation\u2019s folder, or the register.</p></div>';
-    var listH = rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:7%"><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:13%"><col style="width:13%"><col style="width:12%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
-      var names = (l.about || []).map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ');
-      return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip" title="' + esc(names) + '">' + esc(names) + '</td><td>' + (l.investigationId ? esc(l.investigationId) : '<span class="muted">none</span>') + '</td><td class="ellip">' + esc(req ? l.with : (l.assigned || '')) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
+    var listH = rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:6%"><col style="width:24%"><col style="width:15%"><col style="width:9%"><col style="width:11%"><col style="width:11%"><col style="width:10%"><col style="width:14%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th><th>Report</th></tr></thead><tbody>' + rows.map(function (l) {
+      var names = (l.about || []).map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', '), rids = CI.leadResults(d, l.id).map(function (r) { return r.id; }).join(', ');
+      return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip" title="' + esc(names) + '">' + esc(names) + '</td><td>' + (l.investigationId ? esc(l.investigationId) : '<span class="muted">none</span>') + '</td><td class="ellip">' + esc(req ? l.with : (l.assigned || '')) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td><td class="ellip">' + (rids ? esc(rids) : '<span class="muted">\u2013</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">' + (all.length ? 'Nothing matches those filters.' : 'No ' + (req ? 'requests' : 'leads') + ' yet. Raise one from an individual\u2019s page, the indexing page, or here.') + '</p></div>';
     h += lr.returns ? returnsTable(rows, req) : listH;
     A.view.className = ''; A.view.innerHTML = h;
@@ -65,21 +65,23 @@
   function returnsTable(rows, req) {
     if (!rows.length) return '<div class="card"><p class="muted">Nothing to enter. ' + (lr.open ? 'Every ' + (req ? 'request' : 'lead') + ' here is closed.' : 'No ' + (req ? 'requests' : 'leads') + ' match.') + '</p></div>';
     var sts = CI.LEAD_STATUS.map(function (s) { return { value: s.id, label: s.label }; });
-    return '<div class="card flush"><table class="fixed ret"><colgroup><col style="width:8%"><col style="width:26%"><col style="width:16%"><col style="width:32%"><col style="width:18%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>Status</th><th>What came back</th><th>Returned by</th></tr></thead><tbody>' +
+    return '<div class="card flush"><table class="fixed ret"><colgroup><col style="width:7%"><col style="width:20%"><col style="width:14%"><col style="width:25%"><col style="width:15%"><col style="width:19%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>Status</th><th>What came back</th><th>Returned by</th><th>Report no.</th></tr></thead><tbody>' +
       rows.map(function (l) {
         return '<tr><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td>' +
           '<td><select data-ret="status" data-id="' + esc(l.id) + '" aria-label="Status of ' + esc(l.id) + '">' + A.options(sts, l.status) + '</select></td>' +
           '<td><input type="text" data-ret="response" data-id="' + esc(l.id) + '" value="' + esc(l.response || '') + '" aria-label="What came back for ' + esc(l.id) + '"></td>' +
-          '<td><input type="text" data-ret="by" data-id="' + esc(l.id) + '" value="' + esc(l.returnedBy || '') + '" aria-label="Returned by, ' + esc(l.id) + '"></td></tr>';
-      }).join('') + '</tbody></table><div class="row spread" style="padding:12px 16px"><span class="muted small">Go down the stack in order. Done, or Checked, nothing found, closes a ' + (req ? 'request' : 'lead') + ' today and takes it off this list. Anything that came back is filed through New report as usual.</span><button class="btn primary" data-action="reg-returns-save">Save returns</button></div></div>';
+          '<td><input type="text" data-ret="by" data-id="' + esc(l.id) + '" value="' + esc(l.returnedBy || '') + '" aria-label="Returned by, ' + esc(l.id) + '"></td>' +
+          '<td><div class="row" style="gap:6px;flex-wrap:nowrap">' + CI.leadResults(D(), l.id).map(function (r) { return '<a href="#/report/' + esc(r.id) + '">' + esc(r.id) + '</a>'; }).join(' ') + '<input type="text" data-ret="report" data-id="' + esc(l.id) + '" placeholder="Add: R-0012" aria-label="Report that answers ' + esc(l.id) + '"></div></td></tr>';
+      }).join('') + '</tbody></table><div class="row spread" style="padding:12px 16px"><span class="muted small">Go down the stack in order. Done, or Checked, nothing found, closes a ' + (req ? 'request' : 'lead') + ' today and takes it off this list. Enter the report that answers it in Report no. (its number, such as R-0012); the report is filed through New report as usual.</span><button class="btn primary" data-action="reg-returns-save">Save returns</button></div></div>';
   }
   H['reg-returns'] = function () { lr.returns = !lr.returns; register(); };
   H['reg-returns-save'] = function () {
     var by = {};
     Array.prototype.forEach.call(document.querySelectorAll('[data-ret]'), function (el) { var id = el.getAttribute('data-id'); (by[id] = by[id] || { id: id })[el.getAttribute('data-ret')] = el.value; });
     var r = CI.returnLeads(D(), Object.keys(by).map(function (k) { return by[k]; }));
-    if (r.saved) { A.persist(); A.toast('Saved ' + r.saved + (r.closed ? ', ' + r.closed + ' closed' : '') + '.'); } else A.toast('Nothing changed.');
-    register();
+    if (r.bad.length) { if (r.saved) A.persist(); A.toast(r.bad[0] + (r.bad.length > 1 ? ' (+' + (r.bad.length - 1) + ' more)' : '') + (r.saved ? ' Others saved.' : ''), true); }
+    else if (r.saved) { A.persist(); A.toast('Saved ' + r.saved + (r.closed ? ', ' + r.closed + ' closed' : '') + '.'); } else A.toast('Nothing changed.');
+    if (!r.bad.length) register();   // on a mistake keep the typing so it can be fixed
   };
   H['reg-about-find'] = function (el) {
     var q = el.value.trim(), box = document.getElementById('rg-about-res'); if (!box) return;
@@ -201,7 +203,7 @@
     return '<div class="card"><div class="row spread wrap"><div><b>' + rows.length + '</b> lead' + (rows.length === 1 ? '' : 's') + ', <b>' + rows.filter(function (l) { return !CI.isClosed(l); }).length + '</b> open' +
       '<div class="muted small">A lead is a question the investigators follow up. It needs only its reason.</div></div><div class="row wrap">' + printBar(v, 'lead', rows.length) + '<button class="btn primary" data-action="lead-new" data-id="' + esc(v.id) + '" data-kind="INVESTIGATION">New lead</button></div></div></div>' +
       theoryCard(v) +
-      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:9%"><col style="width:45%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Lead</th><th>Reason</th><th>Assigned to</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
+      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:9%"><col style="width:45%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Lead</th><th>Reason</th><th>Assigned to</th><th>Issued</th><th>Status</th><th>Report</th></tr></thead><tbody>' + rows.map(function (l) {
         return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip">' + esc(l.assigned || '') + '</td><td>' + esc(CI.fmtDate(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
       }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">No leads yet.</p></div>');
   }
@@ -209,7 +211,7 @@
     var d = D(), rows = CI.requestsOf(d, v.id).sort(function (a, b) { return b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); });
     return '<div class="card"><div class="row spread wrap"><div><b>' + rows.length + '</b> request' + (rows.length === 1 ? '' : 's') + ' to Collection, <b>' + rows.filter(function (l) { return !CI.isClosed(l); }).length + '</b> open' +
       '<div class="muted small">A request asks Collection to retrieve and preserve something. What comes back is filed through Intake carrying the request number.</div></div><div class="row wrap">' + printBar(v, 'request', rows.length) + '<button class="btn primary" data-action="lead-new" data-id="' + esc(v.id) + '" data-kind="DATA_REQUEST">New request</button></div></div></div>' +
-      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:9%"><col style="width:45%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Request</th><th>To retrieve</th><th>For lead</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
+      (rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:9%"><col style="width:45%"><col style="width:16%"><col style="width:12%"><col style="width:18%"></colgroup><thead><tr><th>Request</th><th>To retrieve</th><th>For lead</th><th>Issued</th><th>Status</th><th>Report</th></tr></thead><tbody>' + rows.map(function (l) {
         return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td>' + esc(l.forLead || '') + '</td><td>' + esc(CI.fmtDate(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
       }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">No requests yet.</p></div>');
   }
