@@ -269,7 +269,7 @@ t('pointers: shared item, hidden, together-not-connected, growing, loose ends, d
   const mk = (type, name, o) => CI.addEntity(d, Object.assign({ type, name }, o || {}));
   const a = mk('individual', 'Ann'), b = mk('individual', 'Bob'), c = mk('individual', 'Cy'), g = mk('group', 'Crew'), g2 = mk('group', 'Ring');
   const ph = mk('item', '555-0100', { itemType: 'phone' }), lone = mk('individual', 'Loner'), b2 = mk('individual', 'Bob');
-  const rep = (ids) => { const r = { id: CI.nextId(d, 'report'), received: '2026-10-01', subject: 's', sourceRef: 'x', summary: '', entities: ids.map(i => ({ entityId: i.id, role: '', flag: false, flagNote: '' })) }; d.reports.push(r); return r; };
+  const rep = (ids) => { const r = { id: CI.nextId(d, 'report'), received: CI.today(), subject: 's', sourceRef: 'x', summary: '', entities: ids.map(i => ({ entityId: i.id, role: '', flag: false, flagNote: '' })) }; d.reports.push(r); return r; };
   const r1 = rep([a, b, c, g, g2, ph, lone, b2]), r2 = rep([a, b]), r3 = rep([a, c]);
   const link = (x, y, r) => { const res = CI.addLink(d, { reportId: r.id, from: x.id, to: y.id, type: 'ASSOCIATED_WITH', note: 'n' }); assert.ok(!res.error, res.error); };
   link(a, ph, r1); link(b, ph, r1); link(a, g, r1); link(b, g, r1); link(a, g2, r1); link(b, g2, r1); link(c, g, r1);
@@ -291,7 +291,7 @@ t('discoveries: a later report ties two files together through a third', () => {
   const d = CI.emptyData(); d.started = true;
   const mk = (type, name) => CI.addEntity(d, { type, name });
   const a = mk('individual', 'Ann'), b = mk('individual', 'Bob'), c = mk('group', 'Crew'), x = mk('individual', 'Xi'), y = mk('individual', 'Yu');
-  const rep = (ids) => { const r = { id: CI.nextId(d, 'report'), received: '2026-10-01', subject: 's', sourceRef: 'x', summary: '', entities: ids.map(i => ({ entityId: i.id, role: '', flag: false, flagNote: '' })) }; d.reports.push(r); return r; };
+  const rep = (ids) => { const r = { id: CI.nextId(d, 'report'), received: CI.today(), subject: 's', sourceRef: 'x', summary: '', entities: ids.map(i => ({ entityId: i.id, role: '', flag: false, flagNote: '' })) }; d.reports.push(r); return r; };
   const r1 = rep([a, b]), r2 = rep([b, c]), r3 = rep([x, y]), r4 = rep([c, x]);
   const link = (p, q, r) => { const res = CI.addLink(d, { reportId: r.id, from: p.id, to: q.id, type: 'ASSOCIATED_WITH', note: 'n' }); assert.ok(!res.error, res.error); };
   link(a, b, r1);
