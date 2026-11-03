@@ -270,6 +270,18 @@
   H['est-del'] = function (el) { var b = bankOf(el), e = estOf(el), id = el.getAttribute('data-id'); e.items = e.items.filter(function (i) { return i.id !== id; }); A.persist(); CI.views.estimate(b.id, e.id); };
   H['est-handover'] = function (el) {
     var b = bankOf(el), sel = document.getElementById('ho-est'), estId = sel ? sel.value : '';
-    A.confirm('Freeze “' + b.name + '” as it stands and hand it to Investigations with ' + CI.estimateOf(b, estId).label + '? This opens an investigation for it.', function () { CI.handOver(D(), b, estId); A.persist(); A.closeModal(); A.toast('Handed over. A snapshot was saved.'); A.go('#/bank/' + b.id + '/estimates'); }, { title: 'Hand over', yes: 'Hand over' });
+    A.modal('<h2>Hand over</h2><div class="form"><p>Freeze \u201c' + esc(b.name) + '\u201d as it stands and hand it to Investigations with ' + esc(CI.estimateOf(b, estId).label) + '? This opens an investigation for it.</p>' + CI.views.looseLeadsBox(CI.looseLeadsFor(D(), b)) + '</div>' +
+      '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="est-handover-go" data-bank="' + esc(b.id) + '" data-est="' + esc(estId) + '">Hand over</button></div>');
+  };
+  H['est-handover-go'] = function (el) {
+    var d = D(), b = bankOf(el), estId = el.getAttribute('data-est'), box = document.getElementById('ho-attach');
+    var attach = box && box.checked ? CI.looseLeadsFor(d, b).map(function (l) { return l.id; }) : [];
+    CI.handOver(d, b, estId, null, attach); A.persist(); A.closeModal();
+    A.toast('Handed over. A snapshot was saved' + (attach.length ? ' and ' + attach.length + ' lead' + (attach.length === 1 ? '' : 's') + ' attached.' : '.')); A.go('#/bank/' + b.id + '/estimates');
+  };
+  /* The offer shown when a bank is handed over: open leads with no investigation that are about its names. */
+  CI.views.looseLeadsBox = function (list) {
+    if (!list.length) return '';
+    return '<label class="chk"><input type="checkbox" id="ho-attach" checked> Also attach the ' + list.length + ' open lead' + (list.length === 1 ? '' : 's') + ' about this bank\u2019s names that ' + (list.length === 1 ? 'has' : 'have') + ' no investigation yet <span class="muted small">(' + esc(list.map(function (l) { return l.id; }).join(', ')) + ')</span></label>';
   };
 })();
