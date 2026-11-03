@@ -34,7 +34,7 @@ const cy2 = cytoscape({ headless: true, styleEnabled: true, elements: els2, styl
 assert.ok(cy2.elements('.hl').length >= p.steps.length);
 assert.ok(cy2.nodes('.extra').length >= 1);
 console.log('ok - path highlight with extras'); 
-// lead tags: kept beside their name, capped when a name has many leads
+// lead tags: kept beside their name, a count per name, clickable
 {
   const cy3 = cytoscape({ headless: true, styleEnabled: true, elements: CI.buildElements(g, {}), style: CI.cyStyle(), layout: { name: 'null' } });
   cy3.layout({ name: 'preset', positions: n => ({ x: 100 + 60 * cy3.nodes().indexOf(n), y: 100 }) }).run();
@@ -42,8 +42,12 @@ console.log('ok - path highlight with extras');
   const some = cy3.nodes()[0], other = cy3.nodes()[1], map = {}; map[some.id()] = ['L-0001', 'L-0002']; map[other.id()] = ['L-0003', 'L-0004', 'L-0005', 'L-0006', 'L-0007'];
   CI.chart.flagBadges(map);
   assert.equal(cy3.nodes('.flag').length, 2);
-  assert.equal(cy3.getElementById('F-' + some.id()).data('label'), 'L-0001 \u00b7 L-0002');
-  assert.equal(cy3.getElementById('F-' + other.id()).data('label'), 'L-0003 \u00b7 L-0004 \u00b7 L-0005 \u00b7 +2');
+  assert.equal(cy3.getElementById('F-' + some.id()).data('label'), '2 leads');
+  assert.equal(cy3.getElementById('F-' + other.id()).data('label'), '5 leads', 'a count, so many leads never cover each other');
+  let tapped = ''; CI.chart.onFlagTap = id => { tapped = id; };
+  cy3.getElementById('F-' + other.id()).emit('tap'); assert.equal(tapped, other.id(), 'clicking a count reports which name it is on');
+  tapped = ''; cy3.getElementById(other.id()).emit('tap'); assert.equal(tapped, '', 'clicking the name itself does not trigger it');
+  delete CI.chart.onFlagTap;
   const before = Object.assign({}, cy3.getElementById('F-' + some.id()).position());
   some.position({ x: 900, y: 700 });
   const after = cy3.getElementById('F-' + some.id()).position();

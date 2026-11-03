@@ -100,7 +100,7 @@
       { selector: 'edge.hl', style: { 'line-color': t.accent, 'target-arrow-color': t.accent, 'opacity': 1, 'z-index': 20, 'width': 3 } },
       { selector: 'edge:selected', style: { 'line-color': t.sel, 'target-arrow-color': t.sel, 'overlay-color': t.sel, 'overlay-opacity': 0.12 } },
       { selector: 'node.note', style: { 'background-opacity': 1, 'background-color': '#fff3b8', 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 'label', 'padding': '12px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'text-max-width': 190, 'text-wrap': 'wrap', 'font-size': 13, 'font-weight': 'normal', 'color': '#3b3200', 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 1, 'border-color': '#d1b94a' } },
-      { selector: 'node.flag', style: { 'background-opacity': 1, 'background-color': t.accent, 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 24, 'padding': '8px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'font-size': 15, 'font-weight': 'bold', 'color': '#ffffff', 'text-wrap': 'none', 'text-outline-width': 0, 'text-outline-opacity': 0, 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 0, 'events': 'no', 'z-index': 30 } },
+      { selector: 'node.flag', style: { 'background-opacity': 1, 'background-color': t.accent, 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 24, 'padding': '8px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'font-size': 15, 'font-weight': 'bold', 'color': '#ffffff', 'text-wrap': 'none', 'text-outline-width': 0, 'text-outline-opacity': 0, 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 0, 'events': 'yes', 'z-index': 30 } },
       { selector: 'node.dim', style: { 'opacity': 0.16, 'text-opacity': 0.25 } },
       { selector: 'edge.dim', style: { 'opacity': 0.1, 'text-opacity': 0 } },
       { selector: 'node.lbl-off', style: { 'text-opacity': 0, 'text-outline-opacity': 0, 'text-background-opacity': 0 } },
@@ -191,16 +191,16 @@
       cy.elements().not(keep).addClass('dim');
       this.focusId = id;
     },
-    /* Orange tags carrying the numbers of open leads, over the names the leads are about. map: { nameId: [leadId, ...] }.
-     * A tag stays beside its name when the name is dragged or the chart is laid out again. */
-    flagLabel: function (ids) { return ids.length > 3 ? ids.slice(0, 3).join(' \u00b7 ') + ' \u00b7 +' + (ids.length - 3) : ids.join(' \u00b7 '); },
+    /* Orange tags counting the open leads about each name ("3 leads"), so many leads never cover one another. map: { nameId: [leadId, ...] }.
+     * A tag stays beside its name when the name is dragged or the chart is laid out again. Clicking a tag calls CI.chart.onFlagTap(nameId). */
+    flagLabel: function (ids) { return ids.length + (ids.length === 1 ? ' lead' : ' leads'); },
     placeBadge: function (n) {
       var cy = this.cy, b = cy && cy.getElementById('F-' + n.id());
       if (b && b.length) { var p = n.position(), bw = 16 + 9 * String(b.data('label')).length, w = n.width() || 70, h = n.height() || 70; b.position({ x: p.x + w / 2 - 14 + bw / 2, y: p.y - h / 2 - 4 }); }
     },
     flagBadges: function (map) {
       var self = this, cy = this.cy; if (!cy) return;
-      if (self.flagPos) { cy.off('position', 'node', self.flagPos); cy.off('layoutstop', self.flagStop); }
+      if (self.flagPos) { cy.off('position', 'node', self.flagPos); cy.off('layoutstop', self.flagStop); cy.off('tap', self.flagTap); cy.off('mouseover', self.flagOver); cy.off('mouseout', self.flagOut); }
       cy.nodes('.flag').remove();
       Object.keys(map || {}).forEach(function (id) {
         var n = cy.getElementById(id); if (!n.length || !map[id].length) return;
@@ -210,7 +210,11 @@
       var real = function (t) { return !t.hasClass('note') && !t.hasClass('flag'); };
       self.flagPos = function (ev) { if (real(ev.target)) self.placeBadge(ev.target); };
       self.flagStop = function () { cy.nodes().filter(real).forEach(function (n) { self.placeBadge(n); }); };
-      cy.on('position', 'node', self.flagPos); cy.on('layoutstop', self.flagStop);
+      self.flagTap = function (ev) { var t = ev.target; var fn = self.onFlagTap || (CI.views && CI.views.leadsAbout); if (t && t !== cy && t.hasClass && t.hasClass('flag') && typeof fn === 'function') fn(t.id().slice(2)); };
+      var cur = function (v) { var c = cy.container(); if (c) c.style.cursor = v; };
+      self.flagOver = function (ev) { if (ev.target !== cy && ev.target.hasClass && ev.target.hasClass('flag')) cur('pointer'); };
+      self.flagOut = function (ev) { if (ev.target !== cy && ev.target.hasClass && ev.target.hasClass('flag')) cur(''); };
+      cy.on('position', 'node', self.flagPos); cy.on('layoutstop', self.flagStop); cy.on('tap', self.flagTap); cy.on('mouseover', self.flagOver); cy.on('mouseout', self.flagOut);
     },
     /* Places nodes that have no saved position next to a connected node that has one, so a saved arrangement never shifts. */
     placeNew: function (cy, pos) {
