@@ -183,3 +183,22 @@ t('time line of several files merges in date order', () => {
   assert.deepEqual(CI.timelineMany(d, [a.id, b.id]).map(x => x.text), ['B earlier', 'A later']);
   assert.ok(CI.pdf.timelineSheet(d, idx, [a.id, b.id], { title: 'Both' }).size > 1500);
 });
+
+t('lead sheets: the names a lead is about are printed, and a stack numbers its pages', () => {
+  const d = CI.emptyData(); d.started = true;
+  const a = CI.addEntity(d, { type: 'individual', name: 'Ann Reyes' }), g = CI.addEntity(d, { type: 'group', name: 'Harbor Crew' });
+  const l1 = CI.addLead(d, { question: 'Who owns the van?', about: [a.id, g.id] }).lead, l2 = CI.addLead(d, { question: 'Check the lease', about: [g.id] }).lead;
+  const q = CI.addLead(d, { kind: 'DATA_REQUEST', question: 'Pull the lease', about: [g.id] }).lead;
+  const said = [];
+  const doc = { setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {}, line() {}, rect() {}, getTextWidth: () => 10, splitTextToSize: (s) => [String(s)], text: (s) => said.push(String(s)) };
+  CI.pdf.leadPage(doc, d, l1);
+  assert.ok(said.indexOf('ABOUT') !== -1, 'an About label');
+  assert.ok(said.some(s => s.indexOf('Ann Reyes (individual)') !== -1 && s.indexOf('Harbor Crew (group)') !== -1), 'both names with their type');
+  let got = null; const real = CI.pdf.stamp; CI.pdf.stamp = function (dc, what, o) { got = { what, o }; return real.apply(this, arguments); };
+  CI.pdf.leadSheets(d, [l1.id, l2.id, q.id], { label: 'Folder of Harbor Crew' });
+  assert.ok(got.o && got.o.right, 'a stack numbers its sheets'); assert.equal(got.o.right(2, 3), 'Lead 2 of 3'); assert.equal(got.o.right(3, 3), 'Lead 3 of 3'.replace('Lead', 'Request'));
+  assert.ok(got.what.indexOf('Folder of Harbor Crew') !== -1);
+  CI.pdf.leadSheets(d, [l1.id]); assert.equal(got.o, null, 'one sheet alone is not numbered'); assert.ok(got.what.indexOf(l1.id) !== -1);
+  CI.pdf.stamp = real;
+  assert.ok(CI.pdf.leadSheets(d, [l1.id, l2.id, q.id]).size > 3000);
+});

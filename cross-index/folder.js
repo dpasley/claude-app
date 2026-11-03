@@ -54,6 +54,6 @@
   H['folder-rep'] = function (el) { A.go('#/report/' + el.getAttribute('data-id')); };
   H['folder-print'] = function () {
     var s = CI.folderSummary(D()); if (!s || !s.leads.length) return;
-    A.saveBlob('Leads-' + s.entity.id + '-folder.pdf', function () { return CI.pdf.leadSheets(D(), s.leads.map(function (l) { return l.id; })); });
+    A.saveBlob('Leads-' + s.entity.id + '-folder.pdf', function () { return CI.pdf.leadSheets(D(), s.leads.map(function (l) { return l.id; }), { label: 'Folder of ' + s.entity.name }); });
   };
 })();

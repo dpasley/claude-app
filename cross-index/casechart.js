@@ -56,25 +56,12 @@
       '<p class="muted small">Labels and the title print on the wall copy. Anyone working the investigation can edit this board.</p>';
   }
 
-  function placeBadge(n) {
-    var cy = CI.chart.cy, b = cy && cy.getElementById('F-' + n.id());
-    if (b && b.length) { var p = n.position(); var bw = 14 + 6.4 * String(b.data('label')).length, w = n.width() || 70, h = n.height() || 70; b.position({ x: p.x + w / 2 - 14 + bw / 2, y: p.y - h / 2 - 2 }); }
-  }
-  function flagBadges(g) {
-    var cy = CI.chart.cy; if (!cy) return;
-    cy.nodes('.flag').remove();
-    Object.keys(g.flags.nodes).forEach(function (id) {
-      var n = cy.getElementById(id); if (!n.length) return;
-      cy.add({ group: 'nodes', data: { id: 'F-' + id, label: g.flags.nodes[id].join(' · '), degree: 0 }, classes: 'flag', position: { x: n.position().x, y: n.position().y }, selectable: false, grabbable: false });
-      placeBadge(n);
-    });
-  }
+  function flagBadges(g) { CI.chart.flagBadges(g.flags.nodes); }
   function decorate(g) {
     var cy = CI.chart.cy; if (!cy) return;
     cy.nodes('.note').remove();
     g.notes.forEach(function (n) { cy.add({ group: 'nodes', data: { id: n.id, label: n.text, degree: 0 }, classes: 'note', position: { x: n.x, y: n.y } }); });
     flagBadges(g);
-    cy.off('drag.cc'); cy.on('drag.cc', 'node', function (ev) { if (!ev.target.hasClass('note') && !ev.target.hasClass('flag')) placeBadge(ev.target); });
     cy.fit(null, 40);
   }
 

@@ -29,37 +29,73 @@
     A.view.className = ''; A.view.innerHTML = h;
   };
   /* ----- the lead register: every lead and request, with or without an investigation ----- */
-  var lr = { kind: 'lead', open: true, inv: '', who: '' };
+  var lr = { kind: 'lead', open: true, inv: '', who: '', about: '', returns: false };
   function scopeText(d) {
     var parts = [lr.open ? 'Open' : 'All', lr.kind === 'request' ? 'requests' : 'leads'];
     var t = parts.join(' ');
     if (lr.inv === 'none') t += ' with no investigation'; else if (lr.inv) t += ' in ' + lr.inv;
     if (lr.who) t += ', assigned to ' + lr.who;
+    if (lr.about) { var ab = A.idx().entity[lr.about]; t += ', about ' + (ab ? ab.name : lr.about); }
     return t;
   }
   function register() {
     var d = D(), req = lr.kind === 'request';
-    var all = CI.leadRegister(d, { kind: lr.kind }), rows = CI.leadRegister(d, { kind: lr.kind, open: lr.open, investigation: lr.inv, assigned: lr.who });
+    var all = CI.leadRegister(d, { kind: lr.kind }), rows = CI.leadRegister(d, { kind: lr.kind, open: lr.open, investigation: lr.inv, assigned: lr.who, about: lr.about });
     var people = {}; all.forEach(function (l) { if (l.assigned) people[l.assigned] = 1; });
-    var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><button class="btn primary" data-action="reg-new">' + (req ? 'New request' : 'New lead') + '</button><button class="btn" data-action="reg-print"' + (rows.length ? '' : ' disabled') + '>Print ' + (req ? 'request' : 'lead') + ' list</button></div></div>' + invPageTabs('register') +
+    var h = '<div class="page-head"><h1>Investigations</h1><div class="row"><button class="btn primary" data-action="reg-new">' + (req ? 'New request' : 'New lead') + '</button><button class="btn' + (lr.returns ? ' primary' : '') + '" data-action="reg-returns"' + (rows.length || lr.returns ? '' : ' disabled') + '>' + (lr.returns ? 'Back to the list' : 'Enter returns') + '</button><button class="btn" data-action="reg-print"' + (rows.length ? '' : ' disabled') + '>Print ' + (req ? 'request' : 'lead') + ' list</button></div></div>' + invPageTabs('register') +
       '<div class="card"><div class="row wrap"><div class="row" style="gap:6px"><button class="btn small' + (req ? '' : ' primary') + '" data-action="reg-kind" data-kind="lead">Leads ' + d.leads.length + '</button><button class="btn small' + (req ? ' primary' : '') + '" data-action="reg-kind" data-kind="request">Requests ' + d.requests.length + '</button></div>' +
       '<label class="row" style="margin:0">Show <select id="rg-open" data-on-change="reg-filter">' + A.options([{ value: 'open', label: 'Open only' }, { value: 'all', label: 'All' }], lr.open ? 'open' : 'all') + '</select></label>' +
       '<div class="row" style="margin:0">Investigation <span class="ip-wrap">' + CI.views.invBox('rg-inv', d.investigations, lr.inv, [{ value: 'none', label: 'No investigation' }], 'All: type to search').replace('data-on-input="ip-find"', 'data-on-input="ip-find" data-on-pick="reg-inv"') + '</span></div>' +
-      '<label class="row" style="margin:0">Assigned to <select id="rg-who" data-on-change="reg-filter">' + A.options([{ value: '', label: 'Anyone' }].concat(Object.keys(people).sort().map(function (p) { return { value: p, label: p }; })), lr.who) + '</select></label></div>' +
+      '<label class="row" style="margin:0">Assigned to <select id="rg-who" data-on-change="reg-filter">' + A.options([{ value: '', label: 'Anyone' }].concat(Object.keys(people).sort().map(function (p) { return { value: p, label: p }; })), lr.who) + '</select></label>' + aboutBox() + '</div>' +
       '<p class="muted small" style="margin:8px 0 0">A lead or request can belong to an investigation or to none. The sheet prints where it belongs: an investigation\u2019s folder, or the register.</p></div>';
-    h += rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:7%"><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:13%"><col style="width:13%"><col style="width:12%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
+    var listH = rows.length ? '<div class="card flush"><table class="fixed"><colgroup><col style="width:7%"><col style="width:28%"><col style="width:17%"><col style="width:10%"><col style="width:13%"><col style="width:13%"><col style="width:12%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>About</th><th>Investigation</th><th>' + (req ? 'With' : 'Assigned to') + '</th><th>Issued</th><th>Status</th></tr></thead><tbody>' + rows.map(function (l) {
       var names = (l.about || []).map(function (id) { var e = A.idx().entity[id]; return e ? e.name : id; }).join(', ');
       return '<tr class="click" data-action="lead-open" data-id="' + esc(l.id) + '"><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td><td class="ellip" title="' + esc(names) + '">' + esc(names) + '</td><td>' + (l.investigationId ? esc(l.investigationId) : '<span class="muted">none</span>') + '</td><td class="ellip">' + esc(req ? l.with : (l.assigned || '')) + '</td><td>' + esc(CI.fmtShort(l.issued)) + '</td><td>' + statusTag(l) + '</td></tr>';
     }).join('') + '</tbody></table></div>' : '<div class="card"><p class="muted">' + (all.length ? 'Nothing matches those filters.' : 'No ' + (req ? 'requests' : 'leads') + ' yet. Raise one from an individual\u2019s page, the indexing page, or here.') + '</p></div>';
+    h += lr.returns ? returnsTable(rows, req) : listH;
     A.view.className = ''; A.view.innerHTML = h;
   }
+  /* Filter by one name: type, arrow down to a match, Enter. */
+  function aboutBox() {
+    var e = lr.about && A.idx().entity[lr.about];
+    if (e) return '<div class="row" style="margin:0">About <span class="chip">' + esc(e.name) + '<button data-action="reg-about-clear" aria-label="Show every name">\u00d7</button></span></div>';
+    return '<div class="row" style="margin:0">About <span class="ip-wrap"><input type="search" id="rg-about" data-lookup="#rg-about-res" data-on-input="reg-about-find" autocomplete="off" placeholder="All: type a name"><div id="rg-about-res" class="ip-res"></div></span></div>';
+  }
+  /* Entering what came back, down the stack in order. */
+  function returnsTable(rows, req) {
+    if (!rows.length) return '<div class="card"><p class="muted">Nothing to enter. ' + (lr.open ? 'Every ' + (req ? 'request' : 'lead') + ' here is closed.' : 'No ' + (req ? 'requests' : 'leads') + ' match.') + '</p></div>';
+    var sts = CI.LEAD_STATUS.map(function (s) { return { value: s.id, label: s.label }; });
+    return '<div class="card flush"><table class="fixed ret"><colgroup><col style="width:8%"><col style="width:26%"><col style="width:16%"><col style="width:32%"><col style="width:18%"></colgroup><thead><tr><th>' + (req ? 'Request' : 'Lead') + '</th><th>' + (req ? 'To retrieve' : 'Reason') + '</th><th>Status</th><th>What came back</th><th>Returned by</th></tr></thead><tbody>' +
+      rows.map(function (l) {
+        return '<tr><td>' + esc(l.id) + '</td><td class="ellip" title="' + esc(l.question) + '">' + esc(l.question) + '</td>' +
+          '<td><select data-ret="status" data-id="' + esc(l.id) + '" aria-label="Status of ' + esc(l.id) + '">' + A.options(sts, l.status) + '</select></td>' +
+          '<td><input type="text" data-ret="response" data-id="' + esc(l.id) + '" value="' + esc(l.response || '') + '" aria-label="What came back for ' + esc(l.id) + '"></td>' +
+          '<td><input type="text" data-ret="by" data-id="' + esc(l.id) + '" value="' + esc(l.returnedBy || '') + '" aria-label="Returned by, ' + esc(l.id) + '"></td></tr>';
+      }).join('') + '</tbody></table><div class="row spread" style="padding:12px 16px"><span class="muted small">Go down the stack in order. Done, or Checked, nothing found, closes a ' + (req ? 'request' : 'lead') + ' today and takes it off this list. Anything that came back is filed through New report as usual.</span><button class="btn primary" data-action="reg-returns-save">Save returns</button></div></div>';
+  }
+  H['reg-returns'] = function () { lr.returns = !lr.returns; register(); };
+  H['reg-returns-save'] = function () {
+    var by = {};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ret]'), function (el) { var id = el.getAttribute('data-id'); (by[id] = by[id] || { id: id })[el.getAttribute('data-ret')] = el.value; });
+    var r = CI.returnLeads(D(), Object.keys(by).map(function (k) { return by[k]; }));
+    if (r.saved) { A.persist(); A.toast('Saved ' + r.saved + (r.closed ? ', ' + r.closed + ' closed' : '') + '.'); } else A.toast('Nothing changed.');
+    register();
+  };
+  H['reg-about-find'] = function (el) {
+    var q = el.value.trim(), box = document.getElementById('rg-about-res'); if (!box) return;
+    if (!q) { box.innerHTML = ''; return; }
+    var c = CI.findCandidates(D(), q, 8).filter(function (x) { return !CI.isItem(x.entity); });
+    box.innerHTML = c.length ? c.map(function (x) { return '<div class="cand pick"><div><strong>' + esc(x.entity.name) + '</strong> ' + A.tag(x.entity.type) + '</div><button class="btn small" data-action="reg-about-pick" data-id="' + esc(x.entity.id) + '">Only this name</button></div>'; }).join('') : '<p class="muted small">No name matches.</p>';
+  };
+  H['reg-about-pick'] = function (el) { lr.about = el.getAttribute('data-id'); register(); };
+  H['reg-about-clear'] = function () { lr.about = ''; register(); };
   H['reg-kind'] = function (el) { lr.kind = el.getAttribute('data-kind'); lr.who = ''; register(); };
   H['reg-filter'] = function () { lr.open = val('rg-open') !== 'all'; lr.who = val('rg-who'); register(); };
   H['reg-inv'] = function (el, value) { if ((value || '') === lr.inv) return; lr.inv = value || ''; register(); };
   H['reg-new'] = function () { CI.views.openLead({ kind: lr.kind === 'request' ? 'DATA_REQUEST' : 'INVESTIGATION', investigationId: lr.inv && lr.inv !== 'none' ? lr.inv : '', origin: { kind: 'register', id: '' } }); };
   H['reg-print'] = function () {
     var d = D(), req = lr.kind === 'request';
-    A.saveBlob((req ? 'Request-register' : 'Lead-register') + '.pdf', function () { return CI.pdf.leadList(d, '', { kind: lr.kind, openOnly: lr.open, investigation: lr.inv, assigned: lr.who, scope: scopeText(d), scopeTitle: 'Lead register' }); });
+    A.saveBlob((req ? 'Request-register' : 'Lead-register') + '.pdf', function () { return CI.pdf.leadList(d, '', { kind: lr.kind, openOnly: lr.open, investigation: lr.inv, assigned: lr.who, about: lr.about, scope: scopeText(d), scopeTitle: 'Lead register' }); });
   };
   H['inv-filter'] = function () { iv.show = val('inv-show'); CI.views.investigations(); };
 
@@ -129,15 +165,16 @@
     if (!banks.length) { A.toast('There is no special bank waiting to be handed over. Analysts open one from Special banks.', true); return; }
     A.modal('<h2>Attach a special bank <span class="muted small">' + esc(v.id) + '</span></h2><div class="form"><p class="muted small">The bank is frozen as it stands and handed over to this investigation with the estimate you choose.</p>' +
       '<label>Special bank<select id="at-bank" data-on-change="inv-attach-bank">' + A.options(banks.map(function (b) { return { value: b.id, label: b.name }; }), banks[0].id) + '</select></label>' +
-      '<label>Estimate to send<select id="at-est">' + estOptions(banks[0]) + '</select></label></div>' +
+      '<label>Estimate to send<select id="at-est">' + estOptions(banks[0]) + '</select></label><div id="at-loose">' + CI.views.looseLeadsBox(CI.looseLeadsFor(D(), banks[0])) + '</div></div>' +
       '<div class="row end"><button class="btn" data-action="modal-close">Cancel</button><button class="btn primary" data-action="inv-attach-go" data-id="' + esc(v.id) + '">Hand over to this investigation</button></div>');
   };
   function estOptions(b) { return A.options(b.estimates.slice().reverse().map(function (e) { return { value: e.id, label: e.label }; }), CI.currentEstimate(b).id); }
-  H['inv-attach-bank'] = function () { var b = bank(val('at-bank')), s = document.getElementById('at-est'); if (b && s) s.innerHTML = estOptions(b); };
+  H['inv-attach-bank'] = function () { var b = bank(val('at-bank')), s = document.getElementById('at-est'), lo = document.getElementById('at-loose'); if (b && s) s.innerHTML = estOptions(b); if (b && lo) lo.innerHTML = CI.views.looseLeadsBox(CI.looseLeadsFor(D(), b)); };
   H['inv-attach-go'] = function (el) {
     var v = invOf(el), b = bank(val('at-bank')); if (!v || !b) return;
-    if (!CI.handOver(D(), b, val('at-est'), v)) { A.toast('That bank cannot be handed over.', true); return; }
-    A.persist(); A.closeModal(); A.toast('Bank attached.'); CI.views.investigation(v.id);
+    var box = document.getElementById('ho-attach'), attach = box && box.checked ? CI.looseLeadsFor(D(), b).map(function (l) { return l.id; }) : [];
+    if (!CI.handOver(D(), b, val('at-est'), v, attach)) { A.toast('That bank cannot be handed over.', true); return; }
+    A.persist(); A.closeModal(); A.toast('Bank attached' + (attach.length ? ' and ' + attach.length + ' lead' + (attach.length === 1 ? '' : 's') + ' attached.' : '.')); CI.views.investigation(v.id);
   };
 
   /* ----- leads and requests of one investigation ----- */

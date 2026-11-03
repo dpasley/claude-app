@@ -432,3 +432,46 @@ t('older leads move to their investigation; data requests become requests; a ban
   assert.equal(b.outcome.kind, 'NO_SITUATION'); assert.equal(CI.handOver(d, b), null); assert.ok(!CI.investigationFor(d, b.id));
   CI.reopenBank(b); assert.ok(CI.handOver(d, b)); assert.ok(CI.closeBank(d, b, 'x'));
 });
+
+/* ---------- the stack of leads: tags on charts, returns, hand-over offer ---------- */
+const stackData = () => {
+  const d = CI.emptyData(); d.started = true;
+  const mk = (type, name) => CI.addEntity(d, { type, name });
+  const a = mk('individual', 'Ann'), b = mk('individual', 'Bob'), c = mk('group', 'Crew');
+  const bank = CI.newBank(d, 'Crew bank', [a.id, c.id], 1); d.banks.push(bank);
+  const lead = (q, about, o) => CI.addLead(d, Object.assign({ question: q, about }, o || {})).lead;
+  return { d, a, b, c, bank, lead };
+};
+t('open leads are flagged on the names they are about, with or without an investigation', () => {
+  const { d, a, b, c, lead } = stackData();
+  const l1 = lead('Who owns the van?', [a.id]), l2 = lead('Where is Crew based?', [a.id, c.id]), l3 = lead('Closed one', [b.id]);
+  l3.status = 'DONE';
+  const f = CI.openLeadFlags(d);
+  assert.deepEqual(f[a.id], [l1.id, l2.id]); assert.deepEqual(f[c.id], [l2.id]); assert.equal(f[b.id], undefined, 'a closed lead puts no tag');
+  assert.deepEqual(Object.keys(CI.openLeadFlags(d, [c.id])), [c.id], 'only the names asked for');
+  const req = CI.addLead(d, { kind: 'DATA_REQUEST', question: 'Pull the lease', about: [b.id] }).lead;
+  assert.equal(CI.openLeadFlags(d)[b.id], undefined, 'requests are not tagged: ' + req.id);
+});
+t('returns: status, response and who returned it are saved down the stack; closing stamps today', () => {
+  const { d, lead, a } = stackData();
+  const l1 = lead('One', [a.id]), l2 = lead('Two', [a.id]), l3 = lead('Three', [a.id]);
+  const r = CI.returnLeads(d, [{ id: l1.id, status: 'DONE', response: ' Van is leased. ', by: 'JT' }, { id: l2.id, status: 'IN_PROGRESS' }, { id: l3.id, status: 'NOT_STARTED', response: '' }, { id: 'L-9999', status: 'DONE' }]);
+  assert.deepEqual(r, { saved: 2, closed: 1 });
+  assert.equal(l1.status, 'DONE'); assert.equal(l1.response, 'Van is leased.'); assert.equal(l1.returnedBy, 'JT'); assert.equal(l1.returnedDate, CI.today());
+  assert.equal(l2.status, 'IN_PROGRESS'); assert.equal(l2.returnedDate, '');
+  assert.deepEqual(CI.returnLeads(d, [{ id: l1.id, status: 'DONE', response: 'Van is leased.', by: 'JT' }]), { saved: 0, closed: 0 }, 'nothing changed');
+  assert.equal(CI.returnLeads(d, [{ id: l2.id, status: 'NOT_A_STATUS' }]).saved, 0, 'an unknown status is ignored');
+  l1.returnedDate = '2026-01-02'; CI.returnLeads(d, [{ id: l1.id, status: 'NO_RESULT' }]); assert.equal(l1.returnedDate, '2026-01-02', 'an existing date is kept');
+});
+t('hand over offers open leads with no investigation about the bank\'s names, and attaches them when asked', () => {
+  const { d, a, b, bank, lead } = stackData();
+  const inBank = lead('About Ann', [a.id]), outside = lead('About Bob', [b.id]), done = lead('Finished', [a.id]); done.status = 'DONE';
+  assert.deepEqual(CI.looseLeadsFor(d, bank).map(l => l.id), [inBank.id]);
+  const sn = CI.handOver(d, bank, '', null, [inBank.id, outside.id, done.id]);
+  assert.ok(sn); const inv = CI.investigationFor(d, bank.id);
+  assert.equal(inBank.investigationId, inv.id); assert.equal(inBank.bankId, bank.id);
+  assert.equal(outside.investigationId, inv.id, 'whatever is passed is attached');
+  assert.equal(CI.looseLeadsFor(d, bank).length, 0);
+  const { d: d2, a: a2, bank: bank2, lead: lead2 } = stackData(), keep = lead2('Stays loose', [a2.id]);
+  CI.handOver(d2, bank2); assert.equal(keep.investigationId, '', 'without the offer taken nothing moves');
+});

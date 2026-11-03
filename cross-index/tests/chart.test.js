@@ -34,4 +34,23 @@ const cy2 = cytoscape({ headless: true, styleEnabled: true, elements: els2, styl
 assert.ok(cy2.elements('.hl').length >= p.steps.length);
 assert.ok(cy2.nodes('.extra').length >= 1);
 console.log('ok - path highlight with extras'); 
+// lead tags: kept beside their name, capped when a name has many leads
+{
+  const cy3 = cytoscape({ headless: true, styleEnabled: true, elements: CI.buildElements(g, {}), style: CI.cyStyle(), layout: { name: 'null' } });
+  cy3.layout({ name: 'preset', positions: n => ({ x: 100 + 60 * cy3.nodes().indexOf(n), y: 100 }) }).run();
+  CI.chart.cy = cy3;
+  const some = cy3.nodes()[0], other = cy3.nodes()[1], map = {}; map[some.id()] = ['L-0001', 'L-0002']; map[other.id()] = ['L-0003', 'L-0004', 'L-0005', 'L-0006', 'L-0007'];
+  CI.chart.flagBadges(map);
+  assert.equal(cy3.nodes('.flag').length, 2);
+  assert.equal(cy3.getElementById('F-' + some.id()).data('label'), 'L-0001 \u00b7 L-0002');
+  assert.equal(cy3.getElementById('F-' + other.id()).data('label'), 'L-0003 \u00b7 L-0004 \u00b7 L-0005 \u00b7 +2');
+  const before = Object.assign({}, cy3.getElementById('F-' + some.id()).position());
+  some.position({ x: 900, y: 700 });
+  const after = cy3.getElementById('F-' + some.id()).position();
+  assert.ok(Math.abs(after.x - before.x) > 500 && Math.abs(after.y - before.y) > 400, 'the tag follows its name when the name moves');
+  CI.chart.flagBadges({}); assert.equal(cy3.nodes('.flag').length, 0, 'tags are cleared when there are none');
+  CI.chart.flagBadges({ 'NOT-HERE': ['L-0009'] }); assert.equal(cy3.nodes('.flag').length, 0, 'a tag for a name not on the chart is skipped');
+  cy3.destroy(); CI.chart.cy = null;
+  console.log('ok - lead tags on a chart');
+}
 process.exit(0); // cytoscape keeps a timer alive in Node; exit explicitly

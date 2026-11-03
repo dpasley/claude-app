@@ -100,7 +100,7 @@
       { selector: 'edge.hl', style: { 'line-color': t.accent, 'target-arrow-color': t.accent, 'opacity': 1, 'z-index': 20, 'width': 3 } },
       { selector: 'edge:selected', style: { 'line-color': t.sel, 'target-arrow-color': t.sel, 'overlay-color': t.sel, 'overlay-opacity': 0.12 } },
       { selector: 'node.note', style: { 'background-opacity': 1, 'background-color': '#fff3b8', 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 'label', 'padding': '12px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'text-max-width': 190, 'text-wrap': 'wrap', 'font-size': 13, 'font-weight': 'normal', 'color': '#3b3200', 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 1, 'border-color': '#d1b94a' } },
-      { selector: 'node.flag', style: { 'background-opacity': 1, 'background-color': t.accent, 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 18, 'padding': '6px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'font-size': 10, 'font-weight': 'bold', 'color': '#ffffff', 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 0, 'events': 'no', 'z-index': 30 } },
+      { selector: 'node.flag', style: { 'background-opacity': 1, 'background-color': t.accent, 'background-image': 'none', 'shape': 'round-rectangle', 'width': 'label', 'height': 24, 'padding': '8px', 'text-valign': 'center', 'text-halign': 'center', 'text-margin-y': 0, 'font-size': 15, 'font-weight': 'bold', 'color': '#ffffff', 'text-wrap': 'none', 'text-outline-width': 0, 'text-outline-opacity': 0, 'text-background-opacity': 0, 'text-border-width': 0, 'border-width': 0, 'events': 'no', 'z-index': 30 } },
       { selector: 'node.dim', style: { 'opacity': 0.16, 'text-opacity': 0.25 } },
       { selector: 'edge.dim', style: { 'opacity': 0.1, 'text-opacity': 0 } },
       { selector: 'node.lbl-off', style: { 'text-opacity': 0, 'text-outline-opacity': 0, 'text-background-opacity': 0 } },
@@ -190,6 +190,27 @@
       var keep = n.isNode() ? n.closedNeighborhood() : n.connectedNodes().union(n);
       cy.elements().not(keep).addClass('dim');
       this.focusId = id;
+    },
+    /* Orange tags carrying the numbers of open leads, over the names the leads are about. map: { nameId: [leadId, ...] }.
+     * A tag stays beside its name when the name is dragged or the chart is laid out again. */
+    flagLabel: function (ids) { return ids.length > 3 ? ids.slice(0, 3).join(' \u00b7 ') + ' \u00b7 +' + (ids.length - 3) : ids.join(' \u00b7 '); },
+    placeBadge: function (n) {
+      var cy = this.cy, b = cy && cy.getElementById('F-' + n.id());
+      if (b && b.length) { var p = n.position(), bw = 16 + 9 * String(b.data('label')).length, w = n.width() || 70, h = n.height() || 70; b.position({ x: p.x + w / 2 - 14 + bw / 2, y: p.y - h / 2 - 4 }); }
+    },
+    flagBadges: function (map) {
+      var self = this, cy = this.cy; if (!cy) return;
+      if (self.flagPos) { cy.off('position', 'node', self.flagPos); cy.off('layoutstop', self.flagStop); }
+      cy.nodes('.flag').remove();
+      Object.keys(map || {}).forEach(function (id) {
+        var n = cy.getElementById(id); if (!n.length || !map[id].length) return;
+        cy.add({ group: 'nodes', data: { id: 'F-' + id, label: self.flagLabel(map[id]), degree: 0 }, classes: 'flag', position: { x: n.position().x, y: n.position().y }, selectable: false, grabbable: false });
+        self.placeBadge(n);
+      });
+      var real = function (t) { return !t.hasClass('note') && !t.hasClass('flag'); };
+      self.flagPos = function (ev) { if (real(ev.target)) self.placeBadge(ev.target); };
+      self.flagStop = function () { cy.nodes().filter(real).forEach(function (n) { self.placeBadge(n); }); };
+      cy.on('position', 'node', self.flagPos); cy.on('layoutstop', self.flagStop);
     },
     /* Places nodes that have no saved position next to a connected node that has one, so a saved arrangement never shifts. */
     placeNew: function (cy, pos) {
@@ -390,7 +411,7 @@
     relayout: function (name, graph) {
       if (!this.cy) return;
       var cy = this.cy;
-      var l = cy.layout(CI.layoutOptions(name, graph));
+      var l = cy.elements().not('.flag').layout(CI.layoutOptions(name, graph));
       l.one('layoutstop', function () { cy.fit(null, 40); });
       l.run();
     },

@@ -987,6 +987,15 @@
     return d.leads.concat(d.requests).filter(function (l) { return (l.about || []).indexOf(entityId) !== -1; })
       .sort(function (a, b) { return CI.isClosed(a) - CI.isClosed(b) || b.issued.localeCompare(a.issued) || b.id.localeCompare(a.id); });
   };
+  /* Open leads (not requests) about each name, whichever investigation holds them: { nameId: [leadId, ...] }. Used for the orange tags on charts.
+   * ids (optional): only these names. */
+  CI.openLeadFlags = function (d, ids) {
+    var want = ids ? ids.reduce(function (m, x) { m[x] = 1; return m; }, {}) : null, out = {};
+    d.leads.filter(function (l) { return !CI.isClosed(l); }).slice().sort(function (a, b) { return a.id.localeCompare(b.id); }).forEach(function (l) {
+      (l.about || []).forEach(function (e) { if (!want || want[e]) (out[e] = out[e] || []).push(l.id); });
+    });
+    return out;
+  };
   /* The register: all leads (or all requests), filtered. f: { kind: 'lead'|'request', open: bool, investigation: ''(all) | 'none' | id, assigned: ''(all) | text, about: entity id }. */
   CI.leadRegister = function (d, f) {
     f = f || {};
@@ -999,6 +1008,28 @@
       if (f.about && (l.about || []).indexOf(f.about) === -1) return false;
       return true;
     }).sort(function (a, b) { return CI.isClosed(a) - CI.isClosed(b) || a.issued.localeCompare(b.issued) || a.id.localeCompare(b.id); });
+  };
+  /* Staff results entered from the returned sheets. entries: [{ id, status, response, by }] (any field may be left out).
+   * A lead that is closed by this (Done, or Checked, nothing found) gets today as its returned date unless it has one.
+   * Returns { saved: how many changed, closed: how many were closed by this }. */
+  CI.returnLeads = function (d, entries) {
+    var saved = 0, closed = 0;
+    (entries || []).forEach(function (en) {
+      var l = CI.findLead(d, en.id); if (!l) return;
+      var st = en.status != null ? en.status : l.status, rs = en.response != null ? String(en.response).trim() : l.response, by = en.by != null ? String(en.by).trim() : l.returnedBy;
+      if (!CI.LEAD_STATUS.some(function (s) { return s.id === st; })) st = l.status;
+      if (st === l.status && rs === (l.response || '') && by === (l.returnedBy || '')) return;
+      var was = CI.isClosed(l); l.status = st; l.response = rs; l.returnedBy = by;
+      if (CI.isClosed(l) && !l.returnedDate) l.returnedDate = CI.today();
+      saved++; if (!was && CI.isClosed(l)) closed++;
+    });
+    return { saved: saved, closed: closed };
+  };
+  /* Open leads and requests with no investigation that are about names in this special bank: offered to its investigation on hand over. */
+  CI.looseLeadsFor = function (d, bank) {
+    var files = {}; (Array.isArray(bank.files) ? bank.files : (bank.seeds || [])).forEach(function (id) { files[id] = 1; });
+    return d.leads.concat(d.requests).filter(function (l) { return !l.investigationId && !CI.isClosed(l) && (l.about || []).some(function (e) { return files[e]; }); })
+      .sort(function (a, b) { return a.id.localeCompare(b.id); });
   };
   /* Where a printed lead sheet belongs, in plain words. */
   CI.leadHome = function (d, l) {
@@ -1153,7 +1184,8 @@
     var inv = { id: CI.nextId(d, 'investigation'), bankId: '', title: title, reason: String(o.reason || '').trim(), status: 'ACTIVE', investigator: String(o.investigator || '').trim(), opened: o.opened || CI.today(), closed: '', notes: '', files: [], planFile: { name: '', location: '' } };
     d.investigations.push(inv); return { inv: inv };
   };
-  CI.handOver = function (d, bank, estId, into) {
+  /* attach (optional): ids of open leads with no investigation to attach to the investigation this opens or joins. */
+  CI.handOver = function (d, bank, estId, into, attach) {
     if (bank.outcome) return null;
     if (into && into.bankId) return null;
     var live = CI.computeGraph(d, bank, CI.buildIndex(d));
@@ -1166,6 +1198,7 @@
       inv = { id: CI.nextId(d, 'investigation'), bankId: bank.id, title: '', reason: b0reason(bank), status: 'ACTIVE', investigator: '', opened: CI.today(), closed: '', notes: '', files: [], planFile: { name: '', location: '' } };
       d.investigations.push(inv);
     }
+    (attach || []).forEach(function (id) { var l = CI.findLead(d, id); if (l && !l.investigationId) CI.attachLead(d, id, inv.id); });
     return sn;
   };
   /* The files of an investigation: the ones added by hand, plus those in its bank, on its chart, or named in its leads and requests. */

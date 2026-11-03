@@ -134,6 +134,15 @@
     var q = lines(doc, lead.question, W, 5), y = 198;
     q.forEach(function (ln, i) { doc.text(ln, X0, y + i * 25); });
     y += (q.length - 1) * 25 + 34;
+    /* The names the lead is about, so the sheet can be matched to the chart. */
+    var abt = (lead.about || []).map(function (id) { return d.entities.filter(function (e) { return e.id === id; })[0]; }).filter(Boolean);
+    if (abt.length) {
+      lab(doc, 'About', X0, y);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+      var al = lines(doc, plain(abt.map(function (e) { return e.name + ' (' + CI.TYPE_LABEL[e.type].toLowerCase() + ')'; }).join('   \u00b7   ')), W, 2);
+      al.forEach(function (ln, i) { doc.text(ln, X0, y + 17 + i * 15); });
+      y += 17 + al.length * 15 + 18;
+    }
     if (lead.raisedBy || lead.forLead) {
       lab(doc, lead.raisedBy ? 'Prompted by' : 'For lead', X0, y);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
@@ -178,14 +187,19 @@
     footer(doc);
   };
 
-  CI.pdf.leadSheets = function (d, leadIds) {
+  /* One sheet per page. With more than one, the footer numbers them ("Lead 3 of 8") so the stack can be checked for completeness;
+   * o.label names the stack (for example the folder it came from). */
+  CI.pdf.leadSheets = function (d, leadIds, o) {
+    o = o || {};
     var JS = JsPDF(), doc = new JS({ unit: 'pt', format: 'letter', compress: true });
     leadIds.forEach(function (id, i) {
       var lead = CI.findLead(d, id); if (!lead) return;
       if (i > 0) doc.addPage('letter', 'portrait');
       CI.pdf.leadPage(doc, d, lead);
     });
-    CI.pdf.stamp(doc, leadIds.length === 1 ? 'Lead sheet \u00b7 ' + leadIds[0] : 'Lead sheets');
+    var many = leadIds.length > 1, word = function (i) { var l = CI.findLead(d, leadIds[i - 1]); return l && l.kind === 'DATA_REQUEST' ? 'Request' : 'Lead'; };
+    CI.pdf.stamp(doc, many ? 'Lead sheets' + (o.label ? ' \u00b7 ' + o.label : '') : 'Lead sheet \u00b7 ' + leadIds[0],
+      many ? { right: function (i, n) { return word(i) + ' ' + i + ' of ' + n; } } : null);
     return doc.output('blob');
   };
 
@@ -242,13 +256,14 @@
     doc.setDrawColor(17); doc.setLineWidth(2.5); doc.line(X0, 87, X1, 87);
     return 112;
   };
-  CI.pdf.stamp = function (doc, what) {
-    var n = doc.getNumberOfPages();
+  /* o.right(i, n) replaces the right-hand "Page i of n" (a stack of lead sheets reads "Lead 3 of 8"). */
+  CI.pdf.stamp = function (doc, what, o) {
+    o = o || {}; var n = doc.getNumberOfPages();
     for (var i = 1; i <= n; i++) {
       doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
       doc.setDrawColor(190); doc.setLineWidth(0.6); doc.line(X0, 748, X1, 748);
       doc.text(oneLine(doc, what, 300), X0, 762);
-      doc.text('Printed ' + CI.fmtDate(CI.today()) + '   ·   Page ' + i + ' of ' + n, X1, 762, { align: 'right' });
+      doc.text('Printed ' + CI.fmtDate(CI.today()) + '   ·   ' + (o.right ? o.right(i, n) : 'Page ' + i + ' of ' + n), X1, 762, { align: 'right' });
     }
     doc.setTextColor(17);
   };
